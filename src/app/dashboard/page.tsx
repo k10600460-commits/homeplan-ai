@@ -1,0 +1,40 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import DashboardClient from "./DashboardClient";
+
+export default async function DashboardPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  // Fetch subscription status
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("status, trial_end, current_period_end, stripe_customer_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const isActive =
+    subscription?.status === "active" || subscription?.status === "trialing";
+
+  return (
+    <DashboardClient
+      user={{ id: user.id, email: user.email ?? "" }}
+      subscription={
+        subscription
+          ? {
+              status: subscription.status,
+              trialEnd: subscription.trial_end,
+              periodEnd: subscription.current_period_end,
+              customerId: subscription.stripe_customer_id,
+              isActive,
+            }
+          : null
+      }
+    />
+  );
+}
