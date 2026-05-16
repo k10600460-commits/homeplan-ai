@@ -19,7 +19,7 @@ async function upsertSubscription(
       ? "pro"
       : "free";
 
-  await supabase.from("subscriptions").upsert({
+  const { error: upsertError } = await supabase.from("subscriptions").upsert({
     user_id: userId,
     stripe_subscription_id: subscription.id,
     stripe_customer_id: subscription.customer as string,
@@ -34,6 +34,8 @@ async function upsertSubscription(
     ).toISOString(),
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
+    if (upsertError) console.error("[webhook] upsert error:", JSON.stringify(upsertError));
+    else console.log("[webhook] upsert success for userId:", userId);
 }
 
 export async function POST(req: NextRequest) {
