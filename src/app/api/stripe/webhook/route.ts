@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.metadata?.userId ?? session.client_reference_id;
+        const userId = session.client_reference_id ?? session.metadata?.userId;
+          console.log("[webhook] checkout userId:", userId, "client_reference_id:", session.client_reference_id, "metadata:", JSON.stringify(session.metadata));
         if (!userId) break;
 
         // Fetch the full subscription object
