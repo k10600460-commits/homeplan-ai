@@ -2,6 +2,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkUsageLimit, recordApiUsage } from "@/lib/usage";
+import {
+  checkRateLimit,
+  validateGenerateInput,
+  ValidationError,
+  getClientIp,
+} from "@/lib/security";
 
 const client = new Anthropic();
 
@@ -50,6 +56,22 @@ Generate exactly 3 plans that are meaningfully different in style, layout, and a
 
 export async function POST(req: NextRequest) {
   try {
+    // ── IP-based rate limit (5 req/min) ───────────────────────
+    const ip = getClientIp(req);
+    const rateLimit = checkRateLimit(ip);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a minute.", code: "RATE_LIMITED" },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)),
+            "X-RateLimit-Remaining": "0",
+          },
+        },
+      );
+    }
+
     // ── Auth check ────────────────────────────────────────────
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -74,14 +96,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Input validation ──────────────────────────────────────
-    const { lotSize, budget, familySize } = await req.json();
+    // ── Input validation + prompt injection prevention ────────
+    const rawBody = await req.json();
+    const { lotSize, budget, familySize } = validateGenerateInput(rawBody);
 
-    if (!lotSize || !budget || !familySize) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
-
-    const bedroomCount = Math.max(2, Math.ceil(Number(familySize) * 0.7));
+    const bedroomCount = Math.max(2, Math.ceil(familySize * 0.7));
 
     // ── Claude generation ─────────────────────────────────────
     const response = await client.messages.create({
@@ -98,11 +117,11 @@ export async function POST(req: NextRequest) {
         {
           role: "user",
           content: `Generate 3 distinct residential floor plans for:
-- Lot size: ${Number(lotSize).toLocaleString()} sq ft
-- Total budget: $${Number(budget).toLocaleString()}
+- Lot size: ${lotSize.toLocaleString()} sq ft
+- Total budget: $${budget.toLocaleString()}
 - Family size: ${familySize} person(s) — suggest approximately ${bedroomCount} bedrooms
 
-Ensure all 3 plans are different architectural styles and each fits within the $${Number(budget).toLocaleString()} budget.`,
+Ensure all 3 plans are different architectural styles and each fits within the $${budget.toLocaleString()} budget.`,
         },
       ],
     });
@@ -140,6 +159,9 @@ Ensure all 3 plans are different architectural styles and each fits within the $
       },
     });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message, code: "INVALID_INPUT" }, { status: error.status });
+    }
     console.error("Generate error:", error);
     return NextResponse.json(
       { error: "Failed to generate floor plans. Please try again." },

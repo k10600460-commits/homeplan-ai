@@ -264,6 +264,46 @@ comment on function public.record_link_view is
 
 
 -- ══════════════════════════════════════════════════════════════
+-- SECTION 4: mls_audit_logs（MLS連携監査テーブル）
+-- ══════════════════════════════════════════════════════════════
+
+create table if not exists public.mls_audit_logs (
+  id          uuid        primary key default gen_random_uuid(),
+  user_id     uuid        references auth.users(id) on delete set null,
+  action      text        not null,
+  -- 'lookup' | 'validate' | 'link' | 'unlink' | 'error'
+  mls_id      text,
+  property_id text,
+  result      text,
+  -- 'found' | 'not_found' | 'valid' | 'invalid' | 'error'
+  metadata    jsonb       not null default '{}',
+  ip_hash     text,
+  created_at  timestamptz not null default now()
+);
+
+comment on table  public.mls_audit_logs         is 'Audit trail for all MLS license/property lookup operations.';
+comment on column public.mls_audit_logs.action  is 'lookup | validate | link | unlink | error';
+comment on column public.mls_audit_logs.result  is 'found | not_found | valid | invalid | error';
+comment on column public.mls_audit_logs.ip_hash is 'SHA-256 hashed IP — raw IP not stored (GDPR).';
+
+alter table public.mls_audit_logs enable row level security;
+
+create policy if not exists "user reads own mls audit logs"
+  on public.mls_audit_logs for select
+  using (auth.uid() = user_id);
+
+create index if not exists idx_mls_audit_logs_user_created
+  on public.mls_audit_logs (user_id, created_at desc);
+
+create index if not exists idx_mls_audit_logs_action
+  on public.mls_audit_logs (action);
+
+create index if not exists idx_mls_audit_logs_mls_id
+  on public.mls_audit_logs (mls_id)
+  where mls_id is not null;
+
+
+-- ══════════════════════════════════════════════════════════════
 -- 完了確認
 -- ══════════════════════════════════════════════════════════════
 do $$
@@ -271,6 +311,6 @@ begin
   raise notice '';
   raise notice '✅ HomePlanAI DBスキーマ適用完了';
   raise notice '   既存テーブル : subscriptions, api_usage';
-  raise notice '   新規テーブル : plan_generations, shared_links, link_events, builder_events';
+  raise notice '   新規テーブル : plan_generations, shared_links, link_events, builder_events, mls_audit_logs';
   raise notice '   関数         : set_updated_at, increment_api_usage, record_link_view';
 end $$;
