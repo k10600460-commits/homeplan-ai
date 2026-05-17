@@ -169,17 +169,16 @@ export default function DashboardClient({ user, subscription }: Props) {
               Enter your lot details and get 3 AI-generated floor plan proposals in seconds. Export as branded PDF.
             </p>
 
-            {subscription?.isActive ? (
-              <a
-                href="/"
-                className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors text-center"
-              >
-                Generate Plans →
-              </a>
-            ) : (
-              <div className="text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3 text-center">
-                Subscribe to start generating floor plans.
-              </div>
+            <a
+              href="/"
+              className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors text-center block"
+            >
+              Generate Plans →
+            </a>
+            {!subscription?.isActive && (
+              <p className="text-xs text-center text-gray-400 mt-2">
+                Free plan: up to 3 generations/month
+              </p>
             )}
           </div>
         </div>

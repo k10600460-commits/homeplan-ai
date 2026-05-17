@@ -8,9 +8,25 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "HomePlan AI — Floor Plans in 30 Seconds",
+  title: "HomePlanAI — AI Floor Plan Generator for Home Builders",
   description:
-    "Turn any lot into a floor plan in 30 seconds. AI-powered floor plan generation for home builders.",
+    "Turn any lot into 3 custom floor plan proposals in 30 seconds. AI-powered tool built for home builders. Close more deals with polished PDF proposals.",
+  robots: "index, follow",
+  alternates: { canonical: "https://homeplan-ai.vercel.app" },
+  openGraph: {
+    type: "website",
+    url: "https://homeplan-ai.vercel.app",
+    title: "HomePlanAI — AI Floor Plan Generator for Home Builders",
+    description:
+      "Turn any lot into 3 custom floor plan proposals in 30 seconds. Close more deals with polished PDF proposals.",
+    images: [{ url: "https://homeplan-ai.vercel.app/og-image.png" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "HomePlanAI — AI Floor Plan Generator for Home Builders",
+    description: "Turn any lot into 3 custom floor plan proposals in 30 seconds.",
+    images: ["https://homeplan-ai.vercel.app/og-image.png"],
+  },
 };
 
 export default function RootLayout({

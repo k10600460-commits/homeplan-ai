@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import Head from "next/head";
 
 export default function Home() {
   const router = useRouter();
@@ -68,36 +67,6 @@ export default function Home() {
 
   return (
     <>
-      {/* ===== SEO / OGP ===== */}
-      <Head>
-        <title>HomePlanAI — AI Floor Plan Generator for Home Builders</title>
-        <meta
-          name="description"
-          content="Turn any lot into 3 custom floor plan proposals in 30 seconds. AI-powered tool built for home builders. Close more deals with polished PDF proposals."
-        />
-        <meta name="robots" content="index, follow" />
-        <link rel="canonical" href="https://homeplan-ai.vercel.app" />
-
-        {/* OGP */}
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://homeplan-ai.vercel.app" />
-        <meta property="og:title" content="HomePlanAI — AI Floor Plan Generator for Home Builders" />
-        <meta
-          property="og:description"
-          content="Turn any lot into 3 custom floor plan proposals in 30 seconds. Close more deals with polished PDF proposals."
-        />
-        <meta property="og:image" content="https://homeplan-ai.vercel.app/og-image.png" />
-
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="HomePlanAI — AI Floor Plan Generator for Home Builders" />
-        <meta
-          name="twitter:description"
-          content="Turn any lot into 3 custom floor plan proposals in 30 seconds."
-        />
-        <meta name="twitter:image" content="https://homeplan-ai.vercel.app/og-image.png" />
-      </Head>
-
       <div className="flex flex-col min-h-screen">
         {/* ===== Nav ===== */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
