@@ -35,7 +35,6 @@ async function upsertSubscription(
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
     if (upsertError) console.error("[webhook] upsert error:", JSON.stringify(upsertError));
-    else console.log("[webhook] upsert success for userId:", userId);
 }
 
 export async function POST(req: NextRequest) {
@@ -63,7 +62,6 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.client_reference_id ?? session.metadata?.userId;
-          console.log("[webhook] checkout userId:", userId, "client_reference_id:", session.client_reference_id, "metadata:", JSON.stringify(session.metadata));
         if (!userId) break;
 
         // Fetch the full subscription object
