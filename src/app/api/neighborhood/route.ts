@@ -21,11 +21,17 @@ interface GoogleNearbyResponse {
   status: string
 }
 
+interface GoogleGeocodeResponse {
+  results: {
+    geometry: { location: { lat: number; lng: number } }
+    address_components: { long_name: string; types: string[] }[]
+  }[]
+  status: string
+}
+
 interface RentCastMarket {
-  averageRent?: number
-  medianRent?: number
-  averageSalePrice?: number
-  medianSalePrice?: number
+  rentalData?: { averageRent?: number; medianRent?: number }
+  saleData?: { averagePrice?: number; medianPrice?: number }
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -38,14 +44,16 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return parseFloat((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1))
 }
 
-async function geocode(city: string, state: string): Promise<{ lat: number; lng: number } | null> {
+async function geocode(city: string, state: string): Promise<{ lat: number; lng: number; zipCode: string | null } | null> {
   const key = process.env.GOOGLE_MAPS_API_KEY!
   const query = encodeURIComponent(`${city}, ${state}, USA`)
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${key}`
   const res = await fetch(url)
-  const data = await res.json() as { results: { geometry: { location: { lat: number; lng: number } } }[]; status: string }
+  const data = await res.json() as GoogleGeocodeResponse
   if (data.status !== 'OK' || !data.results[0]) return null
-  return data.results[0].geometry.location
+  const r = data.results[0]
+  const zipComponent = r.address_components.find(c => c.types.includes('postal_code'))
+  return { ...r.geometry.location, zipCode: zipComponent?.long_name ?? null }
 }
 
 async function getNearbyPlaces(
@@ -93,13 +101,16 @@ export async function GET(req: NextRequest) {
       market:       RENTCAST_LIMIT,
     }
 
+    let geocodeResult: { lat: number; lng: number; zipCode: string | null } | null = null
+
     // ── Google Maps ──────────────────────────────────────────────────
     const mapsCheck = await checkExternalUsage('google_maps')
     if (mapsCheck.allowed && process.env.GOOGLE_MAPS_API_KEY) {
-      const coords = await geocode(city, state)
+      geocodeResult = await geocode(city, state)
       await recordExternalUsage('google_maps') // 1 req: geocoding
 
-      if (coords) {
+      if (geocodeResult) {
+        const coords = { lat: geocodeResult.lat, lng: geocodeResult.lng }
         const [schools, hospitals, groceries, policeStations, fireStations] = await Promise.all([
           getNearbyPlaces(coords.lat, coords.lng, 'school'),
           getNearbyPlaces(coords.lat, coords.lng, 'hospital'),
@@ -146,8 +157,9 @@ export async function GET(req: NextRequest) {
 
     // ── RentCast ────────────────────────────────────────────────────
     const rentCheck = await checkExternalUsage('rentcast')
-    if (rentCheck.allowed && process.env.RENTCAST_API_KEY) {
-      const params = new URLSearchParams({ city, state, dataType: 'All', historyRange: '1' })
+    const zipCode = geocodeResult?.zipCode
+    if (rentCheck.allowed && process.env.RENTCAST_API_KEY && zipCode) {
+      const params = new URLSearchParams({ city, state, zipCode, dataType: 'All', historyRange: '1' })
       const res = await fetch(
         `https://api.rentcast.io/v1/markets?${params}`,
         { headers: { 'X-Api-Key': process.env.RENTCAST_API_KEY, Accept: 'application/json' } },
@@ -161,10 +173,10 @@ export async function GET(req: NextRequest) {
           nearingLimit:     rentCheck.nearingLimit,
           city,
           state,
-          averageRent:      data.averageRent      ?? null,
-          medianRent:       data.medianRent        ?? null,
-          averageSalePrice: data.averageSalePrice  ?? null,
-          medianSalePrice:  data.medianSalePrice   ?? null,
+          averageRent:      data.rentalData?.averageRent   ?? null,
+          medianRent:       data.rentalData?.medianRent    ?? null,
+          averageSalePrice: data.saleData?.averagePrice    ?? null,
+          medianSalePrice:  data.saleData?.medianPrice     ?? null,
         }
       } else {
         result.market = RENTCAST_LIMIT
