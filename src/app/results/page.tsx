@@ -28,6 +28,35 @@ interface FormData {
   lotSize: string;
   budget: string;
   familySize: string;
+  city?: string;
+  state?: string;
+}
+
+interface PlaceInfo {
+  name: string;
+  rating?: number | null;
+  vicinity?: string | null;
+}
+
+interface NeighborhoodData {
+  available: boolean;
+  reason?: string;
+  city?: string;
+  state?: string;
+  schools?: PlaceInfo[];
+  hospitals?: PlaceInfo[];
+  groceries?: PlaceInfo[];
+}
+
+interface MarketData {
+  available: boolean;
+  reason?: string;
+  city?: string;
+  state?: string;
+  averageRent?: number | null;
+  medianRent?: number | null;
+  averageSalePrice?: number | null;
+  medianSalePrice?: number | null;
 }
 
 const PLAN_COLORS: [number, number, number][] = [
@@ -302,10 +331,14 @@ export default function Results() {
   const [formData, setFormData] = useState<FormData | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [neighborhood, setNeighborhood] = useState<NeighborhoodData | null>(null);
+  const [market, setMarket] = useState<MarketData | null>(null);
+  const [neighborhoodLoading, setNeighborhoodLoading] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("floorPlans");
     const storedForm = sessionStorage.getItem("formData");
+    const storedLocation = sessionStorage.getItem("location");
 
     if (!stored) {
       router.push("/");
@@ -315,6 +348,19 @@ export default function Results() {
     try {
       setPlans(JSON.parse(stored));
       if (storedForm) setFormData(JSON.parse(storedForm));
+
+      if (storedLocation) {
+        const loc = JSON.parse(storedLocation) as { city: string; state: string };
+        setNeighborhoodLoading(true);
+        fetch(`/api/neighborhood?city=${encodeURIComponent(loc.city)}&state=${encodeURIComponent(loc.state)}`)
+          .then(r => r.json())
+          .then((data: { neighborhood: NeighborhoodData; market: MarketData }) => {
+            setNeighborhood(data.neighborhood);
+            setMarket(data.market);
+          })
+          .catch(() => {})
+          .finally(() => setNeighborhoodLoading(false));
+      }
     } catch {
       router.push("/");
     }
@@ -507,6 +553,138 @@ export default function Results() {
             );
           })}
         </div>
+
+        {/* Neighborhood & Market Data */}
+        {(neighborhoodLoading || neighborhood || market) && (
+          <div className="mt-12">
+            <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">
+              Neighborhood & Market Data
+              {(neighborhood?.city || market?.city) && (
+                <span className="ml-2 text-blue-600">
+                  — {neighborhood?.city || market?.city}, {neighborhood?.state || market?.state}
+                </span>
+              )}
+            </h2>
+
+            {neighborhoodLoading ? (
+              <div className="flex items-center justify-center gap-3 py-12 text-gray-400">
+                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm">Fetching neighborhood data…</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                {/* Schools */}
+                {neighborhood?.available && neighborhood.schools && neighborhood.schools.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
+                      <span className="text-lg">🏫</span> Nearby Schools
+                    </h3>
+                    <ul className="space-y-3">
+                      {neighborhood.schools.map((s, i) => (
+                        <li key={i} className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{s.name}</p>
+                            {s.vicinity && <p className="text-xs text-gray-400 mt-0.5">{s.vicinity}</p>}
+                          </div>
+                          {s.rating != null && (
+                            <span className="shrink-0 px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-100">
+                              ★ {s.rating}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Hospitals */}
+                {neighborhood?.available && neighborhood.hospitals && neighborhood.hospitals.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
+                      <span className="text-lg">🏥</span> Nearby Hospitals
+                    </h3>
+                    <ul className="space-y-3">
+                      {neighborhood.hospitals.map((h, i) => (
+                        <li key={i}>
+                          <p className="text-sm font-medium text-gray-800">{h.name}</p>
+                          {h.vicinity && <p className="text-xs text-gray-400 mt-0.5">{h.vicinity}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Grocery */}
+                {neighborhood?.available && neighborhood.groceries && neighborhood.groceries.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
+                      <span className="text-lg">🛒</span> Nearby Grocery Stores
+                    </h3>
+                    <ul className="space-y-3">
+                      {neighborhood.groceries.map((g, i) => (
+                        <li key={i}>
+                          <p className="text-sm font-medium text-gray-800">{g.name}</p>
+                          {g.vicinity && <p className="text-xs text-gray-400 mt-0.5">{g.vicinity}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Market data */}
+                {market?.available && (
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
+                      <span className="text-lg">📊</span> Local Market Data
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {market.averageRent != null && (
+                        <div className="bg-blue-50 rounded-xl p-4">
+                          <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Avg Rent</p>
+                          <p className="text-2xl font-bold text-gray-900 mt-1">${market.averageRent.toLocaleString()}<span className="text-sm font-normal text-gray-500">/mo</span></p>
+                        </div>
+                      )}
+                      {market.medianRent != null && (
+                        <div className="bg-emerald-50 rounded-xl p-4">
+                          <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Median Rent</p>
+                          <p className="text-2xl font-bold text-gray-900 mt-1">${market.medianRent.toLocaleString()}<span className="text-sm font-normal text-gray-500">/mo</span></p>
+                        </div>
+                      )}
+                      {market.averageSalePrice != null && (
+                        <div className="bg-violet-50 rounded-xl p-4">
+                          <p className="text-xs text-violet-600 font-semibold uppercase tracking-wider">Avg Sale Price</p>
+                          <p className="text-xl font-bold text-gray-900 mt-1">${(market.averageSalePrice / 1000).toFixed(0)}K</p>
+                        </div>
+                      )}
+                      {market.medianSalePrice != null && (
+                        <div className="bg-orange-50 rounded-xl p-4">
+                          <p className="text-xs text-orange-600 font-semibold uppercase tracking-wider">Median Sale Price</p>
+                          <p className="text-xl font-bold text-gray-900 mt-1">${(market.medianSalePrice / 1000).toFixed(0)}K</p>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-3">Source: RentCast · Updated monthly</p>
+                  </div>
+                )}
+
+                {/* Unavailable notices */}
+                {neighborhood && !neighborhood.available && (
+                  <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 flex items-center gap-3 text-gray-500">
+                    <span className="text-lg">📍</span>
+                    <p className="text-sm">Neighborhood data: {neighborhood.reason ?? 'Currently unavailable'}</p>
+                  </div>
+                )}
+                {market && !market.available && (
+                  <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 flex items-center gap-3 text-gray-500">
+                    <span className="text-lg">📊</span>
+                    <p className="text-sm">Market data: {market.reason ?? 'Currently unavailable'}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-12 text-center">
           <button

@@ -33,6 +33,11 @@ const TRANSLATIONS = {
       familyLabel: "Family Size",
       familyPlaceholder: "Select…",
       familyOptions: ["1 person", "2 people", "3 people", "4 people", "5 people", "6+ people"],
+      cityLabel: "City",
+      cityPlaceholder: "e.g. Austin",
+      stateLabel: "State",
+      statePlaceholder: "e.g. TX",
+      locationNote: "Optional — adds neighborhood & market data",
       cta: "Generate Plans →",
       generating: "Generating Plans…",
       disclaimer: "No credit card required · 3 free plans included",
@@ -140,6 +145,11 @@ const TRANSLATIONS = {
       familyLabel: "Tamaño de la familia",
       familyPlaceholder: "Seleccionar…",
       familyOptions: ["1 persona", "2 personas", "3 personas", "4 personas", "5 personas", "6+ personas"],
+      cityLabel: "Ciudad",
+      cityPlaceholder: "ej. Austin",
+      stateLabel: "Estado",
+      statePlaceholder: "ej. TX",
+      locationNote: "Opcional — agrega datos del vecindario y mercado",
       cta: "Generar Planos →",
       generating: "Generando Planos…",
       disclaimer: "Sin tarjeta de crédito · 3 planos gratis incluidos",
@@ -259,7 +269,7 @@ function Check({ className }: { className?: string }) {
 // ── Main page ─────────────────────────────────────────────────────────
 export default function Home() {
   const router = useRouter();
-  const [form, setForm] = useState({ lotSize: "", budget: "", familySize: "" });
+  const [form, setForm] = useState({ lotSize: "", budget: "", familySize: "", city: "", state: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -307,6 +317,11 @@ export default function Home() {
 
       sessionStorage.setItem("floorPlans", JSON.stringify(data.plans));
       sessionStorage.setItem("formData", JSON.stringify(form));
+      if (form.city && form.state) {
+        sessionStorage.setItem("location", JSON.stringify({ city: form.city, state: form.state }));
+      } else {
+        sessionStorage.removeItem("location");
+      }
       router.push("/results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate plans");
@@ -431,6 +446,37 @@ export default function Home() {
                     <option key={i} value={String(i + 1)}>{opt}</option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            {/* Optional location row */}
+            <div className="mt-4">
+              <p className="text-xs text-gray-400 mb-2">{t.form.locationNote}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5 text-left">
+                  <label className="text-sm font-medium text-gray-600">{t.form.cityLabel}</label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={form.city}
+                    onChange={handleChange}
+                    placeholder={t.form.cityPlaceholder}
+                    maxLength={60}
+                    className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5 text-left">
+                  <label className="text-sm font-medium text-gray-600">{t.form.stateLabel}</label>
+                  <input
+                    type="text"
+                    name="state"
+                    value={form.state}
+                    onChange={handleChange}
+                    placeholder={t.form.statePlaceholder}
+                    maxLength={30}
+                    className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-sm"
+                  />
+                </div>
               </div>
             </div>
 
