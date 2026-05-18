@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
 
 // Exact messages per spec
-const GMAPS_UNAVAILABLE  = { available: false, reason: '現在データを取得できません' }
-const RENTCAST_LIMIT     = { available: false, reason: 'データ取得上限に達しました' }
+const GMAPS_UNAVAILABLE  = { available: false, reason: 'Data unavailable at this time' }
+const RENTCAST_LIMIT     = { available: false, reason: 'Market data limit reached' }
 
 interface PlaceResult {
   name: string
