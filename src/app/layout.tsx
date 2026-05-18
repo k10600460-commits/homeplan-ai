@@ -12,20 +12,20 @@ export const metadata: Metadata = {
   description:
     "Turn any lot into 3 custom floor plan proposals in 30 seconds. AI-powered tool built for home builders. Close more deals with polished PDF proposals.",
   robots: "index, follow",
-  alternates: { canonical: "https://homeplan-ai.vercel.app" },
+  alternates: { canonical: "https://splanai.com" },
   openGraph: {
     type: "website",
-    url: "https://homeplan-ai.vercel.app",
+    url: "https://splanai.com",
     title: "SplanAI — AI Floor Plan Generator for Home Builders",
     description:
       "Turn any lot into 3 custom floor plan proposals in 30 seconds. Close more deals with polished PDF proposals.",
-    images: [{ url: "https://homeplan-ai.vercel.app/og-image.png" }],
+    images: [{ url: "https://splanai.com/og-image.png" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "SplanAI — AI Floor Plan Generator for Home Builders",
     description: "Turn any lot into 3 custom floor plan proposals in 30 seconds.",
-    images: ["https://homeplan-ai.vercel.app/og-image.png"],
+    images: ["https://splanai.com/og-image.png"],
   },
 };
 
