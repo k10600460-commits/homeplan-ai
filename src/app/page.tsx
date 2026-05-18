@@ -195,7 +195,7 @@ function HeroPreview() {
           <div className="w-3 h-3 rounded-full bg-red-500/80" />
           <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
           <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-          <span className="ml-2 text-xs text-slate-500 font-mono">homeplan-ai.vercel.app/results</span>
+          <span className="ml-2 text-xs text-slate-500 font-mono">splanai.com/results</span>
         </div>
         <div className="p-4 bg-slate-50">
           {/* Top bar */}
@@ -535,7 +535,7 @@ export default function Home() {
                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <div className="ml-3 flex-1 bg-slate-800 rounded px-3 py-1">
-                  <span className="text-xs text-slate-500 font-mono">homeplan-ai.vercel.app/results</span>
+                  <span className="text-xs text-slate-500 font-mono">splanai.com/results</span>
                 </div>
               </div>
               <div className="p-5 bg-slate-50">
