@@ -42,6 +42,7 @@ async function sendLimitAlert(service: Service, count: number, type: 'warning' |
 
 export async function checkExternalUsage(service: Service): Promise<{
   allowed: boolean
+  nearingLimit: boolean
   reason: string
 }> {
   const month = getCurrentMonth()
@@ -52,11 +53,14 @@ export async function checkExternalUsage(service: Service): Promise<{
     .eq('month', month)
     .single()
 
-  if (!data) return { allowed: true, reason: 'ok' }
+  if (!data) return { allowed: true, nearingLimit: false, reason: 'ok' }
   if (data.stopped || data.request_count >= LIMITS[service].stop) {
-    return { allowed: false, reason: 'limit_reached' }
+    return { allowed: false, nearingLimit: false, reason: 'limit_reached' }
   }
-  return { allowed: true, reason: 'ok' }
+  if (data.request_count >= LIMITS[service].warn) {
+    return { allowed: true, nearingLimit: true, reason: 'nearing_limit' }
+  }
+  return { allowed: true, nearingLimit: false, reason: 'ok' }
 }
 
 export async function recordExternalUsage(service: Service): Promise<void> {

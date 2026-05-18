@@ -36,20 +36,31 @@ interface PlaceInfo {
   name: string;
   rating?: number | null;
   vicinity?: string | null;
+  distanceKm?: number | null;
+}
+
+interface SafetyInfo {
+  score: number;
+  policeStations: number;
+  fireStations: number;
+  label: 'High' | 'Moderate' | 'Low';
 }
 
 interface NeighborhoodData {
   available: boolean;
+  nearingLimit?: boolean;
   reason?: string;
   city?: string;
   state?: string;
   schools?: PlaceInfo[];
   hospitals?: PlaceInfo[];
   groceries?: PlaceInfo[];
+  safety?: SafetyInfo;
 }
 
 interface MarketData {
   available: boolean;
+  nearingLimit?: boolean;
   reason?: string;
   city?: string;
   state?: string;
@@ -557,14 +568,24 @@ export default function Results() {
         {/* Neighborhood & Market Data */}
         {(neighborhoodLoading || neighborhood || market) && (
           <div className="mt-12">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">
+            <h2 className="text-xl font-bold text-gray-900 mb-1 text-center">
               Neighborhood & Market Data
-              {(neighborhood?.city || market?.city) && (
-                <span className="ml-2 text-blue-600">
-                  — {neighborhood?.city || market?.city}, {neighborhood?.state || market?.state}
-                </span>
-              )}
             </h2>
+            {(neighborhood?.city || market?.city) && (
+              <p className="text-center text-blue-600 font-medium mb-6">
+                {neighborhood?.city || market?.city}, {neighborhood?.state || market?.state}
+              </p>
+            )}
+
+            {/* Approaching-limit warning banner */}
+            {(neighborhood?.nearingLimit || market?.nearingLimit) && (
+              <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                月間データ使用量が上限に近づいています。今月中にデータが取得できなくなる場合があります。
+              </div>
+            )}
 
             {neighborhoodLoading ? (
               <div className="flex items-center justify-center gap-3 py-12 text-gray-400">
@@ -573,6 +594,33 @@ export default function Results() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                {/* Safety Score */}
+                {neighborhood?.available && neighborhood.safety && (
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
+                      <span className="text-lg">🛡️</span> Safety Score
+                    </h3>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-extrabold text-white shrink-0 ${
+                        neighborhood.safety.label === 'High'     ? 'bg-emerald-500' :
+                        neighborhood.safety.label === 'Moderate' ? 'bg-yellow-500'  : 'bg-red-400'
+                      }`}>
+                        {neighborhood.safety.score}
+                      </div>
+                      <div>
+                        <p className={`text-lg font-bold ${
+                          neighborhood.safety.label === 'High'     ? 'text-emerald-600' :
+                          neighborhood.safety.label === 'Moderate' ? 'text-yellow-600'  : 'text-red-500'
+                        }`}>{neighborhood.safety.label}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {neighborhood.safety.policeStations} police · {neighborhood.safety.fireStations} fire station{neighborhood.safety.fireStations !== 1 ? 's' : ''} within 5 km
+                        </p>
+                        <p className="text-xs text-gray-300 mt-0.5">Based on public safety infrastructure</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Schools */}
                 {neighborhood?.available && neighborhood.schools && neighborhood.schools.length > 0 && (
@@ -583,9 +631,12 @@ export default function Results() {
                     <ul className="space-y-3">
                       {neighborhood.schools.map((s, i) => (
                         <li key={i} className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-medium text-gray-800">{s.name}</p>
-                            {s.vicinity && <p className="text-xs text-gray-400 mt-0.5">{s.vicinity}</p>}
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
+                            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
+                              {s.distanceKm != null && <span className="font-medium text-blue-600">{s.distanceKm} km</span>}
+                              {s.vicinity && <span className="truncate">{s.vicinity}</span>}
+                            </p>
                           </div>
                           {s.rating != null && (
                             <span className="shrink-0 px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-100">
@@ -608,7 +659,10 @@ export default function Results() {
                       {neighborhood.hospitals.map((h, i) => (
                         <li key={i}>
                           <p className="text-sm font-medium text-gray-800">{h.name}</p>
-                          {h.vicinity && <p className="text-xs text-gray-400 mt-0.5">{h.vicinity}</p>}
+                          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
+                            {h.distanceKm != null && <span className="font-medium text-blue-600">{h.distanceKm} km</span>}
+                            {h.vicinity && <span>{h.vicinity}</span>}
+                          </p>
                         </li>
                       ))}
                     </ul>
@@ -625,7 +679,10 @@ export default function Results() {
                       {neighborhood.groceries.map((g, i) => (
                         <li key={i}>
                           <p className="text-sm font-medium text-gray-800">{g.name}</p>
-                          {g.vicinity && <p className="text-xs text-gray-400 mt-0.5">{g.vicinity}</p>}
+                          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
+                            {g.distanceKm != null && <span className="font-medium text-blue-600">{g.distanceKm} km</span>}
+                            {g.vicinity && <span>{g.vicinity}</span>}
+                          </p>
                         </li>
                       ))}
                     </ul>
@@ -642,13 +699,19 @@ export default function Results() {
                       {market.averageRent != null && (
                         <div className="bg-blue-50 rounded-xl p-4">
                           <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Avg Rent</p>
-                          <p className="text-2xl font-bold text-gray-900 mt-1">${market.averageRent.toLocaleString()}<span className="text-sm font-normal text-gray-500">/mo</span></p>
+                          <p className="text-2xl font-bold text-gray-900 mt-1">
+                            ${market.averageRent.toLocaleString()}
+                            <span className="text-sm font-normal text-gray-500">/mo</span>
+                          </p>
                         </div>
                       )}
                       {market.medianRent != null && (
                         <div className="bg-emerald-50 rounded-xl p-4">
                           <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Median Rent</p>
-                          <p className="text-2xl font-bold text-gray-900 mt-1">${market.medianRent.toLocaleString()}<span className="text-sm font-normal text-gray-500">/mo</span></p>
+                          <p className="text-2xl font-bold text-gray-900 mt-1">
+                            ${market.medianRent.toLocaleString()}
+                            <span className="text-sm font-normal text-gray-500">/mo</span>
+                          </p>
                         </div>
                       )}
                       {market.averageSalePrice != null && (
@@ -668,17 +731,17 @@ export default function Results() {
                   </div>
                 )}
 
-                {/* Unavailable notices */}
+                {/* Unavailable notices — show exact spec messages */}
                 {neighborhood && !neighborhood.available && (
                   <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 flex items-center gap-3 text-gray-500">
                     <span className="text-lg">📍</span>
-                    <p className="text-sm">Neighborhood data: {neighborhood.reason ?? 'Currently unavailable'}</p>
+                    <p className="text-sm">{neighborhood.reason}</p>
                   </div>
                 )}
                 {market && !market.available && (
                   <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 flex items-center gap-3 text-gray-500">
                     <span className="text-lg">📊</span>
-                    <p className="text-sm">Market data: {market.reason ?? 'Currently unavailable'}</p>
+                    <p className="text-sm">{market.reason}</p>
                   </div>
                 )}
               </div>

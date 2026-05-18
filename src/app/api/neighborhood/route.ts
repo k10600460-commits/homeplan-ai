@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
 
-const UNAVAILABLE = { available: false, reason: 'Data currently unavailable' }
+// Exact messages per spec
+const GMAPS_UNAVAILABLE  = { available: false, reason: '現在データを取得できません' }
+const RENTCAST_LIMIT     = { available: false, reason: 'データ取得上限に達しました' }
 
 interface PlaceResult {
   name: string
   rating?: number
   vicinity?: string
   types?: string[]
+  geometry?: {
+    location: { lat: number; lng: number }
+  }
 }
 
 interface GoogleNearbyResponse {
@@ -21,7 +26,16 @@ interface RentCastMarket {
   medianRent?: number
   averageSalePrice?: number
   medianSalePrice?: number
-  rentToSaleRatio?: number
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lng2 - lng1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return parseFloat((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1))
 }
 
 async function geocode(city: string, state: string): Promise<{ lat: number; lng: number } | null> {
@@ -34,15 +48,14 @@ async function geocode(city: string, state: string): Promise<{ lat: number; lng:
   return data.results[0].geometry.location
 }
 
-async function getNearbyPlaces(lat: number, lng: number, type: string, keyword?: string): Promise<PlaceResult[]> {
+async function getNearbyPlaces(
+  lat: number,
+  lng: number,
+  type: string,
+  radius = 5000,
+): Promise<PlaceResult[]> {
   const key = process.env.GOOGLE_MAPS_API_KEY!
-  const params = new URLSearchParams({
-    location: `${lat},${lng}`,
-    radius:   '5000',
-    type,
-    key,
-    ...(keyword ? { keyword } : {}),
-  })
+  const params = new URLSearchParams({ location: `${lat},${lng}`, radius: String(radius), type, key })
   const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?${params}`
   const res = await fetch(url)
   const data = await res.json() as GoogleNearbyResponse
@@ -50,14 +63,16 @@ async function getNearbyPlaces(lat: number, lng: number, type: string, keyword?:
   return data.results.slice(0, 3)
 }
 
+function computeSafetyScore(policeCount: number, fireCount: number): number {
+  const raw = 3 + policeCount * 2 + fireCount * 1
+  return Math.min(10, raw)
+}
+
 export async function GET(req: NextRequest) {
   try {
-    // Auth check
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
     const city  = searchParams.get('city')?.trim()
@@ -66,89 +81,96 @@ export async function GET(req: NextRequest) {
     if (!city || !state) {
       return NextResponse.json({ error: 'city and state are required' }, { status: 400 })
     }
-
-    // Sanitize inputs
     if (!/^[a-zA-Z\s\-'.]{1,60}$/.test(city) || !/^[a-zA-Z\s]{1,30}$/.test(state)) {
       return NextResponse.json({ error: 'Invalid location' }, { status: 400 })
     }
 
     const result: {
-      neighborhood: Record<string, unknown> | null
-      market: Record<string, unknown> | null
-    } = { neighborhood: null, market: null }
-
-    // ── Google Maps ───────────────────────────────────────────────────
-    const mapsAllowed = await checkExternalUsage('google_maps')
-    if (mapsAllowed.allowed) {
-      const apiKey = process.env.GOOGLE_MAPS_API_KEY
-      if (apiKey) {
-        // Each property-level call uses 2 Geocoding + 3 Nearby = 5 requests max
-        const coords = await geocode(city, state)
-        await recordExternalUsage('google_maps') // geocode = 1 req
-
-        if (coords) {
-          const [schools, hospitals, groceries] = await Promise.all([
-            getNearbyPlaces(coords.lat, coords.lng, 'school'),
-            getNearbyPlaces(coords.lat, coords.lng, 'hospital'),
-            getNearbyPlaces(coords.lat, coords.lng, 'grocery_or_supermarket'),
-          ])
-          // 3 Nearby Search calls
-          await Promise.all([
-            recordExternalUsage('google_maps'),
-            recordExternalUsage('google_maps'),
-            recordExternalUsage('google_maps'),
-          ])
-
-          result.neighborhood = {
-            available: true,
-            city,
-            state,
-            coordinates: coords,
-            schools:    schools.map(p => ({ name: p.name, rating: p.rating ?? null, vicinity: p.vicinity ?? null })),
-            hospitals:  hospitals.map(p => ({ name: p.name, vicinity: p.vicinity ?? null })),
-            groceries:  groceries.map(p => ({ name: p.name, vicinity: p.vicinity ?? null })),
-          }
-        } else {
-          result.neighborhood = UNAVAILABLE
-        }
-      } else {
-        result.neighborhood = UNAVAILABLE
-      }
-    } else {
-      result.neighborhood = { available: false, reason: 'Monthly data limit reached' }
+      neighborhood: Record<string, unknown>
+      market: Record<string, unknown>
+    } = {
+      neighborhood: GMAPS_UNAVAILABLE,
+      market:       RENTCAST_LIMIT,
     }
 
-    // ── RentCast ──────────────────────────────────────────────────────
-    const rentAllowed = await checkExternalUsage('rentcast')
-    if (rentAllowed.allowed) {
-      const rentcastKey = process.env.RENTCAST_API_KEY
-      if (rentcastKey) {
-        const params = new URLSearchParams({ city, state, dataType: 'All', historyRange: '1' })
-        const res = await fetch(
-          `https://api.rentcast.io/v1/markets?${params}`,
-          { headers: { 'X-Api-Key': rentcastKey, Accept: 'application/json' } }
-        )
-        await recordExternalUsage('rentcast')
+    // ── Google Maps ──────────────────────────────────────────────────
+    const mapsCheck = await checkExternalUsage('google_maps')
+    if (mapsCheck.allowed && process.env.GOOGLE_MAPS_API_KEY) {
+      const coords = await geocode(city, state)
+      await recordExternalUsage('google_maps') // 1 req: geocoding
 
-        if (res.ok) {
-          const data = await res.json() as RentCastMarket
-          result.market = {
-            available:        true,
-            city,
-            state,
-            averageRent:      data.averageRent      ?? null,
-            medianRent:       data.medianRent        ?? null,
-            averageSalePrice: data.averageSalePrice  ?? null,
-            medianSalePrice:  data.medianSalePrice   ?? null,
-          }
-        } else {
-          result.market = UNAVAILABLE
+      if (coords) {
+        const [schools, hospitals, groceries, policeStations, fireStations] = await Promise.all([
+          getNearbyPlaces(coords.lat, coords.lng, 'school'),
+          getNearbyPlaces(coords.lat, coords.lng, 'hospital'),
+          getNearbyPlaces(coords.lat, coords.lng, 'grocery_or_supermarket'),
+          getNearbyPlaces(coords.lat, coords.lng, 'police'),
+          getNearbyPlaces(coords.lat, coords.lng, 'fire_station'),
+        ])
+        // 5 Nearby Search calls
+        await Promise.all(Array.from({ length: 5 }, () => recordExternalUsage('google_maps')))
+
+        const mapPlace = (p: PlaceResult) => ({
+          name:       p.name,
+          rating:     p.rating ?? null,
+          vicinity:   p.vicinity ?? null,
+          distanceKm: p.geometry
+            ? haversineKm(coords.lat, coords.lng, p.geometry.location.lat, p.geometry.location.lng)
+            : null,
+        })
+
+        const safetyScore = computeSafetyScore(policeStations.length, fireStations.length)
+
+        result.neighborhood = {
+          available:       true,
+          nearingLimit:    mapsCheck.nearingLimit,
+          city,
+          state,
+          coordinates:     coords,
+          schools:         schools.map(mapPlace),
+          hospitals:       hospitals.map(mapPlace),
+          groceries:       groceries.map(mapPlace),
+          safety: {
+            score:          safetyScore,
+            policeStations: policeStations.length,
+            fireStations:   fireStations.length,
+            label:          safetyScore >= 8 ? 'High' : safetyScore >= 5 ? 'Moderate' : 'Low',
+          },
         }
       } else {
-        result.market = UNAVAILABLE
+        result.neighborhood = GMAPS_UNAVAILABLE
       }
-    } else {
-      result.market = { available: false, reason: 'Monthly data limit reached' }
+    } else if (!mapsCheck.allowed) {
+      result.neighborhood = GMAPS_UNAVAILABLE
+    }
+
+    // ── RentCast ────────────────────────────────────────────────────
+    const rentCheck = await checkExternalUsage('rentcast')
+    if (rentCheck.allowed && process.env.RENTCAST_API_KEY) {
+      const params = new URLSearchParams({ city, state, dataType: 'All', historyRange: '1' })
+      const res = await fetch(
+        `https://api.rentcast.io/v1/markets?${params}`,
+        { headers: { 'X-Api-Key': process.env.RENTCAST_API_KEY, Accept: 'application/json' } },
+      )
+      await recordExternalUsage('rentcast')
+
+      if (res.ok) {
+        const data = await res.json() as RentCastMarket
+        result.market = {
+          available:        true,
+          nearingLimit:     rentCheck.nearingLimit,
+          city,
+          state,
+          averageRent:      data.averageRent      ?? null,
+          medianRent:       data.medianRent        ?? null,
+          averageSalePrice: data.averageSalePrice  ?? null,
+          medianSalePrice:  data.medianSalePrice   ?? null,
+        }
+      } else {
+        result.market = RENTCAST_LIMIT
+      }
+    } else if (!rentCheck.allowed) {
+      result.market = RENTCAST_LIMIT
     }
 
     return NextResponse.json(result, {
@@ -156,6 +178,9 @@ export async function GET(req: NextRequest) {
     })
   } catch (err) {
     console.error('[neighborhood] error:', err)
-    return NextResponse.json({ neighborhood: UNAVAILABLE, market: UNAVAILABLE })
+    return NextResponse.json({
+      neighborhood: GMAPS_UNAVAILABLE,
+      market:       RENTCAST_LIMIT,
+    })
   }
 }
