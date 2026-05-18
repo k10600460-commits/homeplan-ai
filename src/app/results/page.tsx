@@ -168,21 +168,21 @@ function MortgageCalculator({ homePrice }: { homePrice: number }) {
       </div>
 
       {/* Results */}
-      <div className="bg-blue-50 rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="bg-blue-50 rounded-xl p-4 grid grid-cols-2 gap-4">
         <div className="text-center">
-          <p className="text-2xl font-extrabold text-blue-700">{fmt(result.monthlyPayment)}</p>
+          <p className="text-xl font-extrabold text-blue-700 truncate">{fmt(result.monthlyPayment)}</p>
           <p className="text-xs text-blue-500 mt-0.5">/ month</p>
         </div>
         <div className="text-center">
-          <p className="text-lg font-bold text-gray-800">{fmt(result.principal)}</p>
+          <p className="text-base font-bold text-gray-800 truncate">{fmt(result.principal)}</p>
           <p className="text-xs text-gray-500 mt-0.5">Loan Amount</p>
         </div>
         <div className="text-center">
-          <p className="text-lg font-bold text-gray-800">{fmt(result.totalInterest)}</p>
+          <p className="text-base font-bold text-gray-800 truncate">{fmt(result.totalInterest)}</p>
           <p className="text-xs text-gray-500 mt-0.5">Total Interest</p>
         </div>
         <div className="text-center">
-          <p className="text-lg font-bold text-gray-800">{fmt(result.totalCost)}</p>
+          <p className="text-base font-bold text-gray-800 truncate">{fmt(result.totalCost)}</p>
           <p className="text-xs text-gray-500 mt-0.5">Total Cost</p>
         </div>
       </div>
