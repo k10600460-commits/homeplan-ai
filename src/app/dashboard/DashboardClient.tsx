@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -55,10 +55,12 @@ export default function DashboardClient({ user, subscription }: Props) {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [signOutLoading, setSignOutLoading] = useState(false);
   const [sharedLinks, setSharedLinks] = useState<SharedLink[]>([]);
-  const [newViewAlert, setNewViewAlert] = useState<string | null>(null); // slug of recently viewed link
+  const [newViewAlert, setNewViewAlert] = useState<string | null>(null);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   const supabase = createClient();
+  // Ref so the Realtime callback always sees the latest links (avoids stale closure)
+  const sharedLinksRef = useRef<SharedLink[]>([]);
 
   const loadSharedLinks = useCallback(async () => {
     const { data } = await supabase
@@ -67,13 +69,16 @@ export default function DashboardClient({ user, subscription }: Props) {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(10);
-    if (data) setSharedLinks(data as SharedLink[]);
+    if (data) {
+      setSharedLinks(data as SharedLink[]);
+      sharedLinksRef.current = data as SharedLink[];
+    }
   }, [supabase, user.id]);
 
   useEffect(() => {
     loadSharedLinks();
 
-    // Supabase Realtime: subscribe to new link_events for this user's links
+    // Supabase Realtime: link_events INSERT — RLS ensures we only get events for own links
     const channel = supabase
       .channel("link_events_realtime")
       .on(
@@ -81,10 +86,9 @@ export default function DashboardClient({ user, subscription }: Props) {
         { event: "INSERT", schema: "public", table: "link_events" },
         async (payload) => {
           const newEvent = payload.new as { link_id: string; event_type: string };
-          // Check if this event belongs to one of this user's links
-          const link = sharedLinks.find((l) => l.id === newEvent.link_id);
+          // Use ref (not state) to avoid stale closure
+          const link = sharedLinksRef.current.find((l) => l.id === newEvent.link_id);
           if (link) {
-            // Refresh link data
             await loadSharedLinks();
             if (newEvent.event_type === "view") {
               setNewViewAlert(link.slug);
@@ -96,8 +100,8 @@ export default function DashboardClient({ user, subscription }: Props) {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.id]);
+  // loadSharedLinks is stable (useCallback with stable deps); supabase client is stable
+  }, [loadSharedLinks, supabase]);
 
   async function handleCopyLink(slug: string) {
     await navigator.clipboard.writeText(`${APP_URL}/s/${slug}`);

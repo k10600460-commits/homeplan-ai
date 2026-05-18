@@ -12,7 +12,12 @@ export async function POST(req: NextRequest) {
     const eventType = body?.eventType as EventType
     const planIndex = body?.planIndex != null ? Number(body.planIndex) : null
 
-    if (!slug || !ALLOWED_EVENTS.includes(eventType)) {
+    if (
+      !slug ||
+      slug.length < 4 || slug.length > 16 ||
+      !/^[a-z0-9]+$/.test(slug) ||
+      !ALLOWED_EVENTS.includes(eventType)
+    ) {
       return NextResponse.json({ ok: false, reason: 'invalid_params' }, { status: 400 })
     }
 
