@@ -8,7 +8,7 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "HomePlanAI — AI Floor Plan Generator for Home Builders",
+  title: "SplanAI — AI Floor Plan Generator for Home Builders",
   description:
     "Turn any lot into 3 custom floor plan proposals in 30 seconds. AI-powered tool built for home builders. Close more deals with polished PDF proposals.",
   robots: "index, follow",
@@ -16,14 +16,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "https://homeplan-ai.vercel.app",
-    title: "HomePlanAI — AI Floor Plan Generator for Home Builders",
+    title: "SplanAI — AI Floor Plan Generator for Home Builders",
     description:
       "Turn any lot into 3 custom floor plan proposals in 30 seconds. Close more deals with polished PDF proposals.",
     images: [{ url: "https://homeplan-ai.vercel.app/og-image.png" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "HomePlanAI — AI Floor Plan Generator for Home Builders",
+    title: "SplanAI — AI Floor Plan Generator for Home Builders",
     description: "Turn any lot into 3 custom floor plan proposals in 30 seconds.",
     images: ["https://homeplan-ai.vercel.app/og-image.png"],
   },

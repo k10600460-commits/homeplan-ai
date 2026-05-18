@@ -102,7 +102,7 @@ function LoginContent() {
       {/* Nav */}
       <header className="flex items-center px-6 py-4 border-b border-gray-100 bg-white">
         <a href="/" className="text-xl font-bold tracking-tight text-gray-900">
-          HomePlan<span className="text-blue-600">AI</span>
+          Splan<span className="text-blue-600">AI</span>
         </a>
       </header>
 
@@ -138,7 +138,7 @@ function LoginContent() {
               {tab === "signin" ? (
                 <>
                   <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome back</h1>
-                  <p className="text-sm text-gray-500 mb-6">Sign in to your HomePlanAI account.</p>
+                  <p className="text-sm text-gray-500 mb-6">Sign in to your SplanAI account.</p>
 
                   <form onSubmit={handleSignIn} className="flex flex-col gap-4">
                     <div className="flex flex-col gap-1.5">

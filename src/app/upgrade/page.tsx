@@ -59,7 +59,7 @@ function UpgradeContent() {
       <header className="bg-white border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <a href="/" className="text-xl font-bold tracking-tight text-gray-900">
-            HomePlan<span className="text-blue-600">AI</span>
+            Splan<span className="text-blue-600">AI</span>
           </a>
           <a href="/dashboard" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
             Dashboard
@@ -99,7 +99,7 @@ function UpgradeContent() {
           <div className="bg-white rounded-2xl border-2 border-blue-600 shadow-lg p-8">
             <div className="text-center mb-6">
               <span className="inline-block px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold uppercase tracking-wide mb-4">
-                HomePlanAI Pro
+                SplanAI Pro
               </span>
               <div className="flex items-baseline justify-center gap-1">
                 <span className="text-4xl font-extrabold text-gray-900">$49</span>

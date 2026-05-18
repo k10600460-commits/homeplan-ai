@@ -1,36 +1,229 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏠 SplanAI
 
-## Getting Started
+> **Close more deals. Show clients their dream home before they sign.**
 
-First, run the development server:
+An AI-powered home planning tool for residential builders in the USA. Generate 3 custom home plans instantly with a single land description.
+
+**Live Demo:** [homeplan-ai.vercel.app](https://homeplan-ai.vercel.app)  
+**Launch Date:** May 26, 2026 (ProductHunt)
+
+---
+
+## 📋 Product Overview
+
+**Who it's for:** Small to mid-sized home builders (10–50 homes/year)
+
+**What it does:**
+1. Builder inputs land details (lot size, shape, utilities, etc.)
+2. AI generates **3 complete home plans in 30 seconds**
+3. Export as **PDF with branding** for client presentations
+4. Track usage and manage team subscriptions
+
+**Why it matters:**
+- **Sales tool, not design software** — Speed closes deals
+- **No CAD skills required** — Builders can generate plans in seconds
+- **Pre-sales engagement** — Show clients their dream home before they sign
+
+---
+
+## 💰 Pricing
+
+| Plan | Price | Limits | Features |
+|------|-------|--------|----------|
+| **Free** | $0 | 3 plans/month | PDF export, basic home plans |
+| **Pro** | $49/mo | Unlimited | 14-day free trial, custom branding, priority support |
+
+Upgrade path: Free → Pro (via Stripe)
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | Next.js 16 (App Router) + TypeScript + Tailwind CSS |
+| **Backend** | Supabase (PostgreSQL, Auth, RLS) |
+| **AI** | Anthropic Claude API |
+| **Payments** | Stripe (checkout, webhooks, portal) |
+| **Maps** | Mapbox GL |
+| **PDF Export** | html2canvas + jsPDF |
+| **Deploy** | Vercel |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- npm/yarn/pnpm
+
+### Installation
 
 ```bash
+# Clone the repo
+git clone https://github.com/yourusername/homeplan-ai.git
+cd homeplan-ai
+
+# Install dependencies
+npm install
+
+# Set up environment variables (see .env.example)
+cp .env.example .env.local
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env.local` file with:
 
-## Learn More
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 
-To learn more about Next.js, take a look at the following resources:
+# Anthropic Claude API
+ANTHROPIC_API_KEY=
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Stripe
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_ID=
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# App Config
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📁 Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+├── app/
+│   ├── page.tsx              # Landing page (sales funnel)
+│   ├── layout.tsx            # Root layout (SEO metadata)
+│   ├── api/
+│   │   ├── generate/         # AI plan generation endpoint
+│   │   ├── stripe/           # Payments (checkout, webhook, portal)
+│   │   ├── usage/            # API usage tracking
+│   │   └── auth/             # Supabase auth callback
+│   ├── auth/
+│   │   └── callback/         # OAuth callback
+│   ├── dashboard/            # User dashboard (plans history, usage)
+│   ├── login/                # Authentication UI
+│   ├── results/              # Generated plans display & PDF export
+│   └── upgrade/              # Upgrade flow
+├── lib/
+│   ├── stripe.ts             # Stripe utilities
+│   ├── usage.ts              # Usage quota logic
+│   └── supabase/             # Supabase client & server
+└── globals.css               # Tailwind + global styles
+```
+
+---
+
+## 🔌 API Endpoints
+
+### Generate Plans
+**POST** `/api/generate`
+```json
+{
+  "land_size": "0.5 acres",
+  "lot_shape": "rectangular",
+  "utilities": "full"
+}
+→ { "plans": [...], "usage_remaining": 2 }
+```
+
+### Usage Info
+**GET** `/api/usage`
+```json
+→ { "used": 1, "limit": 3, "plan": "free" }
+```
+
+### Stripe Webhook
+**POST** `/api/stripe/webhook` — Handles subscription events (auto-updates DB)
+
+---
+
+## 📊 Database Schema
+
+### `users` (via Supabase Auth)
+- `id`, `email`, `created_at`
+
+### `subscriptions`
+- `user_id`, `status`, `stripe_customer_id`, `current_period_end`
+
+### `api_usage`
+- `user_id`, `plans_generated`, `reset_date`
+
+### RLS (Row Level Security)
+- Users can only access their own data
+
+---
+
+## 🧪 Testing the Full Flow
+
+1. **Sign up** at [localhost:3000](http://localhost:3000)
+2. **Generate a plan** (Free tier: 3 plans)
+3. **Download PDF** (branding included)
+4. **Upgrade to Pro** (14-day free trial via Stripe Test)
+   - Use test card: `4242 4242 4242 4242` (Stripe)
+5. **Check usage** in dashboard
+
+---
+
+## 📝 Development Notes
+
+- **Next.js version:** 16.2.6 (breaking changes possible — check `node_modules/next/dist/docs/`)
+- **Environment:** Production Stripe keys enabled (banking info & KYC verified)
+- **Database:** Supabase RLS policies enforce user isolation
+- **AI:** Claude Opus for plan generation (cost-optimized)
+
+---
+
+## 🎯 Roadmap
+
+- [x] Step 1: Core AI generation + PDF export
+- [x] Step 2: Supabase Auth + user DB
+- [x] Step 3: Usage quotas (Free/Pro)
+- [x] Step 4: Branded PDF output
+- [x] Step 5: Stripe webhook integration
+- [x] Step 6: Vercel deployment
+- [x] Step 7: Landing page optimization
+- [ ] Step 8: Production testing (E2E flows)
+- [ ] Step 9: ProductHunt launch
+
+**Future features:**
+- Shareable plan links with view tracking
+- Mortgage calculator integration
+- Zillow listing integration
+- MLS data syncing (RentCast API)
+
+---
+
+## 🛡️ Security
+
+- `.env.local` excluded from git (see `.gitignore`)
+- Supabase RLS: Users can only access their own plans
+- Stripe webhook signature verification enabled
+- Claude API key server-side only
+- CORS configured for trusted domains
+
+---
+
+## 📞 Support & Contributing
+
+For issues or feature requests, open a GitHub issue. For security concerns, contact the maintainer directly.
+
+---
+
+## 📄 License
+
+Private project. All rights reserved.

@@ -51,7 +51,7 @@ const T = {
     },
     diff: {
       heading: "Built for builders. Not architects.",
-      sub: "HomePlanAI is a sales tool — not a design tool.",
+      sub: "SplanAI is a sales tool — not a design tool.",
       items: [
         { icon: "🗺️", title: "Neighborhood Intelligence", desc: "Auto-fetch nearby schools, safety data, and market rents via Google Maps and RentCast." },
         { icon: "📄", title: "Branded PDF in One Click", desc: "Professional proposals with your logo, room breakdown, and cost estimate. Print-ready." },
@@ -59,7 +59,7 @@ const T = {
       ],
     },
     testimonials: {
-      heading: "Builders close faster with HomePlanAI",
+      heading: "Builders close faster with SplanAI",
       sub: "Trusted across the US",
       items: [
         { name: "James R.", role: "Custom Home Builder · Texas", text: "I used to spend hours sketching plans for client meetings. Now I walk in with 3 AI-generated proposals and close deals on the spot.", stars: 5 },
@@ -75,7 +75,7 @@ const T = {
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
     ctaBanner: { heading: "Ready to close more deals?", sub: "Join home builders using AI floor plans to win clients before the competition.", cta: "Start Free — No Credit Card" },
-    footer: "© 2026 HomePlanAI. Built for home builders.",
+    footer: "© 2026 SplanAI. Built for home builders.",
   },
   es: {
     nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Reseñas", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
@@ -122,7 +122,7 @@ const T = {
     },
     diff: {
       heading: "Hecho para constructores. No para arquitectos.",
-      sub: "HomePlanAI es una herramienta de ventas — no de diseño.",
+      sub: "SplanAI es una herramienta de ventas — no de diseño.",
       items: [
         { icon: "🗺️", title: "Inteligencia de Vecindario", desc: "Escuelas, seguridad y renta del mercado vía Google Maps y RentCast." },
         { icon: "📄", title: "PDF con Tu Marca en Un Clic", desc: "Propuestas profesionales con tu logo, distribución de habitaciones y estimado de costo." },
@@ -130,7 +130,7 @@ const T = {
       ],
     },
     testimonials: {
-      heading: "Constructores cierran más con HomePlanAI",
+      heading: "Constructores cierran más con SplanAI",
       sub: "Utilizado en todo Estados Unidos",
       items: [
         { name: "James R.", role: "Constructor de casas · Texas", text: "Solía pasar horas dibujando planos. Ahora entro con 3 propuestas generadas por IA y cierro contratos en el momento.", stars: 5 },
@@ -146,7 +146,7 @@ const T = {
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
     ctaBanner: { heading: "¿Listo para cerrar más contratos?", sub: "Únete a los constructores que usan planos con IA para ganar clientes.", cta: "Empieza Gratis — Sin Tarjeta" },
-    footer: "© 2026 HomePlanAI. Construido para constructores.",
+    footer: "© 2026 SplanAI. Construido para constructores.",
   },
 } as const;
 
@@ -200,7 +200,7 @@ function HeroPreview() {
         <div className="p-4 bg-slate-50">
           {/* Top bar */}
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-extrabold text-slate-800">HomePlan<span className="text-blue-500">AI</span></span>
+            <span className="text-xs font-extrabold text-slate-800">Splan<span className="text-blue-500">AI</span></span>
             <div className="flex gap-1.5">
               <span className="px-2 py-1 rounded text-xs bg-emerald-100 text-emerald-700 font-semibold border border-emerald-200">Share Link ✓</span>
               <span className="px-2 py-1 rounded text-xs bg-blue-500 text-white font-semibold">PDF</span>
@@ -313,7 +313,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-slate-800/60" style={{ background: "#0F172A" }}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <a href="/" className="text-xl font-extrabold tracking-tight text-white shrink-0">
-            HomePlan<span className="text-blue-400">AI</span>
+            Splan<span className="text-blue-400">AI</span>
           </a>
           <nav className="hidden md:flex items-center gap-7 text-sm text-slate-400">
             <a href="#how" className="hover:text-white transition-colors">{t.nav.how}</a>
@@ -492,7 +492,7 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
               <span className="font-semibold">
-                {lang === "en" ? "HomePlanAI solves all three — in 30 seconds." : "HomePlanAI resuelve los tres — en 30 segundos."}
+                {lang === "en" ? "SplanAI solves all three — in 30 seconds." : "SplanAI resuelve los tres — en 30 segundos."}
               </span>
             </div>
           </div>
@@ -541,7 +541,7 @@ export default function Home() {
               <div className="p-5 bg-slate-50">
                 <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-extrabold text-slate-800">HomePlan<span className="text-blue-500">AI</span></span>
+                    <span className="text-sm font-extrabold text-slate-800">Splan<span className="text-blue-500">AI</span></span>
                     <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">8,500 sqft · $450K · 4 people · Austin, TX</span>
                   </div>
                   <div className="flex gap-2">
@@ -724,7 +724,7 @@ export default function Home() {
       {/* ── 10. Footer ──────────────────────────────────────────────── */}
       <footer className="border-t py-8 px-6" style={{ background: "#0F172A", borderColor: "#1E293B" }}>
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-lg font-extrabold text-white">HomePlan<span className="text-blue-400">AI</span></span>
+          <span className="text-lg font-extrabold text-white">Splan<span className="text-blue-400">AI</span></span>
           <p className="text-sm text-slate-500">{t.footer}</p>
           <div className="flex items-center gap-5 text-sm text-slate-500">
             <a href="#pricing" className="hover:text-slate-300 transition-colors">{t.nav.pricing}</a>

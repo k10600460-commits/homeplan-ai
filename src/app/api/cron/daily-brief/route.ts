@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
 const ADMIN_EMAIL = "k10600460@gmail.com";
-const FROM_EMAIL = "HomePlanAI <noreply@homeplan-ai.com>";
+const FROM_EMAIL = "SplanAI <noreply@homeplan-ai.com>";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
   const { error: sendError } = await resend.emails.send({
     from: FROM_EMAIL,
     to: ADMIN_EMAIL,
-    subject: `HomePlanAI Daily Brief — ${today}`,
+    subject: `SplanAI Daily Brief — ${today}`,
     html,
   });
 
@@ -132,7 +132,7 @@ function buildEmailHtml(stats: {
 
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:32px 40px;">
-      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">HomePlanAI Daily Brief</h1>
+      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">SplanAI Daily Brief</h1>
       <p style="margin:6px 0 0;color:#bfdbfe;font-size:14px;">${date}</p>
     </div>
 
@@ -190,7 +190,7 @@ function buildEmailHtml(stats: {
     <!-- Footer -->
     <div style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
       <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">
-        HomePlanAI · <a href="https://homeplan-ai.vercel.app/dashboard" style="color:#3b82f6;text-decoration:none;">Open Dashboard</a>
+        SplanAI · <a href="https://homeplan-ai.vercel.app/dashboard" style="color:#3b82f6;text-decoration:none;">Open Dashboard</a>
         · Automated by Vercel Cron at 7:00 AM JST
       </p>
     </div>

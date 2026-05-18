@@ -26,11 +26,11 @@ async function sendLimitAlert(service: Service, count: number, type: 'warning' |
 
   const resend = new Resend(resendKey)
   const subject = type === 'warning'
-    ? `[HomePlanAI] ${service} usage warning: ${count} requests`
-    : `[HomePlanAI] ${service} AUTO-STOPPED at ${count} requests`
+    ? `[SplanAI] ${service} usage warning: ${count} requests`
+    : `[SplanAI] ${service} AUTO-STOPPED at ${count} requests`
 
   await resend.emails.send({
-    from: 'HomePlanAI <noreply@homeplan-ai.com>',
+    from: 'SplanAI <noreply@homeplan-ai.com>',
     to: ALERT_EMAIL,
     subject,
     html: `<p>External API usage alert for <strong>${service}</strong>.</p>
