@@ -70,6 +70,127 @@ interface MarketData {
   medianSalePrice?: number | null;
 }
 
+// ── Mortgage calculator ───────────────────────────────────────────────
+interface MortgageInputs {
+  homePrice: number;
+  downPct: number;   // 0-100
+  ratePct: number;   // annual %, e.g. 7.0
+  termYears: number; // 15 or 30
+}
+
+interface MortgageResult {
+  monthlyPayment: number;
+  principal: number;
+  totalInterest: number;
+  totalCost: number;
+  downAmount: number;
+}
+
+function calcMortgage(inputs: MortgageInputs): MortgageResult {
+  const downAmount = inputs.homePrice * (inputs.downPct / 100);
+  const principal  = inputs.homePrice - downAmount;
+  const r          = inputs.ratePct / 100 / 12;
+  const n          = inputs.termYears * 12;
+  const monthly    = r === 0
+    ? principal / n
+    : principal * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+  const totalCost  = monthly * n;
+  return {
+    monthlyPayment: Math.round(monthly),
+    principal:      Math.round(principal),
+    totalInterest:  Math.round(totalCost - principal),
+    totalCost:      Math.round(totalCost),
+    downAmount:     Math.round(downAmount),
+  };
+}
+
+function MortgageCalculator({ homePrice }: { homePrice: number }) {
+  const [downPct, setDownPct]     = useState(20);
+  const [ratePct, setRatePct]     = useState(7.0);
+  const [termYears, setTermYears] = useState(30);
+
+  const result = calcMortgage({ homePrice, downPct, ratePct, termYears });
+  const fmt    = (n: number) => `$${n.toLocaleString()}`;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5 flex items-center gap-2">
+        <span className="text-lg">🏦</span> Mortgage Calculator
+      </h3>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {/* Down payment */}
+        <div>
+          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Down Payment</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="range" min={3} max={50} step={1} value={downPct}
+              onChange={e => setDownPct(Number(e.target.value))}
+              className="flex-1 accent-blue-600"
+            />
+            <span className="text-sm font-bold text-gray-800 w-10 text-right">{downPct}%</span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">{fmt(result.downAmount)}</p>
+        </div>
+
+        {/* Interest rate */}
+        <div>
+          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Interest Rate</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="range" min={3} max={12} step={0.1} value={ratePct}
+              onChange={e => setRatePct(Number(e.target.value))}
+              className="flex-1 accent-blue-600"
+            />
+            <span className="text-sm font-bold text-gray-800 w-12 text-right">{ratePct.toFixed(1)}%</span>
+          </div>
+        </div>
+
+        {/* Loan term */}
+        <div>
+          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Loan Term</label>
+          <div className="flex gap-2">
+            {[15, 20, 30].map(y => (
+              <button
+                key={y}
+                onClick={() => setTermYears(y)}
+                className={`flex-1 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
+                  termYears === y
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "border-gray-200 text-gray-600 hover:border-blue-400"
+                }`}
+              >
+                {y}yr
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Results */}
+      <div className="bg-blue-50 rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="text-center">
+          <p className="text-2xl font-extrabold text-blue-700">{fmt(result.monthlyPayment)}</p>
+          <p className="text-xs text-blue-500 mt-0.5">/ month</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-bold text-gray-800">{fmt(result.principal)}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Loan Amount</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-bold text-gray-800">{fmt(result.totalInterest)}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Total Interest</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-bold text-gray-800">{fmt(result.totalCost)}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Total Cost</p>
+        </div>
+      </div>
+      <p className="text-xs text-gray-300 mt-2 text-right">Estimate only · Taxes & insurance not included</p>
+    </div>
+  );
+}
+
 const PLAN_COLORS: [number, number, number][] = [
   [37, 99, 235],   // blue-600
   [16, 185, 129],  // emerald-500
@@ -615,13 +736,18 @@ export default function Results() {
 
                     <button
                       onClick={(e) => { e.stopPropagation(); handleExportOne(plan); }}
-                      className={`w-full py-3 rounded-xl text-white text-sm font-semibold ${colors.badge} hover:opacity-90 transition-opacity flex items-center justify-center gap-2`}
+                      className={`w-full py-3 rounded-xl text-white text-sm font-semibold ${colors.badge} hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mb-4`}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       Download This Plan as PDF
                     </button>
+
+                    {/* Mortgage calculator — stop propagation so card doesn't toggle */}
+                    <div onClick={e => e.stopPropagation()}>
+                      <MortgageCalculator homePrice={plan.estimatedCost} />
+                    </div>
                   </div>
                 )}
 
