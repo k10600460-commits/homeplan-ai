@@ -539,12 +539,10 @@ export default function Results() {
   }
 
   async function downloadZH(targetPlans: FloorPlan[], filename: string) {
-    const { buildZHHTML } = await import("@/lib/zh-pdf-html");
-    const html = buildZHHTML(targetPlans);
     const res = await fetch("/api/generate-pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ html, language: "zh" }),
+      body: JSON.stringify({ planData: targetPlans, language: "zh" }),
     });
     if (!res.ok) throw new Error("PDF generation failed");
     const blob = await res.blob();
