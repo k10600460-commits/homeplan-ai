@@ -854,17 +854,24 @@ export default function Home() {
               >{t.pricing.pro.cta}</a>
             </div>
             {/* Team */}
-            <div className="bg-white rounded-2xl border-2 border-slate-200 p-7 flex flex-col gap-5 hover:shadow-md transition-shadow">
+            <div className="rounded-2xl p-7 flex flex-col gap-5 relative overflow-hidden shadow-2xl" style={{ background: "#064E3B" }}>
+              <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{ background: "#10B981" }}>
+                ENTERPRISE
+              </div>
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.team.label}</p>
-                <p className="text-4xl font-extrabold mt-2" style={{ color: "#0F172A" }}>
-                  {t.pricing.team.price}<span className="text-base font-medium text-slate-400">{t.pricing.team.period}</span>
+                <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">{t.pricing.team.label}</p>
+                <p className="text-4xl font-extrabold text-white mt-2">
+                  {t.pricing.team.price}<span className="text-base font-medium text-emerald-300/70">{t.pricing.team.period}</span>
                 </p>
-                <p className="text-sm text-slate-400 mt-1">{t.pricing.team.note}</p>
+                <p className="text-sm text-emerald-200/70 mt-1">{t.pricing.team.note}</p>
               </div>
               <ul className="flex flex-col gap-3 flex-1">
                 {t.pricing.team.features.map(f => (
-                  <li key={f} className="flex items-center gap-2.5 text-sm text-slate-600"><Check />{f}</li>
+                  <li key={f} className="flex items-center gap-2.5 text-sm text-emerald-100">
+                    <svg className="w-4 h-4 flex-shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>{f}
+                  </li>
                 ))}
               </ul>
               <button
