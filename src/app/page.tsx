@@ -84,7 +84,7 @@ const T = {
       sub: "Start free. Upgrade when you're ready.",
       free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 floor plan generations / month", "SplanAI branded PDF export", "All room types", "Email support"], cta: "Get started free" },
       pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial · Cancel anytime", badge: "MOST POPULAR", features: ["Unlimited floor plan generations", "Branded PDF with your logo", "Neighborhood & market data", "Client sharing portal + tracking", "MLS lot data connection via Trestle", "Priority support"], cta: "Start 14-day free trial" },
-      team: { label: "Team", price: "$149", period: "/mo", note: "Up to 15 users · Cancel anytime", features: ["Everything in Pro", "Up to 15 team members", "Team dashboard with member KPIs", "White-label PDF (your logo only)", "MLS connection via Trestle", "Dedicated support"], cta: "Contact us" },
+      team: { label: "Team", price: "$149", period: "/mo", note: "5–15 users · Cancel anytime", features: ["Everything in Pro", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF (your logo only, no SplanAI branding)", "MLS connection via Trestle", "Dedicated support"], cta: "Contact us" },
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
     faq: [
@@ -193,7 +193,7 @@ const T = {
       sub: "Empieza gratis. Actualiza cuando estés listo.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
       pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba · Cancela cuando quieras", badge: "MÁS POPULAR", features: ["Generaciones ilimitadas", "PDF con tu logo", "Datos de vecindario y mercado", "Portal para clientes + seguimiento", "Conexión MLS vía Trestle", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
-      team: { label: "Equipo", price: "$149", period: "/mes", note: "Hasta 15 usuarios · Cancela cuando quieras", features: ["Todo lo de Pro", "Hasta 15 miembros del equipo", "Panel de equipo con KPIs", "PDF sin marca (solo tu logo)", "Conexión MLS vía Trestle", "Soporte dedicado"], cta: "Contáctanos" },
+      team: { label: "Equipo", price: "$149", period: "/mes", note: "5–15 usuarios · Cancela cuando quieras", features: ["Todo lo de Pro", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca (solo tu logo, sin SplanAI)", "Conexión MLS vía Trestle", "Soporte dedicado"], cta: "Contáctanos" },
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
     faq: [
@@ -786,12 +786,12 @@ export default function Home() {
 
       {/* ── 8. Pricing ──────────────────────────────────────────────── */}
       <section id="pricing" className="py-20 px-6" style={{ background: "#F8FAFC" }}>
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.pricing.heading}</h2>
             <p className="text-slate-500">{t.pricing.sub}</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {/* Free */}
             <div className="bg-white rounded-2xl border-2 border-slate-200 p-7 flex flex-col gap-5 hover:shadow-md transition-shadow">
               <div>
