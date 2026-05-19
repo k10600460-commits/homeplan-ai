@@ -577,9 +577,6 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-16">
             {t.how.steps.map((step, i) => (
               <div key={step.step} className="relative">
-                {i < t.how.steps.length - 1 && (
-                  <div className="hidden sm:block absolute top-8 left-full w-full h-px border-t-2 border-dashed border-slate-700 z-0" style={{ width: "calc(100% - 48px)", left: "calc(100% - 12px)" }} />
-                )}
                 <div className="relative z-10 flex flex-col gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-extrabold text-white border border-blue-500/40" style={{ background: "rgba(59,130,246,0.15)" }}>
