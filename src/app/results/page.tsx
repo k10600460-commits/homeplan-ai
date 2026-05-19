@@ -203,7 +203,9 @@ const STYLE_COLORS = [
   { bg: "bg-violet-50", border: "border-violet-200", badge: "bg-violet-600", accent: "text-violet-700" },
 ];
 
-async function buildPDF(plans: FloorPlan[], formData: FormData | null): Promise<jsPDF> {
+async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabelOptions?: { enabled: boolean; companyName: string }): Promise<jsPDF> {
+  const whiteLabel = whiteLabelOptions?.enabled ?? false;
+  const companyLabel = whiteLabelOptions?.companyName?.trim() || "Your Builder";
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   const PW = 210;   // page width
@@ -249,7 +251,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null): Promise<
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
       doc.setTextColor(17, 24, 39);
-      doc.text("SplanAI", ML, HEADER_H / 2 + 2);
+      doc.text(whiteLabel ? companyLabel : "SplanAI", ML, HEADER_H / 2 + 2);
     }
 
     // Right side: date + page number in dark grey
@@ -450,8 +452,13 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null): Promise<
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(156, 163, 175);
-    doc.text("Powered by SplanAI · Data: Google Maps + RentCast · splanai.com", ML, PH - 9);
-    doc.text(`© ${new Date().getFullYear()} SplanAI. All rights reserved.`, PW - ML, PH - 9, { align: "right" });
+    if (whiteLabel) {
+      doc.text(companyLabel, ML, PH - 9);
+      doc.text(`© ${new Date().getFullYear()} ${companyLabel}. All rights reserved.`, PW - ML, PH - 9, { align: "right" });
+    } else {
+      doc.text("Powered by SplanAI · Data: Google Maps + RentCast · splanai.com", ML, PH - 9);
+      doc.text(`© ${new Date().getFullYear()} SplanAI. All rights reserved.`, PW - ML, PH - 9, { align: "right" });
+    }
     doc.setFontSize(6);
     doc.setTextColor(180, 180, 180);
     doc.text("For informational purposes only. Data subject to change. Not a substitute for professional architectural or legal advice.", ML, PH - 4);
@@ -473,6 +480,7 @@ export default function Results() {
   const [plans, setPlans] = useState<FloorPlan[]>([]);
   const [formData, setFormData] = useState<FormData | null>(null);
   const [mlsData, setMlsData] = useState<{ attribution?: string; disclaimer?: string; mlsProvider?: string; dataTimestamp?: string } | null>(null);
+  const [whiteLabelOptions, setWhiteLabelOptions] = useState<{ enabled: boolean; companyName: string }>({ enabled: false, companyName: "" });
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfLang, setPdfLang] = useState<PdfLang>('en');
@@ -498,6 +506,15 @@ export default function Results() {
       if (storedForm) setFormData(JSON.parse(storedForm));
       const storedMls = sessionStorage.getItem("mlsData");
       if (storedMls) setMlsData(JSON.parse(storedMls));
+      // Check white-label settings
+      fetch("/api/team/plan")
+        .then(r => r.json())
+        .then((d: { plan: string; companyName: string }) => {
+          if (d.plan === "team") {
+            setWhiteLabelOptions({ enabled: true, companyName: d.companyName });
+          }
+        })
+        .catch(() => {});
 
       if (storedLocation) {
         const loc = JSON.parse(storedLocation) as { city: string; state: string };
@@ -561,8 +578,11 @@ export default function Results() {
       if (pdfLang === "zh") {
         await downloadZH(plans, "SplanAI-Floor-Plans-ZH.pdf");
       } else {
-        const doc = await buildPDF(plans, formData);
-        doc.save("SplanAI-Floor-Plans.pdf");
+        const doc = await buildPDF(plans, formData, whiteLabelOptions);
+        const pdfName = whiteLabelOptions.enabled && whiteLabelOptions.companyName
+          ? `${whiteLabelOptions.companyName.replace(/\s+/g, "-")}-Floor-Plans.pdf`
+          : "SplanAI-Floor-Plans.pdf";
+        doc.save(pdfName);
       }
     } finally {
       setPdfLoading(false);
@@ -574,7 +594,7 @@ export default function Results() {
     if (pdfLang === "zh") {
       await downloadZH([plan], filename);
     } else {
-      const doc = await buildPDF([plan], formData);
+      const doc = await buildPDF([plan], formData, whiteLabelOptions);
       doc.save(filename);
     }
   }

@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 
-// サーバーサイド専用クライアント（SERVICE_ROLE_KEY使用）
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -8,8 +7,9 @@ const supabaseAdmin = createClient(
 
 // ─── プラン設定 ───────────────────────────────
 export const PLAN_LIMITS = {
-  free: { requestsPerMonth: 3,   label: 'フリープラン' },
-  pro:  { requestsPerMonth: 100, label: 'プロプラン ($49/月)' },
+  free: { requestsPerMonth: 3,   label: 'Free Plan' },
+  pro:  { requestsPerMonth: 100, label: 'Pro Plan ($49/mo)' },
+  team: { requestsPerMonth: 100, label: 'Team Plan ($149/mo)' },
 } as const
 
 export type Plan = keyof typeof PLAN_LIMITS
@@ -22,14 +22,29 @@ function getCurrentMonth(): string {
 
 // ─── ユーザーのプラン取得 ──────────────────────
 export async function getUserPlan(userId: string): Promise<Plan> {
-  const { data } = await supabaseAdmin
+  // 1. 直接サブスクリプションを確認
+  const { data: sub } = await supabaseAdmin
     .from('subscriptions')
     .select('plan, status')
     .eq('user_id', userId)
     .single()
 
-  // trialing も pro 扱い（無料トライアル中も全機能利用可能）
-  if ((data?.status === 'active' || data?.status === 'trialing') && data?.plan === 'pro') return 'pro'
+  if (sub?.status === 'active' || sub?.status === 'trialing') {
+    if (sub.plan === 'team') return 'team'
+    if (sub.plan === 'pro')  return 'pro'
+  }
+
+  // 2. team_members テーブルでアクティブメンバーか確認
+  const { data: member } = await supabaseAdmin
+    .from('team_members')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .limit(1)
+    .maybeSingle()
+
+  if (member) return 'team'
+
   return 'free'
 }
 
@@ -75,7 +90,6 @@ export async function recordApiUsage(
   inputTokens:  number,
   outputTokens: number
 ): Promise<void> {
-  // claude-sonnet-4: input $3/1M tokens, output $15/1M tokens
   const costUsd =
     (inputTokens  / 1_000_000) * 3.0 +
     (outputTokens / 1_000_000) * 15.0

@@ -1,4 +1,4 @@
-import { stripe } from "@/lib/stripe";
+import { stripe, planFromPriceId } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
@@ -13,11 +13,8 @@ async function upsertSubscription(
   subscription: Stripe.Subscription,
 ) {
   const item = subscription.items.data[0];
-  // Active or trialing → pro plan; canceled/past_due → free
-  const plan =
-    subscription.status === "active" || subscription.status === "trialing"
-      ? "pro"
-      : "free";
+  const isActive = subscription.status === "active" || subscription.status === "trialing";
+  const plan = isActive ? planFromPriceId(item.price.id) : "free";
 
   const { error: upsertError } = await supabase.from("subscriptions").upsert({
     user_id: userId,

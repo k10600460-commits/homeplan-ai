@@ -86,3 +86,29 @@ export async function sendCancellationEmail(to: string, periodEndDate: string) {
 </div>`,
   }).catch(console.error);
 }
+
+
+export async function sendTeamInviteEmail(to: string, ownerEmail: string, inviteUrl: string) {
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `You've been invited to join a SplanAI Team`,
+    html: `
+<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
+  <h1 style="font-size:24px;font-weight:800;margin-bottom:8px">You're invited to Splan<span style="color:#3b82f6">AI</span> Team 🏠</h1>
+  <p style="color:#475569;margin-bottom:24px"><strong>${ownerEmail}</strong> has invited you to join their SplanAI Team — AI floor plan generation for home builders.</p>
+  <p style="margin-bottom:8px"><strong>With Team access you get:</strong></p>
+  <ul style="color:#475569;padding-left:20px;margin-bottom:24px">
+    <li>Unlimited AI floor plan generations</li>
+    <li>Branded PDF exports with your company logo</li>
+    <li>Client sharing portal &amp; tracking</li>
+    <li>Neighborhood &amp; market data</li>
+    <li>MLS lot data connection</li>
+  </ul>
+  <a href="${inviteUrl}" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Accept Invitation →</a>
+  <p style="margin-top:24px;color:#94a3b8;font-size:13px">This invitation link is unique to you. If you didn't expect this email, you can ignore it.</p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+  <p style="color:#cbd5e1;font-size:12px">© 2026 SplanAI · <a href="${APP_URL}" style="color:#94a3b8">splanai.com</a></p>
+</div>`,
+  }).catch(console.error);
+}

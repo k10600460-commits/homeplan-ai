@@ -28,6 +28,16 @@ interface SharedLink {
   client_name: string | null;
 }
 
+interface TeamMember {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  invited_at: string;
+  joined_at: string | null;
+  planCount: number;
+}
+
 interface Props {
   user: User;
   subscription: Subscription | null;
@@ -71,6 +81,17 @@ export default function DashboardClient({ user, subscription }: Props) {
   const [mlsConnectedAt, setMlsConnectedAt] = useState<string | null>(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [mlsDisconnecting, setMlsDisconnecting] = useState(false);
+
+  // Team state
+  const [userPlan, setUserPlan] = useState<"free" | "pro" | "team">("free");
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [companyName, setCompanyName] = useState("");
+  const [companyNameInput, setCompanyNameInput] = useState("");
+  const [savingCompany, setSavingCompany] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [teamCheckoutLoading, setTeamCheckoutLoading] = useState(false);
   const isPro = subscription?.isActive ?? false;
 
   const supabase = createClient();
@@ -89,6 +110,78 @@ export default function DashboardClient({ user, subscription }: Props) {
       sharedLinksRef.current = data as SharedLink[];
     }
   }, [supabase, user.id]);
+
+  // Load team plan + members
+  useEffect(() => {
+    fetch("/api/team/plan")
+      .then(r => r.json())
+      .then((d: { plan: "free" | "pro" | "team"; companyName: string }) => {
+        setUserPlan(d.plan);
+        setCompanyName(d.companyName);
+        setCompanyNameInput(d.companyName);
+        if (d.plan === "team") loadTeamMembers();
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function loadTeamMembers() {
+    fetch("/api/team/members")
+      .then(r => r.json())
+      .then((d: { members: TeamMember[] }) => setTeamMembers(d.members ?? []))
+      .catch(() => {});
+  }
+
+  async function handleSaveCompanyName() {
+    setSavingCompany(true);
+    await fetch("/api/team/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyName: companyNameInput }),
+    });
+    setCompanyName(companyNameInput);
+    setSavingCompany(false);
+  }
+
+  async function handleInvite() {
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    setInviteMsg(null);
+    const res = await fetch("/api/team/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: inviteEmail }),
+    });
+    const data = await res.json() as { success?: boolean; error?: string };
+    setInviteMsg(data.success
+      ? { ok: true, text: `Invitation sent to ${inviteEmail}` }
+      : { ok: false, text: data.error ?? "Failed to send invitation" }
+    );
+    if (data.success) { setInviteEmail(""); loadTeamMembers(); }
+    setInviting(false);
+  }
+
+  async function handleRemoveMember(memberId: string) {
+    await fetch("/api/team/members", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId }),
+    });
+    loadTeamMembers();
+  }
+
+  async function handleTeamCheckout() {
+    setTeamCheckoutLoading(true);
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) { window.location.href = "/login"; return; }
+    const res = await fetch("/api/stripe/team-checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: authUser.id, email: authUser.email }),
+    });
+    const data = await res.json() as { url?: string };
+    if (data.url) window.location.href = data.url;
+    else setTeamCheckoutLoading(false);
+  }
 
   // Check MLS connection status on mount
   useEffect(() => {
@@ -520,6 +613,113 @@ export default function DashboardClient({ user, subscription }: Props) {
             </div>
           </div>
         </div>
+
+        {/* ── Team Panel ── */}
+        {userPlan === "team" && (
+          <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Team Management</h2>
+
+            {/* Company Name */}
+            <div className="mb-6">
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Company Name <span className="text-gray-300">(shown on white-label PDFs)</span></label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={companyNameInput}
+                  onChange={e => setCompanyNameInput(e.target.value)}
+                  placeholder="e.g. Johnson Home Builders"
+                  maxLength={100}
+                  className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+                />
+                <button
+                  onClick={handleSaveCompanyName}
+                  disabled={savingCompany || companyNameInput === companyName}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors disabled:opacity-40"
+                >
+                  {savingCompany ? "Saving…" : "Save"}
+                </button>
+              </div>
+              {companyName && <p className="text-xs text-emerald-600 mt-1">✓ Set — PDFs will show "{companyName}" instead of SplanAI</p>}
+            </div>
+
+            {/* Invite Member */}
+            <div className="mb-5">
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">
+                Invite Member <span className="text-gray-300">({teamMembers.filter(m => m.status !== "removed").length}/{14} slots used)</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={e => { setInviteEmail(e.target.value); setInviteMsg(null); }}
+                  placeholder="colleague@company.com"
+                  className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+                />
+                <button
+                  onClick={handleInvite}
+                  disabled={!inviteEmail.trim() || inviting}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors disabled:opacity-40"
+                >
+                  {inviting ? "Sending…" : "Send Invite"}
+                </button>
+              </div>
+              {inviteMsg && (
+                <p className={`text-xs mt-1.5 ${inviteMsg.ok ? "text-emerald-600" : "text-red-500"}`}>{inviteMsg.text}</p>
+              )}
+            </div>
+
+            {/* Members List */}
+            {teamMembers.length > 0 && (
+              <div className="space-y-2">
+                {teamMembers.map(m => (
+                  <div key={m.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-800 truncate">{m.email}</p>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                          m.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                        }`}>
+                          {m.status === "active" ? "Active" : "Invited"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {m.status === "active" ? `${m.planCount} plans this month` : `Invited ${timeAgo(m.invited_at)}`}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveMember(m.id)}
+                      className="text-xs text-red-400 hover:text-red-600 shrink-0 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {teamMembers.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-3">No members yet. Invite your team above.</p>
+            )}
+          </div>
+        )}
+
+        {/* Upgrade to Team CTA (for Pro users) */}
+        {userPlan === "pro" && (
+          <div className="mt-6 bg-white rounded-2xl border border-emerald-200 shadow-sm p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-bold text-gray-800">Need team access?</h2>
+                <p className="text-xs text-gray-500 mt-0.5">5–15 users · White-label PDF · Team dashboard · $149/mo</p>
+              </div>
+              <button
+                onClick={handleTeamCheckout}
+                disabled={teamCheckoutLoading}
+                className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 shrink-0"
+              >
+                {teamCheckoutLoading ? "Loading…" : "Upgrade to Team →"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Shared Links panel */}
         <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
