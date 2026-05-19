@@ -567,9 +567,9 @@ export default function Results() {
             New Search
           </button>
 
-          <span className="text-xl font-bold tracking-tight text-gray-900">
+          <a href="https://splanai.com" className="text-xl font-bold tracking-tight text-gray-900 hover:opacity-80 transition-opacity">
             Splan<span className="text-blue-600">AI</span>
-          </span>
+          </a>
 
           <div className="flex items-center gap-2">
             {/* Share with Client */}

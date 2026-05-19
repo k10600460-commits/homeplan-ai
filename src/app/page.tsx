@@ -343,7 +343,7 @@ export default function Home() {
           </div>
           {/* Progress bar */}
           <div className="w-64 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-            <div className="h-full rounded-full bg-blue-500 animate-[loading_28s_ease-in-out_forwards]" style={{ width: "100%" }} />
+            <div className="h-full rounded-full bg-blue-500 animate-[loading_28s_ease-in-out_forwards]" />
           </div>
           <p className="text-slate-500 text-xs">Powered by Claude AI</p>
         </div>
