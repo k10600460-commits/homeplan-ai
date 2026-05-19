@@ -32,6 +32,7 @@ async function upsertSubscription(
     current_period_end: new Date(
       item.current_period_end * 1000,
     ).toISOString(),
+    cancel_at_period_end: subscription.cancel_at_period_end,
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
     if (upsertError) console.error("[webhook] upsert error:", JSON.stringify(upsertError));
@@ -72,7 +73,31 @@ export async function POST(req: NextRequest) {
         break;
       }
 
-      case "customer.subscription.updated":
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const prev = event.data.previous_attributes as Partial<Stripe.Subscription> | undefined;
+        const userId = subscription.metadata?.userId;
+        if (!userId) break;
+        await upsertSubscription(userId, subscription);
+
+        // Send cancellation email when cancel_at_period_end flips to true
+        const justCanceled =
+          subscription.cancel_at_period_end === true &&
+          prev?.cancel_at_period_end === false;
+        if (justCanceled) {
+          const item = subscription.items.data[0];
+          const periodEnd = new Date(item.current_period_end * 1000).toLocaleDateString(
+            "en-US", { year: "numeric", month: "long", day: "numeric" },
+          );
+          const { data: userData } = await supabase.auth.admin.getUserById(userId);
+          if (userData.user?.email) {
+            const { sendCancellationEmail } = await import("@/lib/emails");
+            sendCancellationEmail(userData.user.email, periodEnd).catch(console.error);
+          }
+        }
+        break;
+      }
+
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
         const userId = subscription.metadata?.userId;

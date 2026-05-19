@@ -14,10 +14,11 @@ export default async function DashboardPage() {
   // Fetch subscription status
   const { data: subscription } = await supabase
     .from("subscriptions")
-    .select("status, trial_end, current_period_end, stripe_customer_id")
+    .select("status, trial_end, current_period_end, stripe_customer_id, cancel_at_period_end")
     .eq("user_id", user.id)
     .maybeSingle();
 
+  // cancel_at_period_end users are still "active" until period ends
   const isActive =
     subscription?.status === "active" || subscription?.status === "trialing";
 
@@ -31,6 +32,7 @@ export default async function DashboardPage() {
               trialEnd: subscription.trial_end,
               periodEnd: subscription.current_period_end,
               customerId: subscription.stripe_customer_id,
+              cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
               isActive,
             }
           : null

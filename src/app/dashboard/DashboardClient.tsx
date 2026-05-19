@@ -14,6 +14,7 @@ interface Subscription {
   trialEnd: string | null;
   periodEnd: string | null;
   customerId: string | null;
+  cancelAtPeriodEnd: boolean;
   isActive: boolean;
 }
 
@@ -193,12 +194,24 @@ export default function DashboardClient({ user, subscription }: Props) {
               )}
             </div>
 
+            {/* Cancel-at-period-end banner */}
+            {subscription?.cancelAtPeriodEnd && subscription.periodEnd && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 mb-4">
+                <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-amber-800">
+                  Your plan is active until <span className="font-semibold">{formatDate(subscription.periodEnd)}</span>. Enjoy SplanAI until then!
+                </p>
+              </div>
+            )}
+
             {subscription ? (
               <div className="space-y-2 text-sm text-gray-600 mb-6">
                 {subscription.status === "trialing" && subscription.trialEnd && (
                   <p>Trial ends: <span className="font-medium text-gray-900">{formatDate(subscription.trialEnd)}</span></p>
                 )}
-                {subscription.status === "active" && subscription.periodEnd && (
+                {subscription.status === "active" && subscription.periodEnd && !subscription.cancelAtPeriodEnd && (
                   <p>Next billing: <span className="font-medium text-gray-900">{formatDate(subscription.periodEnd)}</span></p>
                 )}
                 {subscription.status === "past_due" && (
