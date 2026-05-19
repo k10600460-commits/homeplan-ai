@@ -32,9 +32,22 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const existingCustomerId = sub?.stripe_customer_id as string | null | undefined;
+    const rawCustomerId = sub?.stripe_customer_id as string | null | undefined;
     // Skip trial if user already had one (existing subscription record)
     const trialDays = sub ? 0 : TRIAL_PERIOD_DAYS;
+
+    // Verify customer exists in the current Stripe mode (live vs test).
+    // A test-mode customer ID used with a live key throws "no such customer".
+    let liveCustomerId: string | null = null;
+    if (rawCustomerId) {
+      try {
+        const customer = await stripe.customers.retrieve(rawCustomerId);
+        if (!customer.deleted) liveCustomerId = rawCustomerId;
+      } catch {
+        // Customer doesn't exist in this mode — fall back to customer_email
+        console.warn(`[checkout] Customer ${rawCustomerId} not found in current Stripe mode, using email fallback`);
+      }
+    }
 
     const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
       mode: "subscription",
@@ -51,9 +64,8 @@ export async function POST(req: NextRequest) {
       cancel_url: `${appUrl}/?checkout=cancelled`,
     };
 
-    // Use existing customer ID if available, otherwise identify by email
-    if (existingCustomerId) {
-      sessionParams.customer = existingCustomerId;
+    if (liveCustomerId) {
+      sessionParams.customer = liveCustomerId;
     } else {
       sessionParams.customer_email = user.email ?? undefined;
     }
