@@ -836,11 +836,28 @@ export default function Results() {
             <h2 className="text-xl font-bold text-gray-900 mb-1 text-center">
               Neighborhood & Market Data
             </h2>
-            {(neighborhood?.city || market?.city) && (
-              <p className="text-center text-blue-600 font-medium mb-6">
-                {neighborhood?.city || market?.city}, {neighborhood?.state || market?.state}
-              </p>
-            )}
+            {(neighborhood?.city || market?.city) && (() => {
+              const city  = neighborhood?.city  || market?.city  || formData?.city  || "";
+              const state = neighborhood?.state || market?.state || formData?.state || "";
+              const zillowCity  = city.trim().replace(/\s+/g, "-");
+              const zillowUrl   = `https://www.zillow.com/homes/for_sale/${encodeURIComponent(zillowCity)},-${state.trim()}_rb/`;
+              return (
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
+                  <p className="text-blue-600 font-medium">{city}, {state}</p>
+                  <a
+                    href={zillowUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    View lots on Zillow →
+                  </a>
+                </div>
+              );
+            })()}
 
             {/* Approaching-limit warning banner */}
             {(neighborhood?.nearingLimit || market?.nearingLimit) && (
