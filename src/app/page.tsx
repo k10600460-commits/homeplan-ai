@@ -329,16 +329,19 @@ export default function Home() {
 
       {/* ── 1. Nav ───────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-slate-800/60" style={{ background: "#0F172A" }}>
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+        <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          {/* Logo — left */}
           <a href="/" className="text-xl font-extrabold tracking-tight text-white shrink-0">
             Splan<span className="text-blue-400">AI</span>
           </a>
-          <nav className="hidden md:flex items-center gap-7 text-sm text-slate-400">
+          {/* Nav — absolute center */}
+          <nav className="hidden md:flex items-center gap-7 text-sm text-slate-400 absolute left-1/2 -translate-x-1/2">
             <a href="#how" className="hover:text-white transition-colors">{t.nav.how}</a>
             <a href="#pricing" className="hover:text-white transition-colors">{t.nav.pricing}</a>
             <a href="#reviews" className="hover:text-white transition-colors">{t.nav.reviews}</a>
           </nav>
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Right — language / dashboard / CTA */}
+          <div className="flex items-center gap-3 ml-auto shrink-0">
             <button
               onClick={() => setLang(lang === "en" ? "es" : "en")}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs font-semibold text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-colors"
