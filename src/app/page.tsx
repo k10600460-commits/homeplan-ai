@@ -67,7 +67,7 @@ const T = {
       ],
     },
     diff: {
-      heading: "Everything you need to close the deal.",
+      heading: "The sales layer between your lot and the signed contract.",
       sub: "SplanAI is a sales tool — not a design tool.",
       items: [
         { icon: "🗺️", title: "Neighborhood Intelligence", desc: "Auto-fetch nearby schools, safety data, and market rents via Google Maps and RentCast." },
@@ -175,7 +175,7 @@ const T = {
       ],
     },
     diff: {
-      heading: "Todo lo que necesitas para cerrar el contrato.",
+      heading: "La capa de ventas entre tu lote y el contrato firmado.",
       sub: "SplanAI es una herramienta de ventas — no de diseño.",
       items: [
         { icon: "🗺️", title: "Inteligencia de Vecindario", desc: "Escuelas, seguridad y renta del mercado vía Google Maps y RentCast." },
