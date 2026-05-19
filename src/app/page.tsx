@@ -28,6 +28,8 @@ const T = {
       familyOptions: ["1 person", "2 people", "3 people", "4 people", "5 people", "6+ people"],
       cityLabel: "City", cityPlaceholder: "e.g. Austin",
       stateLabel: "State", statePlaceholder: "e.g. TX",
+      streetLabel: "Street Address", streetPlaceholder: "e.g. 1234 Oak Lane, Austin, TX",
+      streetHint: "Optional — adds lot size & zoning data (coming soon)",
       locationNote: "Optional — adds neighborhood & market data",
       cta: "Generate 3 Plans →", generating: "Generating Plans…",
       disclaimer: "No credit card required · 3 free plans included",
@@ -70,10 +72,17 @@ const T = {
     pricing: {
       heading: "Simple, transparent pricing",
       sub: "Start free. Upgrade when you're ready.",
-      free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 floor plan generations / month", "PDF export included", "All room types", "Email support"], cta: "Get started free" },
-      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial · Cancel anytime", badge: "MOST POPULAR", features: ["Unlimited floor plan generations", "Branded PDF with your logo", "Neighborhood & market data", "Client sharing portal + tracking", "Priority support"], cta: "Start 14-day free trial" },
+      free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 floor plan generations / month", "SplanAI branded PDF export", "All room types", "Email support"], cta: "Get started free" },
+      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial · Cancel anytime", badge: "MOST POPULAR", features: ["Unlimited floor plan generations", "Branded PDF with your logo", "Neighborhood & market data", "Client sharing portal + tracking", "MLS lot data sync (coming soon)", "Priority support"], cta: "Start 14-day free trial" },
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
+    faq: [
+      { q: "Is MLS integration legal?", a: "Yes. SplanAI connects to MLS data via the IDX policy framework established by the National Association of Realtors (NAR). Your MLS license is linked to your account, all API calls are logged in our audit system, and data is displayed in real time — never stored or redistributed. We comply with all NAR IDX guidelines and individual MLS board rules." },
+      { q: "What data sources do you use?", a: "SplanAI uses Google Maps (neighborhood places & geocoding), RentCast (market rent and sale price data), Anthropic Claude AI (floor plan generation), and optionally your MLS license for listing data. All sources are listed on your dashboard." },
+      { q: "Is my client data secure?", a: "Yes. All data is stored in a Supabase database with row-level security — only you can access your plans and client links. Shared links expire and can be deactivated anytime. We never sell your data." },
+      { q: "Does it work in my state?", a: "SplanAI works nationwide for AI plan generation and market data. Neighborhood data (Google Maps) is available in all 50 states. MLS connectivity depends on your local MLS board — full coverage map coming soon." },
+      { q: "Can I cancel anytime?", a: "Absolutely. Cancel from your dashboard in one click — no phone calls, no forms. Your Pro access continues until the end of your billing period." },
+    ],
     ctaBanner: { heading: "Ready to close more deals?", sub: "Join home builders using AI floor plans to win clients before the competition.", cta: "Start Free — No Credit Card" },
     footer: "© 2026 SplanAI. Built for home builders.",
   },
@@ -99,6 +108,8 @@ const T = {
       familyOptions: ["1 persona", "2 personas", "3 personas", "4 personas", "5 personas", "6+ personas"],
       cityLabel: "Ciudad", cityPlaceholder: "ej. Austin",
       stateLabel: "Estado", statePlaceholder: "ej. TX",
+      streetLabel: "Dirección", streetPlaceholder: "ej. 1234 Oak Lane, Austin, TX",
+      streetHint: "Opcional — agrega tamaño del lote y zonificación (próximamente)",
       locationNote: "Opcional — agrega datos del vecindario y mercado",
       cta: "Generar 3 Planos →", generating: "Generando Planos…",
       disclaimer: "Sin tarjeta de crédito · 3 planos gratis incluidos",
@@ -141,10 +152,17 @@ const T = {
     pricing: {
       heading: "Precios simples y transparentes",
       sub: "Empieza gratis. Actualiza cuando estés listo.",
-      free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "Exportación PDF incluida", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
-      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba · Cancela cuando quieras", badge: "MÁS POPULAR", features: ["Generaciones ilimitadas", "PDF con tu logo", "Datos de vecindario y mercado", "Portal para clientes + seguimiento", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
+      free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
+      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba · Cancela cuando quieras", badge: "MÁS POPULAR", features: ["Generaciones ilimitadas", "PDF con tu logo", "Datos de vecindario y mercado", "Portal para clientes + seguimiento", "Sincronización MLS (próximamente)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
+    faq: [
+      { q: "¿Es legal la integración MLS?", a: "Sí. SplanAI se conecta a datos MLS bajo el marco de política IDX de la NAR. Tu licencia MLS se vincula a tu cuenta, todas las llamadas API se registran, y los datos se muestran en tiempo real — nunca almacenados ni redistribuidos." },
+      { q: "¿Qué fuentes de datos usa?", a: "Google Maps (vecindario y geocodificación), RentCast (datos de mercado de renta), Anthropic Claude AI (generación de planos) y opcionalmente tu licencia MLS." },
+      { q: "¿Mis datos de clientes son seguros?", a: "Sí. Todos los datos se almacenan con seguridad de nivel de fila en Supabase — solo tú accedes a tus planos y enlaces. Los enlaces compartidos se pueden desactivar en cualquier momento." },
+      { q: "¿Funciona en mi estado?", a: "SplanAI funciona en los 50 estados para generación de planos y datos de mercado. La conectividad MLS depende de tu junta MLS local." },
+      { q: "¿Puedo cancelar en cualquier momento?", a: "Por supuesto. Cancela desde tu panel con un solo clic — sin llamadas telefónicas ni formularios. Tu acceso Pro continúa hasta el final del período de facturación." },
+    ],
     ctaBanner: { heading: "¿Listo para cerrar más contratos?", sub: "Únete a los constructores que usan planos con IA para ganar clientes.", cta: "Empieza Gratis — Sin Tarjeta" },
     footer: "© 2026 SplanAI. Construido para constructores.",
   },
@@ -261,7 +279,7 @@ function HeroPreview() {
 // ── Main Page ─────────────────────────────────────────────────────────
 export default function Home() {
   const router = useRouter();
-  const [form, setForm] = useState({ lotSize: "", budget: "", familySize: "", city: "", state: "" });
+  const [form, setForm] = useState({ lotSize: "", budget: "", familySize: "", city: "", state: "", street: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -352,10 +370,10 @@ export default function Home() {
           <div className="flex flex-col lg:flex-row items-center gap-16">
             {/* Left: copy */}
             <div className="flex-1 text-center lg:text-left max-w-xl mx-auto lg:mx-0">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-6 text-xs font-bold tracking-widest text-blue-300 uppercase bg-blue-500/10 rounded-full border border-blue-500/20">
+              <a href="https://www.producthunt.com/posts/splanai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-1.5 mb-6 text-xs font-bold tracking-widest text-blue-300 uppercase bg-blue-500/10 rounded-full border border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-400 transition-colors cursor-pointer">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                {t.hero.badge}
-              </div>
+                🚀 {t.hero.badge}
+              </a>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-white mb-5">
                 {t.hero.headline1}{" "}
                 <span className="text-blue-400">{t.hero.headline2}</span>
@@ -457,6 +475,13 @@ export default function Home() {
                     placeholder={t.form.statePlaceholder} maxLength={30}
                     className="px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
                 </div>
+              </div>
+              <div className="mt-3">
+                <label className="text-xs font-semibold text-slate-400">{t.form.streetLabel}</label>
+                <input type="text" name="street" value={form.street} onChange={handleChange}
+                  placeholder={t.form.streetPlaceholder} maxLength={120}
+                  className="w-full mt-1.5 px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
+                <p className="text-xs text-slate-300 mt-1">{t.form.streetHint}</p>
               </div>
             </div>
             {error && <p className="mt-4 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-2.5 border border-red-100">{error}</p>}
@@ -568,7 +593,7 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-                <div className="grid grid-cols-4 gap-2 mb-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                   {[
                     { icon: "🏫", label: "Schools", val: "★ 8.4/10", bg: "#EFF6FF", border: "#DBEAFE", text: "#1D4ED8" },
                     { icon: "🛡️", label: "Safety", val: "High", bg: "#F0FDF4", border: "#BBF7D0", text: "#15803D" },
@@ -673,7 +698,29 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 8. Testimonials ─────────────────────────────────────────── */}
+      {/* ── 8. FAQ ──────────────────────────────────────────────────── */}
+      <section className="py-20 px-6 bg-white">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>Frequently Asked Questions</h2>
+          </div>
+          <div className="space-y-4">
+            {t.faq.map((item) => (
+              <details key={item.q} className="group rounded-2xl border-2 border-slate-100 hover:border-blue-100 transition-colors overflow-hidden">
+                <summary className="flex items-center justify-between gap-4 px-6 py-5 cursor-pointer list-none font-semibold text-slate-800 text-sm sm:text-base select-none">
+                  {item.q}
+                  <svg className="w-5 h-5 text-slate-400 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <p className="px-6 pb-5 text-sm text-slate-500 leading-relaxed border-t border-slate-100 pt-4">{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 9. Testimonials ─────────────────────────────────────────── */}
       <section id="reviews" className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">

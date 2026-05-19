@@ -147,6 +147,13 @@ Ensure all 3 plans are different architectural styles and each fits within the $
     const outputTokens = response.usage.output_tokens;
     recordApiUsage(user.id, inputTokens, outputTokens).catch(console.error);
 
+    // ── First-plan follow-up email (non-blocking) ─────────────
+    if (usageCheck.current === 1 && user.email) {
+      import("@/lib/emails").then(({ sendFirstPlanFollowupEmail }) => {
+        sendFirstPlanFollowupEmail(user.email!).catch(console.error);
+      });
+    }
+
     return NextResponse.json({
       plans: data.plans,
       usage: {

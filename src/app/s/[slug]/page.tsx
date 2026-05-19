@@ -34,6 +34,7 @@ export default async function SharePage({ params }: Props) {
       slug={slug}
       plans={link.plans}
       clientName={link.client_name ?? null}
+      expiresAt={link.expires_at ?? null}
     />
   )
 }

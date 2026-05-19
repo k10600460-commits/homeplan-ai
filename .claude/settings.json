@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(python3 -c \"import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))\" 2>/dev/null); [[ \"$file\" =~ \\.(ts|tsx)$ ]] && cd /Users/Shoji.S/homeplan-ai && npx eslint \"$file\" --max-warnings=0 2>&1 | tail -30 || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(python3 -c \"import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))\" 2>/dev/null); [[ \"$file\" == *\".env.local\"* ]] && echo 'BLOCKED: .env.local is protected — edit manually to avoid exposing live keys' && exit 2 || true"
+          }
+        ]
+      }
+    ]
+  }
+}

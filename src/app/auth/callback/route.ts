@@ -32,6 +32,10 @@ export async function GET(request: NextRequest) {
     if (!error && data.user) {
       // New sign-up confirmed via email → redirect to Stripe checkout
       const isNewUser = data.user.created_at === data.user.last_sign_in_at;
+      if (isNewUser && data.user.email) {
+        const { sendWelcomeEmail } = await import("@/lib/emails");
+        sendWelcomeEmail(data.user.email).catch(console.error);
+      }
       if (isNewUser) {
         const checkoutRes = await fetch(`${origin}/api/stripe/checkout`, {
           method: "POST",

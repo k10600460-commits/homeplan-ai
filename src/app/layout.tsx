@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     title: "SplanAI — AI Floor Plan Generator for Home Builders",
     description:
       "Turn any lot into 3 custom floor plan proposals in 30 seconds. Close more deals with polished PDF proposals.",
-    images: [{ url: "https://splanai.com/og-image.png" }],
+    images: [{ url: "https://splanai.com/og-image.png", width: 1200, height: 630, alt: "SplanAI — AI Floor Plans for Home Builders" }],
   },
   twitter: {
     card: "summary_large_image",

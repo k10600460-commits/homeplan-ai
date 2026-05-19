@@ -220,7 +220,7 @@ export default function DashboardClient({ user, subscription }: Props) {
                 disabled={portalLoading}
                 className="w-full py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 text-sm font-semibold hover:border-gray-300 hover:bg-gray-50 transition-all disabled:opacity-50"
               >
-                {portalLoading ? "Loading…" : "Manage Billing"}
+                {portalLoading ? "Loading…" : "Manage Billing & Cancel"}
               </button>
             ) : (
               <button
@@ -270,14 +270,92 @@ export default function DashboardClient({ user, subscription }: Props) {
           </div>
         </div>
 
+        {/* Connect Data Sources */}
+        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">
+            Connect Data Sources
+          </h2>
+          <div className="space-y-3">
+            {/* Google Maps — connected */}
+            <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-100">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">🗺️</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Google Maps</p>
+                  <p className="text-xs text-gray-500">Places & geocoding</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ Connected</span>
+            </div>
+            {/* RentCast — connected */}
+            <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-100">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">📊</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">RentCast</p>
+                  <p className="text-xs text-gray-500">Market rent & sale price data</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ Connected</span>
+            </div>
+            {/* MLS ID — coming soon */}
+            <div className="px-4 py-3 rounded-xl bg-gray-50 border border-dashed border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg opacity-50">🏠</span>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-500">MLS ID</p>
+                    <p className="text-xs text-gray-400">Connect your MLS license for real listing data</p>
+                  </div>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-400">Coming soon</span>
+              </div>
+              <input
+                type="text"
+                disabled
+                placeholder="Enter your MLS ID (e.g. ABOR-12345)"
+                className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-400 placeholder-gray-300 bg-gray-100 cursor-not-allowed"
+              />
+              <p className="text-xs text-gray-300 mt-1.5">NAR IDX compliant · All API calls logged · Revoke anytime</p>
+            </div>
+            {/* Zoning Data — coming soon */}
+            <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-gray-50 border border-dashed border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="text-lg opacity-50">🏛️</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-500">Zoning Data</p>
+                  <p className="text-xs text-gray-400">Powered by Zoneomics</p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-400">Coming soon</span>
+            </div>
+            {/* Parcel Data — coming soon */}
+            <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-gray-50 border border-dashed border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="text-lg opacity-50">📐</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-500">Parcel Data</p>
+                  <p className="text-xs text-gray-400">Lot boundaries & ownership · Powered by Regrid</p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-400">Coming soon</span>
+            </div>
+          </div>
+        </div>
+
         {/* Shared Links panel */}
         <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
-              Shared Client Links
+              Client Activity
             </h2>
             {sharedLinks.length > 0 && (
-              <span className="text-xs text-gray-400">{sharedLinks.length} link{sharedLinks.length !== 1 ? "s" : ""}</span>
+              <div className="flex items-center gap-3 text-xs text-gray-400">
+                <span>{sharedLinks.length} link{sharedLinks.length !== 1 ? "s" : ""}</span>
+                <span className="font-semibold text-blue-600">
+                  {sharedLinks.reduce((s, l) => s + l.view_count, 0)} total views
+                </span>
+              </div>
             )}
           </div>
 
