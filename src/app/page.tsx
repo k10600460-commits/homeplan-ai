@@ -775,10 +775,13 @@ export default function Home() {
 
       {/* ── 10. Footer ──────────────────────────────────────────────── */}
       <footer className="border-t py-8 px-6" style={{ background: "#0F172A", borderColor: "#1E293B" }}>
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-lg font-extrabold text-white">Splan<span className="text-blue-400">AI</span></span>
-          <p className="text-sm text-slate-500">{t.footer}</p>
-          <div className="flex items-center gap-5 text-sm text-slate-500">
+        <div className="relative max-w-5xl mx-auto flex items-center justify-between">
+          {/* Left — Logo */}
+          <span className="text-lg font-extrabold text-white shrink-0">Splan<span className="text-blue-400">AI</span></span>
+          {/* Center — copyright, absolute so it's truly centered */}
+          <p className="absolute left-1/2 -translate-x-1/2 text-sm text-slate-500 text-center whitespace-nowrap">{t.footer}</p>
+          {/* Right — nav links */}
+          <div className="flex items-center gap-5 text-sm text-slate-500 ml-auto shrink-0">
             <a href="#pricing" className="hover:text-slate-300 transition-colors">{t.nav.pricing}</a>
             <a href="/login" className="hover:text-slate-300 transition-colors">{t.nav.signin}</a>
             <a href="/dashboard" className="hover:text-slate-300 transition-colors">{t.nav.dashboard}</a>
