@@ -92,6 +92,7 @@ export default function DashboardClient({ user, subscription }: Props) {
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [teamCheckoutLoading, setTeamCheckoutLoading] = useState(false);
+  const [teamCheckoutError, setTeamCheckoutError] = useState("");
   const isPro = subscription?.isActive ?? false;
 
   const supabase = createClient();
@@ -171,16 +172,24 @@ export default function DashboardClient({ user, subscription }: Props) {
 
   async function handleTeamCheckout() {
     setTeamCheckoutLoading(true);
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (!authUser) { window.location.href = "/login"; return; }
-    const res = await fetch("/api/stripe/team-checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: authUser.id, email: authUser.email }),
-    });
-    const data = await res.json() as { url?: string };
-    if (data.url) window.location.href = data.url;
-    else setTeamCheckoutLoading(false);
+    setTeamCheckoutError("");
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "team" }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setTeamCheckoutError(data.error ?? "Failed to start checkout. Please try again.");
+        setTeamCheckoutLoading(false);
+      }
+    } catch {
+      setTeamCheckoutError("Network error. Please try again.");
+      setTeamCheckoutLoading(false);
+    }
   }
 
   // Check MLS connection status on mount
@@ -715,9 +724,12 @@ export default function DashboardClient({ user, subscription }: Props) {
                 disabled={teamCheckoutLoading}
                 className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 shrink-0"
               >
-                {teamCheckoutLoading ? "Loading…" : "Upgrade to Team →"}
+                {teamCheckoutLoading ? "Redirecting…" : "Upgrade to Team →"}
               </button>
             </div>
+            {teamCheckoutError && (
+              <p className="mt-2 text-xs text-red-600">{teamCheckoutError}</p>
+            )}
           </div>
         )}
 

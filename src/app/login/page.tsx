@@ -21,6 +21,7 @@ export default function LoginPage() {
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const planParam = searchParams.get("plan"); // "team" | "pro" | null
   const initialTab: Tab = searchParams.get("tab") === "signup" ? "signup" : "signin";
 
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -45,8 +46,13 @@ function LoginContent() {
       return;
     }
 
-    router.push("/dashboard");
-    router.refresh();
+    // If plan param set, go to checkout instead of dashboard
+    if (planParam === "team" || planParam === "pro") {
+      await startCheckout(planParam);
+    } else {
+      router.push("/dashboard");
+      router.refresh();
+    }
   }
 
   async function handleSignUp(e: React.FormEvent) {
@@ -71,7 +77,7 @@ function LoginContent() {
 
     // If session is returned immediately (email confirmation disabled), go to checkout
     if (data.session) {
-      await startCheckout(data.session.user.id, email);
+      await startCheckout(planParam === "team" ? "team" : "pro");
       return;
     }
 
@@ -80,19 +86,19 @@ function LoginContent() {
     setLoading(false);
   }
 
-  async function startCheckout(userId: string, userEmail: string) {
-    const res = await fetch("/api/stripe/checkout", {
+  async function startCheckout(plan: string = "pro") {
+    const res = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, email: userEmail }),
+      body: JSON.stringify({ plan }),
     });
 
-    const data = await res.json();
+    const data = await res.json() as { url?: string; error?: string };
 
     if (data.url) {
       window.location.href = data.url;
     } else {
-      setError("Failed to start checkout. Please try again.");
+      setError(data.error ?? "Failed to start checkout. Please try again.");
       setLoading(false);
     }
   }

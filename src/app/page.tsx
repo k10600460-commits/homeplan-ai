@@ -432,6 +432,23 @@ export default function Home() {
 
   const isValid = form.lotSize && form.budget && form.familySize;
 
+  const [teamCheckoutLoading, setTeamCheckoutLoading] = useState(false);
+  async function handleLPTeamCTA() {
+    if (!userEmail) { window.location.href = "/login?plan=team"; return; }
+    setTeamCheckoutLoading(true);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "team" }),
+      });
+      const data = await res.json() as { url?: string };
+      if (data.url) { window.location.href = data.url; return; }
+    } catch { /* fall through */ }
+    window.location.href = "/login?plan=team";
+    setTeamCheckoutLoading(false);
+  }
+
   return (
     <div className="flex flex-col min-h-screen" style={{ background: "#F8FAFC", color: "#1E293B" }}>
 
@@ -850,11 +867,14 @@ export default function Home() {
                   <li key={f} className="flex items-center gap-2.5 text-sm text-slate-600"><Check />{f}</li>
                 ))}
               </ul>
-              <a href="/login?plan=team" className="block text-center py-3 rounded-xl font-bold text-white transition-colors shadow-lg text-sm"
+              <button
+                onClick={handleLPTeamCTA}
+                disabled={teamCheckoutLoading}
+                className="block w-full text-center py-3 rounded-xl font-bold text-white transition-colors shadow-lg text-sm disabled:opacity-60"
                 style={{ background: "#10B981" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "#059669")}
-                onMouseLeave={e => (e.currentTarget.style.background = "#10B981")}
-              >{t.pricing.team.cta}</a>
+                onMouseEnter={e => { if (!teamCheckoutLoading) (e.currentTarget as HTMLButtonElement).style.background = "#059669"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#10B981"; }}
+              >{teamCheckoutLoading ? "Redirecting…" : t.pricing.team.cta}</button>
             </div>
           </div>
           <p className="mt-8 text-sm text-center text-slate-400">{t.pricing.footer}</p>
