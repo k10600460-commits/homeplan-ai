@@ -316,12 +316,31 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt }
     }).catch(() => {});
   }, [slug]);
 
+  async function downloadZH(targetPlans: FloorPlan[], filename: string) {
+    const { buildZHHTML } = await import("@/lib/zh-pdf-html");
+    const html = buildZHHTML(targetPlans);
+    const res = await fetch("/api/generate-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html, language: "zh" }),
+    });
+    if (!res.ok) throw new Error("PDF generation failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleDownloadAll() {
     setPdfLoading(true);
     try {
-      const doc = await buildPDF(plans, lang);
-      doc.save("SplanAI-Floor-Plans.pdf");
-      // Record event
+      if (lang === "zh") {
+        await downloadZH(plans, "SplanAI-Floor-Plans-ZH.pdf");
+      } else {
+        const doc = await buildPDF(plans, lang);
+        doc.save("SplanAI-Floor-Plans.pdf");
+      }
       fetch("/api/share/event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -333,8 +352,13 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt }
   }
 
   async function handleDownloadOne(plan: FloorPlan) {
-    const doc = await buildPDF([plan], lang);
-    doc.save(`SplanAI-${plan.name.replace(/\s+/g, "-")}.pdf`);
+    const filename = `SplanAI-${plan.name.replace(/\s+/g, "-")}${lang === "zh" ? "-ZH" : ""}.pdf`;
+    if (lang === "zh") {
+      await downloadZH([plan], filename);
+    } else {
+      const doc = await buildPDF([plan], lang);
+      doc.save(filename);
+    }
     fetch("/api/share/event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Large font files — download separately (see step25-zh-pdf.md)
+public/fonts/*.woff2

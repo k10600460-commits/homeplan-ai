@@ -460,12 +460,21 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null): Promise<
   return doc;
 }
 
+type PdfLang = 'en' | 'es' | 'zh';
+const PDF_LANG_CYCLE: PdfLang[] = ['en', 'es', 'zh'];
+const PDF_LANG_META: Record<PdfLang, { flag: string; label: string }> = {
+  en: { flag: '🇺🇸', label: 'EN' },
+  es: { flag: '🇲🇽', label: 'ES' },
+  zh: { flag: '🇨🇳', label: '中文' },
+};
+
 export default function Results() {
   const router = useRouter();
   const [plans, setPlans] = useState<FloorPlan[]>([]);
   const [formData, setFormData] = useState<FormData | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfLang, setPdfLang] = useState<PdfLang>('en');
   const [neighborhood, setNeighborhood] = useState<NeighborhoodData | null>(null);
   const [market, setMarket] = useState<MarketData | null>(null);
   const [neighborhoodLoading, setNeighborhoodLoading] = useState(false);
@@ -529,19 +538,44 @@ export default function Results() {
     setTimeout(() => setShareCopied(false), 2000);
   }
 
+  async function downloadZH(targetPlans: FloorPlan[], filename: string) {
+    const { buildZHHTML } = await import("@/lib/zh-pdf-html");
+    const html = buildZHHTML(targetPlans);
+    const res = await fetch("/api/generate-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html, language: "zh" }),
+    });
+    if (!res.ok) throw new Error("PDF generation failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleExportAll() {
     setPdfLoading(true);
     try {
-      const doc = await buildPDF(plans, formData);
-      doc.save("SplanAI-Floor-Plans.pdf");
+      if (pdfLang === "zh") {
+        await downloadZH(plans, "SplanAI-Floor-Plans-ZH.pdf");
+      } else {
+        const doc = await buildPDF(plans, formData);
+        doc.save("SplanAI-Floor-Plans.pdf");
+      }
     } finally {
       setPdfLoading(false);
     }
   }
 
   async function handleExportOne(plan: FloorPlan) {
-    const doc = await buildPDF([plan], formData);
-    doc.save(`SplanAI-${plan.name.replace(/\s+/g, "-")}.pdf`);
+    const filename = `SplanAI-${plan.name.replace(/\s+/g, "-")}${pdfLang === "zh" ? "-ZH" : ""}.pdf`;
+    if (pdfLang === "zh") {
+      await downloadZH([plan], filename);
+    } else {
+      const doc = await buildPDF([plan], formData);
+      doc.save(filename);
+    }
   }
 
   if (plans.length === 0) {
@@ -619,6 +653,15 @@ export default function Results() {
               </div>
             )}
 
+            {/* PDF language cycle button */}
+            <button
+              onClick={() => setPdfLang(PDF_LANG_CYCLE[(PDF_LANG_CYCLE.indexOf(pdfLang) + 1) % PDF_LANG_CYCLE.length])}
+              className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+              title="PDF language"
+            >
+              <span>{PDF_LANG_META[PDF_LANG_CYCLE[(PDF_LANG_CYCLE.indexOf(pdfLang) + 1) % PDF_LANG_CYCLE.length]].flag}</span>
+              <span className="hidden sm:inline">{PDF_LANG_META[pdfLang].label} PDF</span>
+            </button>
             <button
               onClick={handleExportAll}
               disabled={pdfLoading}
