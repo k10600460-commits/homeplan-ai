@@ -177,7 +177,7 @@ function buildDocDefinition(plans: PlanData[], defaultFont: string): object {
 
 async function generatePdfBuffer(docDef: object, fonts: Record<string, object>): Promise<Buffer> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const PdfPrinter = require('pdfmake/src/printer');
+  const PdfPrinter = require('pdfmake/js/Printer').default;
   const printer = new PdfPrinter(fonts);
   const pdfDoc = printer.createPdfKitDocument(docDef);
 
