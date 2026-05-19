@@ -50,6 +50,9 @@ function formatDate(iso: string | null) {
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://homeplan-ai.vercel.app";
 
+// ── MLS connection state ──────────────────────────────────────────────────────
+type MlsStatus = "idle" | "connected" | "connecting" | "error";
+
 export default function DashboardClient({ user, subscription }: Props) {
   const router = useRouter();
   const [portalLoading, setPortalLoading] = useState(false);
@@ -58,6 +61,17 @@ export default function DashboardClient({ user, subscription }: Props) {
   const [sharedLinks, setSharedLinks] = useState<SharedLink[]>([]);
   const [newViewAlert, setNewViewAlert] = useState<string | null>(null);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+
+  // MLS state
+  const [mlsStatus, setMlsStatus] = useState<MlsStatus>("idle");
+  const [mlsClientId, setMlsClientId] = useState("");
+  const [mlsClientSecret, setMlsClientSecret] = useState("");
+  const [mlsAgreed, setMlsAgreed] = useState(false);
+  const [mlsError, setMlsError] = useState<string | null>(null);
+  const [mlsConnectedAt, setMlsConnectedAt] = useState<string | null>(null);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [mlsDisconnecting, setMlsDisconnecting] = useState(false);
+  const isPro = subscription?.isActive ?? false;
 
   const supabase = createClient();
   // Ref so the Realtime callback always sees the latest links (avoids stale closure)
@@ -75,6 +89,58 @@ export default function DashboardClient({ user, subscription }: Props) {
       sharedLinksRef.current = data as SharedLink[];
     }
   }, [supabase, user.id]);
+
+  // Check MLS connection status on mount
+  useEffect(() => {
+    fetch("/api/mls/status")
+      .then(r => r.json())
+      .then((d: { connected: boolean; connectedAt?: string }) => {
+        if (d.connected) {
+          setMlsStatus("connected");
+          setMlsConnectedAt(d.connectedAt ?? null);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleMlsConnect() {
+    setMlsError(null);
+    setMlsStatus("connecting");
+    try {
+      const res = await fetch("/api/mls/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: mlsClientId,
+          clientSecret: mlsClientSecret,
+          agreedToTerms: mlsAgreed,
+        }),
+      });
+      const data = await res.json() as { success?: boolean; error?: string; expiresAt?: string };
+      if (!res.ok) throw new Error(data.error ?? "Connection failed");
+      setMlsStatus("connected");
+      setMlsConnectedAt(new Date().toISOString());
+      setMlsClientId("");
+      setMlsClientSecret("");
+    } catch (err) {
+      setMlsStatus("error");
+      setMlsError(err instanceof Error ? err.message : "Connection failed");
+    }
+  }
+
+  async function handleMlsDisconnect() {
+    setShowDisconnectConfirm(false);
+    setMlsDisconnecting(true);
+    try {
+      await fetch("/api/mls/disconnect", { method: "POST" });
+      setMlsStatus("idle");
+      setMlsConnectedAt(null);
+    } catch {
+      // revert — keep connected
+    } finally {
+      setMlsDisconnecting(false);
+    }
+  }
 
   useEffect(() => {
     loadSharedLinks();
@@ -289,6 +355,136 @@ export default function DashboardClient({ user, subscription }: Props) {
             Connect Data Sources
           </h2>
           <div className="space-y-3">
+
+            {/* ── MLS via Trestle (top / most important) ── */}
+            <div className={`rounded-xl border-2 p-4 ${mlsStatus === "connected" ? "bg-emerald-50 border-emerald-200" : "bg-white border-gray-200"}`}>
+              <div className="flex items-center justify-between gap-4 mb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🏠</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-gray-800">MLS via Trestle</p>
+                      {!isPro && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Pro</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">Real lot data from 500+ MLS boards nationwide</p>
+                  </div>
+                </div>
+                {mlsStatus === "connected" && (
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 shrink-0">✓ Connected</span>
+                )}
+              </div>
+
+              {/* Connected state */}
+              {mlsStatus === "connected" && (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-emerald-700">
+                    MLS data active · {mlsConnectedAt ? `Connected ${formatDate(mlsConnectedAt)}` : ""}
+                  </p>
+                  {!showDisconnectConfirm ? (
+                    <button
+                      onClick={() => setShowDisconnectConfirm(true)}
+                      className="text-xs text-red-500 hover:text-red-700 font-semibold underline transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Are you sure?</span>
+                      <button
+                        onClick={handleMlsDisconnect}
+                        disabled={mlsDisconnecting}
+                        className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {mlsDisconnecting ? "Disconnecting…" : "Yes, disconnect"}
+                      </button>
+                      <button
+                        onClick={() => setShowDisconnectConfirm(false)}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Not connected — Pro only */}
+              {mlsStatus !== "connected" && isPro && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 block mb-1">Trestle Client ID</label>
+                      <input
+                        type="text"
+                        value={mlsClientId}
+                        onChange={e => setMlsClientId(e.target.value)}
+                        placeholder="e.g. your-client-id"
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 block mb-1">Trestle Client Secret</label>
+                      <input
+                        type="password"
+                        value={mlsClientSecret}
+                        onChange={e => setMlsClientSecret(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={mlsAgreed}
+                      onChange={e => setMlsAgreed(e.target.checked)}
+                      className="mt-0.5 accent-blue-600 shrink-0"
+                    />
+                    <span className="text-xs text-gray-500 leading-relaxed">
+                      I agree to use MLS data in compliance with IDX policy. Data is for display purposes only and may not be stored or redistributed. I confirm I hold a valid MLS license.
+                    </span>
+                  </label>
+                  {mlsError && (
+                    <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-100">{mlsError}</p>
+                  )}
+                  <div className="flex items-center justify-between gap-3">
+                    <a
+                      href="https://trestle.corelogic.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      How to get Trestle API credentials →
+                    </a>
+                    <button
+                      onClick={handleMlsConnect}
+                      disabled={!mlsClientId || !mlsClientSecret || !mlsAgreed || mlsStatus === "connecting"}
+                      className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {mlsStatus === "connecting" ? "Connecting…" : "Connect MLS via Trestle"}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400">NAR IDX compliant · All API calls logged · Revoke anytime</p>
+                </div>
+              )}
+
+              {/* Not connected — Free plan lock */}
+              {mlsStatus !== "connected" && !isPro && (
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <p className="text-xs text-gray-400">Upgrade to Pro to connect your MLS license.</p>
+                  <button
+                    onClick={handleSubscribe}
+                    disabled={checkoutLoading}
+                    className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    Upgrade to Pro →
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Google Maps — connected */}
             <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-100">
               <div className="flex items-center gap-3">
@@ -311,26 +507,6 @@ export default function DashboardClient({ user, subscription }: Props) {
               </div>
               <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ Connected</span>
             </div>
-            {/* MLS ID — coming soon */}
-            <div className="px-4 py-3 rounded-xl bg-gray-50 border border-dashed border-gray-200">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg opacity-50">🏠</span>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500">MLS ID</p>
-                    <p className="text-xs text-gray-400">Connect your MLS license for real listing data</p>
-                  </div>
-                </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-400">Coming soon</span>
-              </div>
-              <input
-                type="text"
-                disabled
-                placeholder="Enter your MLS ID (e.g. ABOR-12345)"
-                className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-400 placeholder-gray-300 bg-gray-100 cursor-not-allowed"
-              />
-              <p className="text-xs text-gray-300 mt-1.5">NAR IDX compliant · All API calls logged · Revoke anytime</p>
-            </div>
             {/* Zoning Data — coming soon */}
             <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-gray-50 border border-dashed border-gray-200">
               <div className="flex items-center gap-3">
@@ -338,17 +514,6 @@ export default function DashboardClient({ user, subscription }: Props) {
                 <div>
                   <p className="text-sm font-semibold text-gray-500">Zoning Data</p>
                   <p className="text-xs text-gray-400">Powered by Zoneomics</p>
-                </div>
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-400">Coming soon</span>
-            </div>
-            {/* Parcel Data — coming soon */}
-            <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-gray-50 border border-dashed border-gray-200">
-              <div className="flex items-center gap-3">
-                <span className="text-lg opacity-50">📐</span>
-                <div>
-                  <p className="text-sm font-semibold text-gray-500">Parcel Data</p>
-                  <p className="text-xs text-gray-400">Lot boundaries & ownership · Powered by Regrid</p>
                 </div>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-400">Coming soon</span>

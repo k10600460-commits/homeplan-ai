@@ -472,6 +472,7 @@ export default function Results() {
   const router = useRouter();
   const [plans, setPlans] = useState<FloorPlan[]>([]);
   const [formData, setFormData] = useState<FormData | null>(null);
+  const [mlsData, setMlsData] = useState<{ attribution?: string; disclaimer?: string; mlsProvider?: string; dataTimestamp?: string } | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfLang, setPdfLang] = useState<PdfLang>('en');
@@ -495,6 +496,8 @@ export default function Results() {
     try {
       setPlans(JSON.parse(stored));
       if (storedForm) setFormData(JSON.parse(storedForm));
+      const storedMls = sessionStorage.getItem("mlsData");
+      if (storedMls) setMlsData(JSON.parse(storedMls));
 
       if (storedLocation) {
         const loc = JSON.parse(storedLocation) as { city: string; state: string };
@@ -691,6 +694,21 @@ export default function Results() {
               ${Number(formData.budget).toLocaleString()} budget &nbsp;·&nbsp;
               {formData.familySize} {Number(formData.familySize) === 1 ? "person" : "people"}
             </p>
+          )}
+          {/* MLS badge + attribution */}
+          {mlsData && (
+            <div className="mt-3 flex flex-col items-center gap-1">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
+                🔗 MLS Connected
+              </span>
+              <p className="text-xs text-gray-400 max-w-lg">
+                {mlsData.attribution ?? "MLS data provided in real-time via Trestle."}
+                {mlsData.dataTimestamp && ` · Data updated: ${new Date(mlsData.dataTimestamp).toLocaleString()}`}
+              </p>
+              <p className="text-xs text-gray-300 max-w-lg">
+                {mlsData.disclaimer ?? "For personal, non-commercial use only. Information deemed reliable but not guaranteed."}
+              </p>
+            </div>
           )}
         </div>
 

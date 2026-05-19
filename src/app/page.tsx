@@ -83,7 +83,8 @@ const T = {
       heading: "Simple, transparent pricing",
       sub: "Start free. Upgrade when you're ready.",
       free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 floor plan generations / month", "SplanAI branded PDF export", "All room types", "Email support"], cta: "Get started free" },
-      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial · Cancel anytime", badge: "MOST POPULAR", features: ["Unlimited floor plan generations", "Branded PDF with your logo", "Neighborhood & market data", "Client sharing portal + tracking", "MLS lot data sync (coming soon)", "Priority support"], cta: "Start 14-day free trial" },
+      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial · Cancel anytime", badge: "MOST POPULAR", features: ["Unlimited floor plan generations", "Branded PDF with your logo", "Neighborhood & market data", "Client sharing portal + tracking", "MLS lot data connection via Trestle", "Priority support"], cta: "Start 14-day free trial" },
+      team: { label: "Team", price: "$149", period: "/mo", note: "Up to 15 users · Cancel anytime", features: ["Everything in Pro", "Up to 15 team members", "Team dashboard with member KPIs", "White-label PDF (your logo only)", "MLS connection via Trestle", "Dedicated support"], cta: "Contact us" },
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
     faq: [
@@ -191,7 +192,8 @@ const T = {
       heading: "Precios simples y transparentes",
       sub: "Empieza gratis. Actualiza cuando estés listo.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
-      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba · Cancela cuando quieras", badge: "MÁS POPULAR", features: ["Generaciones ilimitadas", "PDF con tu logo", "Datos de vecindario y mercado", "Portal para clientes + seguimiento", "Sincronización MLS (próximamente)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
+      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba · Cancela cuando quieras", badge: "MÁS POPULAR", features: ["Generaciones ilimitadas", "PDF con tu logo", "Datos de vecindario y mercado", "Portal para clientes + seguimiento", "Conexión MLS vía Trestle", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
+      team: { label: "Equipo", price: "$149", period: "/mes", note: "Hasta 15 usuarios · Cancela cuando quieras", features: ["Todo lo de Pro", "Hasta 15 miembros del equipo", "Panel de equipo con KPIs", "PDF sin marca (solo tu logo)", "Conexión MLS vía Trestle", "Soporte dedicado"], cta: "Contáctanos" },
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
     faq: [
@@ -324,6 +326,22 @@ function HeroPreview() {
   );
 }
 
+interface MlsLotData {
+  listingId: string;
+  address?: string;
+  lotSizeArea?: number;
+  lotSizeUnits?: string;
+  zoning?: string;
+  listPrice?: number;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  mlsProvider?: string;
+  attribution?: string;
+  disclaimer?: string;
+  dataTimestamp?: string;
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────
 export default function Home() {
   const router = useRouter();
@@ -333,16 +351,56 @@ export default function Home() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [lang, setLang] = useState<Lang>("en");
 
+  // MLS state
+  const [mlsConnected, setMlsConnected] = useState(false);
+  const [mlsListingId, setMlsListingId] = useState("");
+  const [mlsLotData, setMlsLotData] = useState<MlsLotData | null>(null);
+  const [mlsFetching, setMlsFetching] = useState(false);
+  const [mlsFetchError, setMlsFetchError] = useState<string | null>(null);
+
   const t = T[lang];
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null);
+      if (data.user) {
+        // Check MLS connection status
+        fetch("/api/mls/status")
+          .then(r => r.json())
+          .then((d: { connected: boolean }) => setMlsConnected(d.connected))
+          .catch(() => {});
+      }
+    });
   }, [supabase]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
+  }
+
+  async function handleMlsFetch() {
+    if (!mlsListingId.trim()) return;
+    setMlsFetching(true);
+    setMlsFetchError(null);
+    setMlsLotData(null);
+    try {
+      const res = await fetch(`/api/mls/lot-data?listingId=${encodeURIComponent(mlsListingId.trim())}`);
+      const data = await res.json() as MlsLotData & { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "MLS lookup failed");
+      setMlsLotData(data);
+      // Auto-fill form fields from MLS data
+      setForm(prev => ({
+        ...prev,
+        lotSize: data.lotSizeArea ? String(Math.round(data.lotSizeArea)) : prev.lotSize,
+        city:    data.city    ?? prev.city,
+        state:   data.state   ?? prev.state,
+      }));
+    } catch (err) {
+      setMlsFetchError(err instanceof Error ? err.message : "MLS data unavailable. Enter details manually.");
+    } finally {
+      setMlsFetching(false);
+    }
   }
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
@@ -363,6 +421,8 @@ export default function Home() {
       sessionStorage.setItem("formData", JSON.stringify(form));
       if (form.city && form.state) sessionStorage.setItem("location", JSON.stringify({ city: form.city, state: form.state }));
       else sessionStorage.removeItem("location");
+      if (mlsLotData) sessionStorage.setItem("mlsData", JSON.stringify(mlsLotData));
+      else sessionStorage.removeItem("mlsData");
       router.push("/results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate plans");
@@ -482,6 +542,39 @@ export default function Home() {
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.form.title}</p>
           </div>
           <form onSubmit={handleSubmit} className="bg-white border-2 border-slate-200 rounded-2xl shadow-xl p-8">
+            {/* MLS Listing # — only shown when connected */}
+            {mlsConnected && (
+              <div className="mb-5 p-4 rounded-xl bg-blue-50 border border-blue-200">
+                <label className="text-xs font-bold text-blue-700 uppercase tracking-wider block mb-2">
+                  🏠 MLS Listing # <span className="text-blue-400 font-normal">(optional — auto-fills lot data)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={mlsListingId}
+                    onChange={e => { setMlsListingId(e.target.value); setMlsLotData(null); setMlsFetchError(null); }}
+                    placeholder="e.g. 1234567"
+                    className="flex-1 px-4 py-2.5 rounded-xl border-2 border-blue-200 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-500 transition text-sm bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleMlsFetch}
+                    disabled={!mlsListingId.trim() || mlsFetching}
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {mlsFetching ? "…" : "Fetch"}
+                  </button>
+                </div>
+                {mlsLotData && (
+                  <p className="mt-2 text-xs text-emerald-700 font-semibold">
+                    ✓ Lot data loaded from MLS — {mlsLotData.address ?? mlsLotData.listingId}
+                  </p>
+                )}
+                {mlsFetchError && (
+                  <p className="mt-2 text-xs text-amber-700">{mlsFetchError}</p>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {[
                 { label: t.form.lotLabel, name: "lotSize", type: "number", placeholder: t.form.lotPlaceholder, min: 1000 },
@@ -698,12 +791,12 @@ export default function Home() {
             <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.pricing.heading}</h2>
             <p className="text-slate-500">{t.pricing.sub}</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {/* Free */}
-            <div className="bg-white rounded-2xl border-2 border-slate-200 p-8 flex flex-col gap-5 hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-2xl border-2 border-slate-200 p-7 flex flex-col gap-5 hover:shadow-md transition-shadow">
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.free.label}</p>
-                <p className="text-5xl font-extrabold mt-2" style={{ color: "#0F172A" }}>{t.pricing.free.price}</p>
+                <p className="text-4xl font-extrabold mt-2" style={{ color: "#0F172A" }}>{t.pricing.free.price}</p>
                 <p className="text-sm text-slate-400 mt-1">{t.pricing.free.note}</p>
               </div>
               <ul className="flex flex-col gap-3 flex-1">
@@ -711,20 +804,20 @@ export default function Home() {
                   <li key={f} className="flex items-center gap-2.5 text-sm text-slate-600"><Check />{f}</li>
                 ))}
               </ul>
-              <a href="/login" className="block text-center py-3.5 rounded-xl border-2 font-bold transition-all hover:text-white" style={{ borderColor: "#0F172A", color: "#0F172A" }}
+              <a href="/login" className="block text-center py-3 rounded-xl border-2 font-bold transition-all hover:text-white text-sm" style={{ borderColor: "#0F172A", color: "#0F172A" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "#0F172A"; e.currentTarget.style.color = "white"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = ""; e.currentTarget.style.color = "#0F172A"; }}
               >{t.pricing.free.cta}</a>
             </div>
             {/* Pro */}
-            <div className="rounded-2xl p-8 flex flex-col gap-5 relative overflow-hidden shadow-2xl" style={{ background: "#0F172A" }}>
-              <div className="absolute top-5 right-5 text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{ background: "#3B82F6" }}>
+            <div className="rounded-2xl p-7 flex flex-col gap-5 relative overflow-hidden shadow-2xl" style={{ background: "#0F172A" }}>
+              <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{ background: "#3B82F6" }}>
                 {t.pricing.pro.badge}
               </div>
               <div>
                 <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{t.pricing.pro.label}</p>
-                <p className="text-5xl font-extrabold text-white mt-2">
-                  {t.pricing.pro.price}<span className="text-lg font-medium text-slate-400">{t.pricing.pro.period}</span>
+                <p className="text-4xl font-extrabold text-white mt-2">
+                  {t.pricing.pro.price}<span className="text-base font-medium text-slate-400">{t.pricing.pro.period}</span>
                 </p>
                 <p className="text-sm text-slate-400 mt-1">{t.pricing.pro.note}</p>
               </div>
@@ -737,11 +830,30 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <a href="/login" className="block text-center py-3.5 rounded-xl font-bold text-white transition-colors shadow-lg"
+              <a href="/login" className="block text-center py-3 rounded-xl font-bold text-white transition-colors shadow-lg text-sm"
                 style={{ background: "#3B82F6" }}
                 onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
                 onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
               >{t.pricing.pro.cta}</a>
+            </div>
+            {/* Team */}
+            <div className="bg-white rounded-2xl border-2 border-slate-200 p-7 flex flex-col gap-5 hover:shadow-md transition-shadow">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.team.label}</p>
+                <p className="text-4xl font-extrabold mt-2" style={{ color: "#0F172A" }}>
+                  {t.pricing.team.price}<span className="text-base font-medium text-slate-400">{t.pricing.team.period}</span>
+                </p>
+                <p className="text-sm text-slate-400 mt-1">{t.pricing.team.note}</p>
+              </div>
+              <ul className="flex flex-col gap-3 flex-1">
+                {t.pricing.team.features.map(f => (
+                  <li key={f} className="flex items-center gap-2.5 text-sm text-slate-600"><Check />{f}</li>
+                ))}
+              </ul>
+              <a href="mailto:support@splanai.com" className="block text-center py-3 rounded-xl border-2 font-bold transition-all hover:text-white text-sm" style={{ borderColor: "#10B981", color: "#10B981" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#10B981"; e.currentTarget.style.color = "white"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = ""; e.currentTarget.style.color = "#10B981"; }}
+              >{t.pricing.team.cta}</a>
             </div>
           </div>
           <p className="mt-8 text-sm text-center text-slate-400">{t.pricing.footer}</p>
