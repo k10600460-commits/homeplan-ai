@@ -8,7 +8,8 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2026-04-22.dahlia",
 });
 
-export const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID!;
+export const STRIPE_PRICE_ID      = process.env.STRIPE_PRICE_ID!;
+export const STRIPE_TEAM_PRICE_ID = process.env.STRIPE_TEAM_PRICE_ID ?? "";
 
 // Trial: 14 days free, card required at signup
 export const TRIAL_PERIOD_DAYS = 14;
