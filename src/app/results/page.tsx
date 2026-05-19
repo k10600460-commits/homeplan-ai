@@ -938,9 +938,24 @@ export default function Results() {
                   </div>
                 )}
                 {market && !market.available && (
-                  <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 flex items-center gap-3 text-gray-500">
-                    <span className="text-lg">📊</span>
-                    <p className="text-sm">{market.reason}</p>
+                  <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-6 opacity-70">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+                      <span className="text-lg">📊</span> Local Market Data
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {["Avg Rent", "Median Rent", "Avg Sale Price", "Median Sale Price"].map(label => (
+                        <div key={label} className="bg-gray-50 rounded-xl p-3">
+                          <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">{label}</p>
+                          <p className="text-base font-bold text-gray-300 mt-1">—</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-3 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Market data temporarily unavailable. Check back soon.
+                    </p>
                   </div>
                 )}
 
