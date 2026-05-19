@@ -327,28 +327,6 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen" style={{ background: "#F8FAFC", color: "#1E293B" }}>
 
-      {/* ── Full-screen loading overlay ──────────────────────────────── */}
-      {loading && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-8" style={{ background: "#0F172A" }}>
-          {/* Animated ring */}
-          <div className="relative w-20 h-20">
-            <div className="absolute inset-0 rounded-full border-4 border-blue-500/20" />
-            <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
-            <div className="absolute inset-0 flex items-center justify-center text-2xl">✦</div>
-          </div>
-          {/* Message */}
-          <div className="text-center">
-            <p className="text-white text-xl font-bold mb-1">AI is generating your floor plans…</p>
-            <p className="text-slate-400 text-sm">(~30 seconds)</p>
-          </div>
-          {/* Progress bar */}
-          <div className="w-64 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-            <div className="h-full rounded-full bg-blue-500 animate-[loading_28s_ease-in-out_forwards]" />
-          </div>
-          <p className="text-slate-500 text-xs">Powered by Claude AI</p>
-        </div>
-      )}
-
       {/* ── 1. Nav ───────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-slate-800/60" style={{ background: "#0F172A" }}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
@@ -508,9 +486,11 @@ export default function Home() {
             </div>
             {error && <p className="mt-4 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-2.5 border border-red-100">{error}</p>}
             <button type="submit" disabled={!isValid || loading}
-              className="mt-6 w-full py-4 rounded-xl text-white text-base font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
-              style={{ background: isValid && !loading ? "#3B82F6" : undefined }}>
-              {loading ? <><Spinner />{t.form.generating}</> : t.form.cta}
+              className="mt-6 w-full py-4 rounded-xl text-white text-base font-bold transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+              style={{ background: loading ? "#1D4ED8" : isValid ? "#3B82F6" : "#94A3B8" }}>
+              {loading
+                ? <><Spinner />Generating floor plans… (~30 sec)</>
+                : t.form.cta}
             </button>
           </form>
           <p className="mt-4 text-xs text-center text-slate-400">{t.form.disclaimer}</p>
