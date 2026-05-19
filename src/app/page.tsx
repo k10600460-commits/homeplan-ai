@@ -7,14 +7,14 @@ import { createClient } from "@/lib/supabase/client";
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
   en: {
-    nav: { how: "How it works", pricing: "Pricing", reviews: "Reviews", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
+    nav: { how: "How it works", pricing: "Pricing", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
     hero: {
       badge: "Launching on ProductHunt · May 26",
-      headline1: "Close deals faster with",
-      headline2: "AI-generated floor plans",
-      sub: "Show clients their dream home in 30 seconds — before they sign. Powered by Claude AI. No architect needed.",
-      ctaPrimary: "Generate Plans Free →",
-      ctaSecondary: "Watch demo",
+      headline1: "Show clients their dream home",
+      headline2: "before they sign.",
+      sub: "Enter lot details → AI generates 3 floor plans in 30 seconds. Share instantly. Close faster.",
+      ctaPrimary: "Start Free Trial",
+      ctaSecondary: "See How It Works",
       stat1: { value: "30 sec", label: "to generate" },
       stat2: { value: "3 plans", label: "per session" },
       stat3: { value: "14-day", label: "free trial" },
@@ -36,38 +36,23 @@ const T = {
     },
     pain: {
       heading: "Sound familiar?",
-      sub: "The three biggest deal-killers for home builders today.",
       items: [
-        { icon: "😟", title: "Clients can't visualize — and walk away", desc: "When prospects can't picture their future home, they delay decisions. \"Let me think about it\" almost always means a lost deal." },
-        { icon: "💸", title: "Architects cost $2,000+ and take weeks", desc: "Hiring a draftsman for every prospect meeting isn't scalable. You're burning money and time on leads that may never convert." },
-        { icon: "📉", title: "Competitors show plans — you're losing deals", desc: "Builders who walk into meetings with visual proposals close more. If you're not showing plans, someone else is winning your clients." },
+        { pain: "Clients ask for a proposal. You spend 3 days on it. By then, they've moved on.", solution: "SplanAI generates 3 plans in 30 seconds." },
+        { pain: "You show a floor plan. They can't visualize it. The deal goes cold.", solution: "Share a live portal. Clients explore on their own." },
+        { pain: "You send a PDF. It sits in their inbox. You have no idea if they even opened it.", solution: "Know exactly when they open it, and which plan they love." },
       ],
     },
     how: {
-      heading: "From lot size to signed client — in minutes",
+      heading: "From lot to client presentation in 30 seconds.",
       steps: [
-        { step: "01", title: "Enter lot details", desc: "Lot size, budget, family size. Optional: city & state for neighborhood data.", icon: "📋" },
-        { step: "02", title: "AI generates 3 plans", desc: "Claude AI creates three architecturally distinct floor plans, each sized to your budget.", icon: "✨" },
-        { step: "03", title: "Share with your client", desc: "Download a branded PDF or send a unique link. Get notified when they view it.", icon: "🔗" },
+        { step: "01", title: "Enter lot details", desc: "Address, size, budget, family size. 30 seconds of input.", icon: "📋" },
+        { step: "02", title: "Get 3 AI-generated floor plans", desc: "With neighborhood data, avg rent, and mortgage estimates built in.", icon: "✨" },
+        { step: "03", title: "Share a client portal instantly", desc: "One link. They explore. You see everything they click.", icon: "🔗" },
       ],
     },
-    diff: {
-      heading: "Built for builders. Not architects.",
-      sub: "SplanAI is a sales tool — not a design tool.",
-      items: [
-        { icon: "🗺️", title: "Neighborhood Intelligence", desc: "Auto-fetch nearby schools, safety data, and market rents via Google Maps and RentCast." },
-        { icon: "📄", title: "Branded PDF in One Click", desc: "Professional proposals with your logo, room breakdown, and cost estimate. Print-ready." },
-        { icon: "📡", title: "Real-Time Client Tracking", desc: "Know the moment your client opens the plan link. See which plan they spent time on." },
-      ],
-    },
-    testimonials: {
-      heading: "Builders close faster with SplanAI",
-      sub: "Trusted across the US",
-      items: [
-        { name: "James R.", role: "Custom Home Builder · Texas", text: "I used to spend hours sketching plans for client meetings. Now I walk in with 3 AI-generated proposals and close deals on the spot.", stars: 5 },
-        { name: "Maria L.", role: "General Contractor · Florida", text: "The PDF output looks incredibly professional. My clients are always impressed. This tool paid for itself on the first deal.", stars: 5 },
-        { name: "Kevin T.", role: "Home Builder · Arizona", text: "Super fast and easy. I generate plans during the client call itself. It's become my secret weapon for winning new projects.", stars: 5 },
-      ],
+    mission: {
+      heading: "Built for builders who close deals, not draw blueprints.",
+      body: "SplanAI isn't a design tool. It's the sales layer between your lot and your client's signature — floor plans, market data, financing, and client intelligence, all in one place.",
     },
     pricing: {
       heading: "Simple, transparent pricing",
@@ -83,18 +68,26 @@ const T = {
       { q: "Does it work in my state?", a: "SplanAI works nationwide for AI plan generation and market data. Neighborhood data (Google Maps) is available in all 50 states. MLS connectivity depends on your local MLS board — full coverage map coming soon." },
       { q: "Can I cancel anytime?", a: "Absolutely. Cancel from your dashboard in one click — no phone calls, no forms. Your Pro access continues until the end of your billing period." },
     ],
+    security: {
+      heading: "Your data stays yours.",
+      items: [
+        "Client data is never used to train AI models",
+        "All plans and portal activity are encrypted",
+        "MLS-compliant audit logs on every data call",
+      ],
+    },
     ctaBanner: { heading: "Ready to close more deals?", sub: "Join home builders using AI floor plans to win clients before the competition.", cta: "Start Free — No Credit Card" },
     footer: "© 2026 SplanAI. Built for home builders.",
   },
   es: {
-    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Reseñas", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
+    nav: { how: "Cómo funciona", pricing: "Precios", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
     hero: {
       badge: "Lanzamiento en ProductHunt · 26 de mayo",
-      headline1: "Cierra contratos más rápido con",
-      headline2: "planos generados por IA",
-      sub: "Muestra a tus clientes su hogar soñado en 30 segundos — antes de que firmen. Sin arquitecto.",
-      ctaPrimary: "Genera Planos Gratis →",
-      ctaSecondary: "Ver demo",
+      headline1: "Muéstrale a tus clientes su hogar soñado",
+      headline2: "antes de que firmen.",
+      sub: "Ingresa los datos del lote → la IA genera 3 planos en 30 segundos. Comparte al instante. Cierra más rápido.",
+      ctaPrimary: "Iniciar Prueba Gratis",
+      ctaSecondary: "Ver cómo funciona",
       stat1: { value: "30 seg", label: "para generar" },
       stat2: { value: "3 planos", label: "por sesión" },
       stat3: { value: "14 días", label: "de prueba" },
@@ -116,38 +109,23 @@ const T = {
     },
     pain: {
       heading: "¿Te suena familiar?",
-      sub: "Los tres mayores obstáculos para los constructores hoy.",
       items: [
-        { icon: "😟", title: "Los clientes no visualizan — y se van", desc: "Cuando los prospectos no pueden imaginarse su futura casa, posponen decisiones. Casi siempre significa un contrato perdido." },
-        { icon: "💸", title: "Los arquitectos cobran $2,000+ y tardan semanas", desc: "Contratar un delineante para cada reunión no es sostenible. Estás gastando dinero y tiempo en prospectos que quizás nunca firman." },
-        { icon: "📉", title: "Tu competencia muestra planos — tú pierdes", desc: "Los constructores que llegan con propuestas visuales cierran más. Si no muestras planos, alguien más está ganando a tus clientes." },
+        { pain: "El cliente pide una propuesta. Pasas 3 días haciéndola. Para entonces, ya se fue.", solution: "SplanAI genera 3 planos en 30 segundos." },
+        { pain: "Muestras un plano. No lo visualizan. El trato se enfría.", solution: "Comparte un portal en vivo. Los clientes exploran solos." },
+        { pain: "Envías un PDF. Se queda en su bandeja. No sabes si lo abrieron.", solution: "Sabe exactamente cuándo lo abren y qué plano les gusta." },
       ],
     },
     how: {
-      heading: "Del lote al contrato firmado — en minutos",
+      heading: "Del lote a la presentación al cliente en 30 segundos.",
       steps: [
-        { step: "01", title: "Ingresa los datos del lote", desc: "Tamaño, presupuesto, familia. Opcional: ciudad y estado para datos del vecindario.", icon: "📋" },
-        { step: "02", title: "La IA genera 3 planos", desc: "Claude AI crea tres planos arquitectónicamente distintos, cada uno ajustado a tu presupuesto.", icon: "✨" },
-        { step: "03", title: "Comparte con tu cliente", desc: "Descarga el PDF o envía un enlace único. Recibe una notificación cuando lo vean.", icon: "🔗" },
+        { step: "01", title: "Ingresa los datos del lote", desc: "Dirección, tamaño, presupuesto, familia. 30 segundos de datos.", icon: "📋" },
+        { step: "02", title: "Obtén 3 planos generados por IA", desc: "Con datos del vecindario, renta promedio y estimados de hipoteca incluidos.", icon: "✨" },
+        { step: "03", title: "Comparte un portal al cliente al instante", desc: "Un enlace. Ellos exploran. Tú ves todo lo que hacen clic.", icon: "🔗" },
       ],
     },
-    diff: {
-      heading: "Hecho para constructores. No para arquitectos.",
-      sub: "SplanAI es una herramienta de ventas — no de diseño.",
-      items: [
-        { icon: "🗺️", title: "Inteligencia de Vecindario", desc: "Escuelas, seguridad y renta del mercado vía Google Maps y RentCast." },
-        { icon: "📄", title: "PDF con Tu Marca en Un Clic", desc: "Propuestas profesionales con tu logo, distribución de habitaciones y estimado de costo." },
-        { icon: "📡", title: "Seguimiento en Tiempo Real", desc: "Sabe al instante cuando tu cliente abre el enlace y qué plano le interesa más." },
-      ],
-    },
-    testimonials: {
-      heading: "Constructores cierran más con SplanAI",
-      sub: "Utilizado en todo Estados Unidos",
-      items: [
-        { name: "James R.", role: "Constructor de casas · Texas", text: "Solía pasar horas dibujando planos. Ahora entro con 3 propuestas generadas por IA y cierro contratos en el momento.", stars: 5 },
-        { name: "Maria L.", role: "Contratista General · Florida", text: "El PDF se ve increíblemente profesional. Mis clientes siempre quedan impresionados. Se pagó solo en el primer contrato.", stars: 5 },
-        { name: "Kevin T.", role: "Constructor de casas · Arizona", text: "Rápido y fácil. Genero planos durante la llamada con el cliente. Se ha convertido en mi arma secreta.", stars: 5 },
-      ],
+    mission: {
+      heading: "Construido para constructores que cierran contratos, no que dibujan planos.",
+      body: "SplanAI no es una herramienta de diseño. Es la capa de ventas entre tu lote y la firma de tu cliente — planos, datos de mercado, financiamiento e inteligencia del cliente, todo en un solo lugar.",
     },
     pricing: {
       heading: "Precios simples y transparentes",
@@ -163,6 +141,14 @@ const T = {
       { q: "¿Funciona en mi estado?", a: "SplanAI funciona en los 50 estados para generación de planos y datos de mercado. La conectividad MLS depende de tu junta MLS local." },
       { q: "¿Puedo cancelar en cualquier momento?", a: "Por supuesto. Cancela desde tu panel con un solo clic — sin llamadas telefónicas ni formularios. Tu acceso Pro continúa hasta el final del período de facturación." },
     ],
+    security: {
+      heading: "Tus datos son tuyos.",
+      items: [
+        "Los datos de clientes nunca se usan para entrenar modelos de IA",
+        "Todos los planos y actividad del portal están encriptados",
+        "Registros de auditoría conformes con MLS en cada consulta de datos",
+      ],
+    },
     ctaBanner: { heading: "¿Listo para cerrar más contratos?", sub: "Únete a los constructores que usan planos con IA para ganar clientes.", cta: "Empieza Gratis — Sin Tarjeta" },
     footer: "© 2026 SplanAI. Construido para constructores.",
   },
@@ -177,18 +163,6 @@ function Spinner() {
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
     </svg>
-  );
-}
-
-function Stars({ count }: { count: number }) {
-  return (
-    <div className="flex gap-0.5">
-      {Array.from({ length: count }).map((_, i) => (
-        <svg key={i} className="w-4 h-4 fill-amber-400" viewBox="0 0 20 20">
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-    </div>
   );
 }
 
@@ -330,17 +304,13 @@ export default function Home() {
       {/* ── 1. Nav ───────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-slate-800/60" style={{ background: "#0F172A" }}>
         <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          {/* Logo — left */}
           <a href="/" className="text-xl font-extrabold tracking-tight text-white shrink-0">
             Splan<span className="text-blue-400">AI</span>
           </a>
-          {/* Nav — absolute center */}
           <nav className="hidden md:flex items-center gap-7 text-sm text-slate-400 absolute left-1/2 -translate-x-1/2">
             <a href="#how" className="hover:text-white transition-colors">{t.nav.how}</a>
             <a href="#pricing" className="hover:text-white transition-colors">{t.nav.pricing}</a>
-            <a href="#reviews" className="hover:text-white transition-colors">{t.nav.reviews}</a>
           </nav>
-          {/* Right — language / dashboard / CTA */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
             <button
               onClick={() => setLang(lang === "en" ? "es" : "en")}
@@ -354,7 +324,7 @@ export default function Home() {
             ) : (
               <a href="/login" className="hidden sm:block text-sm text-slate-400 hover:text-white transition-colors">{t.nav.signin}</a>
             )}
-            <a href="#generate" className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors" style={{ background: "#3B82F6" }}
+            <a href="/login" className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors" style={{ background: "#3B82F6" }}
               onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
               onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
             >{t.nav.cta}</a>
@@ -364,9 +334,7 @@ export default function Home() {
 
       {/* ── 2. Hero ──────────────────────────────────────────────────── */}
       <section style={{ background: "#0F172A" }} className="relative overflow-hidden">
-        {/* Grid texture */}
         <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        {/* Radial glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-600/20 rounded-full blur-3xl" />
 
         <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
@@ -383,7 +351,7 @@ export default function Home() {
               </h1>
               <p className="text-lg text-slate-400 leading-relaxed mb-8 max-w-lg">{t.hero.sub}</p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10">
-                <a href="#generate" className="px-7 py-4 rounded-xl text-white font-bold text-base shadow-lg transition-all"
+                <a href="/login" className="px-7 py-4 rounded-xl text-white font-bold text-base shadow-lg transition-all"
                   style={{ background: "#3B82F6", boxShadow: "0 0 30px rgba(59,130,246,0.35)" }}
                   onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
                   onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
@@ -504,32 +472,20 @@ export default function Home() {
       <section className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.pain.heading}</h2>
-            <p className="text-slate-500 max-w-xl mx-auto">{t.pain.sub}</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold" style={{ color: "#0F172A" }}>{t.pain.heading}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {t.pain.items.map(item => (
-              <div key={item.title} className="rounded-2xl p-7 border-2 border-red-100 hover:border-red-200 hover:shadow-md transition-all" style={{ background: "#fff8f8" }}>
-                <span className="text-4xl block mb-4">{item.icon}</span>
-                <h3 className="font-bold text-slate-900 text-base leading-snug mb-2">{item.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
+            {t.pain.items.map((item, i) => (
+              <div key={i} className="rounded-2xl p-8 border-2 border-slate-100 hover:border-red-100 hover:shadow-md transition-all flex flex-col gap-5" style={{ background: "#fff8f8" }}>
+                <p className="text-slate-800 text-base font-semibold leading-relaxed flex-1">"{item.pain}"</p>
+                <p className="text-emerald-600 text-sm font-bold">→ {item.solution}</p>
               </div>
             ))}
-          </div>
-          <div className="mt-12 text-center">
-            <div className="inline-flex items-center gap-3 text-white px-8 py-4 rounded-2xl shadow-xl" style={{ background: "#0F172A" }}>
-              <svg className="w-5 h-5 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span className="font-semibold">
-                {lang === "en" ? "SplanAI solves all three — in 30 seconds." : "SplanAI resuelve los tres — en 30 segundos."}
-              </span>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* ── 5. How it Works / Feature Demo ──────────────────────────── */}
+      {/* ── 5. How It Works ─────────────────────────────────────────── */}
       <section id="how" className="py-20 px-6" style={{ background: "#0F172A" }}>
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
@@ -627,22 +583,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 6. Differentiators ──────────────────────────────────────── */}
-      <section className="py-20 px-6 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.diff.heading}</h2>
-            <p className="text-slate-500 max-w-xl mx-auto">{t.diff.sub}</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            {t.diff.items.map(item => (
-              <div key={item.title} className="flex flex-col gap-4 p-7 rounded-2xl border-2 border-slate-100 hover:border-blue-100 hover:shadow-lg transition-all" style={{ background: "#F8FAFC" }}>
-                <span className="text-4xl">{item.icon}</span>
-                <h3 className="text-lg font-bold" style={{ color: "#0F172A" }}>{item.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
-          </div>
+      {/* ── 6. Mission ──────────────────────────────────────────────── */}
+      <section className="py-24 px-6 relative overflow-hidden" style={{ background: "#0F172A" }}>
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+        <div className="relative max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-6 leading-tight">{t.mission.heading}</h2>
+          <p className="text-slate-400 text-lg leading-relaxed">{t.mission.body}</p>
         </div>
       </section>
 
@@ -725,41 +671,33 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 9. Testimonials ─────────────────────────────────────────── */}
-      <section id="reviews" className="py-20 px-6 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.testimonials.heading}</h2>
-            <p className="text-slate-500">{t.testimonials.sub}</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {t.testimonials.items.map(item => (
-              <div key={item.name} className="rounded-2xl p-7 flex flex-col gap-4 border-2 border-slate-100 hover:border-blue-100 hover:shadow-md transition-all" style={{ background: "#F8FAFC" }}>
-                <Stars count={item.stars} />
-                <p className="text-slate-600 text-sm leading-relaxed flex-1">"{item.text}"</p>
-                <div className="flex items-center gap-3 pt-3 border-t border-slate-200">
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ background: "#3B82F6" }}>
-                    {item.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm" style={{ color: "#0F172A" }}>{item.name}</p>
-                    <p className="text-xs text-slate-400">{item.role}</p>
-                  </div>
+      {/* ── 9. Security ─────────────────────────────────────────────── */}
+      <section className="py-20 px-6" style={{ background: "#F8FAFC" }}>
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl sm:text-4xl font-extrabold mb-14" style={{ color: "#0F172A" }}>{t.security.heading}</h2>
+          <div className="flex flex-col sm:flex-row gap-10 justify-center">
+            {t.security.items.map((item, i) => (
+              <div key={i} className="flex flex-col items-center gap-4 max-w-xs mx-auto sm:mx-0">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100 flex-shrink-0">
+                  <svg className="w-7 h-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
                 </div>
+                <p className="text-slate-600 text-sm leading-relaxed">{item}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 9. CTA Banner ───────────────────────────────────────────── */}
+      {/* ── 10. CTA Banner ──────────────────────────────────────────── */}
       <section className="py-24 px-6 relative overflow-hidden" style={{ background: "#0F172A" }}>
         <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-blue-600/15 rounded-full blur-3xl" />
         <div className="relative max-w-3xl mx-auto text-center">
           <h2 className="text-4xl sm:text-5xl font-extrabold text-white mb-5">{t.ctaBanner.heading}</h2>
           <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto leading-relaxed">{t.ctaBanner.sub}</p>
-          <a href="#generate"
+          <a href="/login"
             className="inline-flex items-center gap-3 px-10 py-5 rounded-2xl text-white text-xl font-bold transition-all shadow-2xl"
             style={{ background: "#3B82F6", boxShadow: "0 0 40px rgba(59,130,246,0.4)" }}
             onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
@@ -773,14 +711,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 10. Footer ──────────────────────────────────────────────── */}
+      {/* ── 11. Footer ──────────────────────────────────────────────── */}
       <footer className="border-t py-8 px-6" style={{ background: "#0F172A", borderColor: "#1E293B" }}>
         <div className="relative max-w-5xl mx-auto flex items-center justify-between">
-          {/* Left — Logo */}
           <span className="text-lg font-extrabold text-white shrink-0">Splan<span className="text-blue-400">AI</span></span>
-          {/* Center — copyright, absolute so it's truly centered */}
           <p className="absolute left-1/2 -translate-x-1/2 text-sm text-slate-500 text-center whitespace-nowrap">{t.footer}</p>
-          {/* Right — nav links */}
           <div className="flex items-center gap-5 text-sm text-slate-500 ml-auto shrink-0">
             <a href="#pricing" className="hover:text-slate-300 transition-colors">{t.nav.pricing}</a>
             <a href="/login" className="hover:text-slate-300 transition-colors">{t.nav.signin}</a>
