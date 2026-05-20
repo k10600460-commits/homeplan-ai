@@ -361,6 +361,110 @@ Contingency: If no sales traction
 
 ---
 
+## Post-Launch: Daily Snapshot (Cron 毎朝 6:00 JST)
+
+### Snapshot 収集ロジック
+
+```typescript
+// /api/cron/finance-snapshot
+const snapshot = {
+  date: new Date().toISOString().slice(0, 10),
+
+  // Stripe から集計
+  mrr: await sumActiveSubscriptions(),           // active plan='pro' × $49
+  arr: mrr * 12,
+  active_pro: await countByPlanStatus('pro', 'active'),
+  active_team: await countByPlanStatus('team', 'active'),
+  trialing: await countByStatus('trialing'),
+  churned_today: await countCanceledToday(),
+  refunded_today: await sumRefundsToday(),
+
+  // API コスト（各サービスの usage ログから）
+  api_cost_anthropic: await getAnthropicUsageToday(),
+  api_cost_resend: await getResendUsageToday(),
+  total_cost_today: sum(above),
+
+  // 計算値
+  gross_margin: mrr > 0 ? (mrr - total_cost_today * 30) / mrr : null,
+};
+
+await supabase.from('finance_snapshots').insert(snapshot);
+```
+
+### Phase 判定ロジック
+
+```typescript
+const mrr = snapshot.mrr;
+
+if (mrr < 500) {
+  phase = 0;
+  // → 追加投資ゼロ。現状維持。
+} else if (mrr < 2500) {
+  phase = 1;
+  // → 推奨投資: Vercel Pro $20 + Supabase Pro $25 + Resend Pro $20 = +$65/月
+  // → Commander に「Phase 1 到達: 投資意思決定をお願いします」通知
+} else if (mrr < 10000) {
+  phase = 2;
+  // → 推奨投資: Claude Max $200 + Cloudflare Pro $20 + Sentry $26 = +$246/月
+} else {
+  phase = 3;
+  // → 推奨投資: Cyber insurance + SOC 2 prep + US legal counsel = +$1,500/月
+}
+```
+
+Phase が前日から変化した場合、Commander を通じて Shuraemon に「投資意思決定 requested」通知。
+
+### 自動アラート閾値
+
+```yaml
+critical:            # 即時メール → Shuraemon
+  mrr_daily_drop_pct: 10          # 前日比 10% 以上 MRR 減少
+  active_sub_drop_24h: 2          # 24h で 2 件以上解約
+  api_anthropic_monthly_pct: 80   # 月予算の 80% 到達
+  error_rate_generate_pct: 5      # /api/generate エラー率 5% 超
+
+warning:             # 次の Daily Brief に含める
+  trial_conversion_weekly_pct: 10 # 週次 Trial→Pro 変換率 10% 未満
+  churn_weekly_pct: 5             # 週次解約率 5% 超
+  api_monthly_pct_95: 95          # 月予算 95% → 該当 API 一時停止オプション提示
+
+info:                # Weekly Brief に含める
+  new_pro_signup: true
+  new_team_signup: true
+  phase_change: true               # Phase 判定が変わった
+```
+
+### /goal テンプレート（Finance Agent 月次レポート）
+
+```
+/goal Finance Agentとして月次レポートを生成:
+
+1. Supabase finance_snapshots から当月全データを取得
+2. 以下を計算:
+   - MRR（月末時点）/ 前月比
+   - ARR
+   - Gross Margin（平均）
+   - Churn Rate（月次）
+   - Trial→Pro 変換率
+   - API コスト合計（Anthropic / Resend）
+3. Phase 判定を実行（mrr に基づく）
+4. agents/finance.md §6 のテンプレートに従いレポートを生成
+5. obsidian-vault/YYYY-MM-finance-report.md に保存
+6. Shuraemon に「Monthly Finance Report ready」と報告
+```
+
+### 30 日後 KPI 目標（保守 / Stretch）
+
+| KPI | 保守 | Stretch |
+|-----|------|---------|
+| 有料顧客 | 15 社 | 30 社 |
+| MRR | $750 | $1,500 |
+| Trial 累計 | 100 | 250 |
+| Trial→Pro 変換率 | 15% | 20% |
+| Gross Margin | 90%+ | 95%+ |
+
+---
+
 ## Escalation Contacts
 
 - **Finance Lead:** [Email/Slack]

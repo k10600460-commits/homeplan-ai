@@ -1,8 +1,16 @@
 {
   "crons": [
     {
+      "path": "/api/cron/finance-snapshot",
+      "schedule": "0 21 * * *"
+    },
+    {
       "path": "/api/cron/daily-brief",
       "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/cron/sales-dm-draft",
+      "schedule": "0 23 * * *"
     },
     {
       "path": "/api/cron/reset-external-usage",
@@ -11,6 +19,14 @@
     {
       "path": "/api/cron/trial-reminder",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/seo-draft",
+      "schedule": "0 5 * * 1,4"
+    },
+    {
+      "path": "/api/cron/legal-watch",
+      "schedule": "0 0 * * 1"
     }
   ]
 }

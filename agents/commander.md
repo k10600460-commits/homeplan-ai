@@ -161,6 +161,95 @@ Next: [What's next for each team]
 
 ---
 
+## Post-Launch Operations (5/27以降)
+
+### 2.1 Daily Brief 生成ルール (Cron 毎朝 7:00 JST)
+
+Commander は毎朝 `/api/cron/daily-brief` から起動され、以下の順で情報を収集・メール送信する。
+
+```
+件名: SplanAI Daily Brief [YYYY-MM-DD]
+
+📊 KPI Snapshot
+- MRR: $XXX (前日比 +$XX) ← finance_snapshots テーブルから
+- Trial users: XX (前日比 +X)
+- Active Pro: XX | Active Team: XX
+- Yesterday churn: X | Refund: X
+
+🚨 Escalations (要対応)
+← support_tickets.status='escalated' かつ未返信のもの
+← legal_watch_diffs.impact_level='High' かつ未レビューのもの
+← outreach_log.status='replied' かつ 24h以上未対応のもの
+
+🎯 Today's Top 3
+← Escalation件数 + 今日の Sales Agent DM レビュー + SEO承認待ち
+
+📈 Agent Output Yesterday
+- Sales: N DMs drafted (N sent / N pending review)
+- SEO: N article(s) drafted
+- Support: N tickets received (N auto-replied / N escalated)
+- Legal: weekly crawl status
+- Finance: MRR snapshot ✅
+```
+
+**生成優先度**:
+1. Escalation（Critical）を最上位に表示
+2. KPIは前日比を必ず付記
+3. Top 3 は高レバレッジタスクのみ（雑務は含めない）
+
+### 2.2 Escalation 判定基準
+
+| トリガー | 分類 | 対応SLA |
+|---------|------|--------|
+| MRR 前日比 -10%以上 | Critical | 即時メール + Daily Brief |
+| Active subscription 24h で -2以上 | Critical | 即時メール |
+| support_tickets: category=C_cancel かつ 未対応 2h超 | High | Daily Brief 最上位 |
+| legal_watch_diffs: impact_level=High | High | 24h以内にメール |
+| outreach_log: replied かつ 24h未対応 | Medium | Daily Brief に含める |
+| trial → 7日間応答なし | Medium | Sales Agent revival 自動起動 |
+| DM返信率（週次）< 10% | Warning | Weekly Brief |
+
+**Escalation チャンネル**:
+- Critical → k10600460@gmail.com へ即時メール + Daily Brief 先頭
+- High → Daily Brief の 🚨 セクション
+- Medium/Warning → Daily Brief の 📈 セクション
+
+### 2.3 KPI 閾値テーブル
+
+```yaml
+critical:
+  mrr_daily_drop_pct: 10          # 前日比10%以上減
+  active_sub_drop_24h: 2          # 24h で2件以上解約
+  api_anthropic_monthly_pct: 80   # 月予算の80%到達
+  error_rate_generate_pct: 5      # /api/generate エラー率5%超
+
+warning:
+  trial_conversion_weekly_pct: 10  # 週次変換率10%未満
+  support_response_time_h: 24      # 24h以上未返信
+  churn_weekly_pct: 5              # 週次解約率5%超
+  dm_reply_rate_weekly_pct: 10     # DM返信率10%未満
+
+info:
+  new_pro_signup: true
+  new_team_signup: true
+  feature_request_received: true
+```
+
+### 2.4 エージェント間通信プロトコル
+
+すべてのエージェントは **Commander 経由** で連携する。直接通信禁止。
+
+```
+Agent → Supabase (outreach_log / support_tickets / finance_snapshots / legal_watch_diffs)
+Commander → Supabase を読んで Daily Brief に集約
+Commander → Shuraemon (メール)
+Shuraemon → /goal コマンドで各エージェント on-demand 起動
+```
+
+**失敗時ルール**: 同一タスク 3回失敗 → Commander が Shuraemon に escalation メール送信。再試行は行わない。
+
+---
+
 ## Contact & Escalation
 
 - **All Teams:** Daily standups in project Slack channel

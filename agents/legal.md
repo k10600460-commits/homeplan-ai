@@ -498,6 +498,85 @@ Sign-Up Page:
 
 ---
 
+## Post-Launch: 週次クローラ (Cron 毎週月 9:00 JST)
+
+### 監視対象 URL
+
+```yaml
+nar:
+  - https://www.nar.realtor/policy-and-legal/idx-policy
+  - https://www.nar.realtor/about/policies/cooperation-policy
+mls:
+  - https://www.reso.org/standards
+  - https://www.bridgeinteractive.com/policies
+ftc:
+  - https://www.ftc.gov/business-guidance/blog
+ai_regulation:
+  - https://www.whitehouse.gov/ostp/ai-bill-of-rights
+```
+
+### 変更検知ロジック
+
+```
+weekly cron (/api/cron/legal-watch):
+1. 各 URL を web_fetch
+2. legal_watch_diffs テーブルの前週スナップショットと diff
+3. 100 文字以上の変更を検知した場合:
+   - Claude API で「SplanAI への影響度」を 3 段階評価
+   - High: 24h 以内に Shuraemon にメール（Commander 経由）
+   - Medium: 次の Daily Brief の 🚨 セクションに含める
+   - Low: legal_watch_diffs テーブルにログのみ
+4. 全 diff を obsidian-vault/legal-watch/YYYY-MM-DD.md に保存
+```
+
+### 影響度 3 段階評価
+
+| 影響度 | 定義 | 通知先 | 対応 SLA |
+|-------|------|-------|---------|
+| **High** | SplanAI の MLS 利用・IDX 表示・データ取り扱いに直接関係する変更 | Shuraemon 即時メール | 24h 以内にレビュー |
+| **Medium** | 間接的に関係する可能性がある変更（業界全体への指針等） | Daily Brief | 1 週間以内にレビュー |
+| **Low** | 当社には関係しない変更（一般的な業界ニュース等） | ログのみ | 月次レビュー時 |
+
+**影響度評価プロンプト（Claude API）:**
+```
+SplanAI は、アメリカの中小ホームビルダー向けの AI プラン生成 SaaS です。
+Trestle 経由で MLS データを取得し、IDX ポリシーに準拠しています。
+
+以下のページ変更が SplanAI のビジネスに与える影響を評価してください。
+
+URL: [url]
+変更内容（diff）:
+[diff_text]
+
+影響度: High / Medium / Low
+理由: [1〜2 文]
+SplanAI が取るべきアクション: [具体的な対応策]
+```
+
+### /goal テンプレート（Legal Agent 週次クローラ）
+
+```
+/goal Legal Agentとして以下を実行:
+
+1. agents/legal.md の監視対象 URL リストを取得
+2. 各 URL を web_fetch でクロール
+3. Supabase legal_watch_diffs から前週のスナップショットを取得し diff を計算
+4. 100 文字以上の変更がある URL について:
+   - Claude API で影響度（High / Medium / Low）を評価
+   - legal_watch_diffs テーブルに INSERT
+5. obsidian-vault/legal-watch/YYYY-MM-DD.md に全 diff を保存
+6. High 件数: N, Medium 件数: N として Commander に報告
+```
+
+### 月次 ToS / Privacy Policy 監査（毎月 1 日）
+
+Legal Agent が以下を実行し Shuraemon にレポート提出（30 分で読める分量）:
+- 現行 ToS / Privacy Policy と新規実装機能の整合性チェック
+- CCPA / GDPR / 各州法の遵守確認（特に SMS 追加後）
+- 次月リリース予定機能のリスク予備評価
+
+---
+
 ## Legal Team Contacts
 
 - **General Counsel:** [Name/Email]
