@@ -802,32 +802,35 @@ export default function Home() {
       </section>
 
       {/* ── 8. Pricing ──────────────────────────────────────────────── */}
-      <section id="pricing" className="py-20 px-6" style={{ background: "#F8FAFC" }}>
+      <section id="pricing" className="py-20 px-6" style={{ background: "#0B1120" }}>
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.pricing.heading}</h2>
-            <p className="text-slate-500">{t.pricing.sub}</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3 text-white">{t.pricing.heading}</h2>
+            <p className="text-slate-400">{t.pricing.sub}</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-start">
             {/* Free */}
-            <div className="bg-white rounded-2xl border-2 border-slate-200 p-7 flex flex-col gap-5 hover:shadow-md transition-shadow">
+            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-700/60" style={{ background: "#1E293B" }}>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.free.label}</p>
-                <p className="text-4xl font-extrabold mt-2" style={{ color: "#0F172A" }}>{t.pricing.free.price}</p>
-                <p className="text-sm text-slate-400 mt-1">{t.pricing.free.note}</p>
+                <p className="text-4xl font-extrabold text-white mt-2">{t.pricing.free.price}</p>
+                <p className="text-sm text-slate-500 mt-1">{t.pricing.free.note}</p>
               </div>
               <ul className="flex flex-col gap-3 flex-1">
                 {t.pricing.free.features.map(f => (
-                  <li key={f} className="flex items-center gap-2.5 text-sm text-slate-600"><Check />{f}</li>
+                  <li key={f} className="flex items-center gap-2.5 text-sm text-slate-300">
+                    <svg className="w-4 h-4 flex-shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>{f}
+                  </li>
                 ))}
               </ul>
-              <a href="/login" className="block text-center py-3 rounded-xl border-2 font-bold transition-all hover:text-white text-sm" style={{ borderColor: "#0F172A", color: "#0F172A" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "#0F172A"; e.currentTarget.style.color = "white"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = ""; e.currentTarget.style.color = "#0F172A"; }}
-              >{t.pricing.free.cta}</a>
+              <a href="/login" className="block text-center py-3 rounded-xl border border-slate-600 font-bold text-slate-300 hover:border-slate-400 hover:text-white transition-all text-sm">
+                {t.pricing.free.cta}
+              </a>
             </div>
             {/* Pro */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 relative overflow-hidden shadow-2xl" style={{ background: "#0F172A" }}>
+            <div className="rounded-2xl p-7 flex flex-col gap-5 relative overflow-hidden shadow-2xl border border-blue-500/30" style={{ background: "#0F172A" }}>
               <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{ background: "#3B82F6" }}>
                 {t.pricing.pro.badge}
               </div>
@@ -841,7 +844,7 @@ export default function Home() {
               <ul className="flex flex-col gap-3 flex-1">
                 {t.pricing.pro.features.map(f => (
                   <li key={f} className="flex items-center gap-2.5 text-sm text-slate-200">
-                    <svg className="w-4 h-4 flex-shrink-0" style={{ color: "#10B981" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg className="w-4 h-4 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>{f}
                   </li>
@@ -853,22 +856,22 @@ export default function Home() {
                 onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
               >{t.pricing.pro.cta}</a>
             </div>
-            {/* Team */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 relative overflow-hidden shadow-2xl" style={{ background: "#1E1B4B" }}>
-              <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{ background: "#7C3AED" }}>
+            {/* Team — gold left border accent */}
+            <div className="rounded-2xl p-7 flex flex-col gap-5 relative overflow-hidden shadow-2xl border-l-4" style={{ background: "#0F172A", borderLeftColor: "#F59E0B", borderTopColor: "rgba(245,158,11,0.15)", borderRightColor: "rgba(245,158,11,0.15)", borderBottomColor: "rgba(245,158,11,0.15)", borderTopWidth: "1px", borderRightWidth: "1px", borderBottomWidth: "1px" }}>
+              <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#F59E0B", color: "#0F172A" }}>
                 ENTERPRISE
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#A78BFA" }}>{t.pricing.team.label}</p>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#F59E0B" }}>{t.pricing.team.label}</p>
                 <p className="text-4xl font-extrabold text-white mt-2">
-                  {t.pricing.team.price}<span className="text-base font-medium" style={{ color: "#A78BFA99" }}>{t.pricing.team.period}</span>
+                  {t.pricing.team.price}<span className="text-base font-medium text-slate-400">{t.pricing.team.period}</span>
                 </p>
-                <p className="text-sm mt-1" style={{ color: "#C4B5FD99" }}>{t.pricing.team.note}</p>
+                <p className="text-sm text-slate-400 mt-1">{t.pricing.team.note}</p>
               </div>
               <ul className="flex flex-col gap-3 flex-1">
                 {t.pricing.team.features.map(f => (
                   <li key={f} className="flex items-center gap-2.5 text-sm text-slate-200">
-                    <svg className="w-4 h-4 flex-shrink-0" style={{ color: "#A78BFA" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg className="w-4 h-4 flex-shrink-0" style={{ color: "#F59E0B" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>{f}
                   </li>
@@ -878,9 +881,9 @@ export default function Home() {
                 onClick={handleLPTeamCTA}
                 disabled={teamCheckoutLoading}
                 className="block w-full text-center py-3 rounded-xl font-bold text-white transition-colors shadow-lg text-sm disabled:opacity-60"
-                style={{ background: "#7C3AED" }}
-                onMouseEnter={e => { if (!teamCheckoutLoading) (e.currentTarget as HTMLButtonElement).style.background = "#6D28D9"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#7C3AED"; }}
+                style={{ background: "#F59E0B", color: "#0F172A" }}
+                onMouseEnter={e => { if (!teamCheckoutLoading) (e.currentTarget as HTMLButtonElement).style.background = "#D97706"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#F59E0B"; }}
               >{teamCheckoutLoading ? "Redirecting…" : t.pricing.team.cta}</button>
             </div>
           </div>
