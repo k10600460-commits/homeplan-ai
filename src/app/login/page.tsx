@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 type Tab = "signin" | "signup";
@@ -107,9 +108,9 @@ function LoginContent() {
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Nav */}
       <header className="flex items-center px-6 py-4 border-b border-gray-100 bg-white">
-        <a href="/" className="text-xl font-bold tracking-tight text-gray-900">
+        <Link href="/" className="text-xl font-bold tracking-tight text-gray-900">
           Splan<span className="text-blue-600">AI</span>
-        </a>
+        </Link>
       </header>
 
       <div className="flex flex-1 items-center justify-center px-4 py-16">
@@ -191,7 +192,13 @@ function LoginContent() {
                     </button>
                   </form>
 
-                  <p className="mt-6 text-center text-sm text-gray-500">
+                  <p className="mt-4 text-center text-sm">
+                    <a href="/forgot-password" className="text-gray-400 hover:text-blue-600 transition-colors">
+                      Forgot password?
+                    </a>
+                  </p>
+
+                  <p className="mt-3 text-center text-sm text-gray-500">
                     Don&apos;t have an account?{" "}
                     <button
                       onClick={() => { setTab("signup"); setError(""); }}
