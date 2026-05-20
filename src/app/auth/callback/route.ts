@@ -29,6 +29,14 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
+    // Password reset flow: session is established here; redirect to form page
+    if (next === "/reset-password") {
+      if (error || !data.session) {
+        return NextResponse.redirect(`${origin}/forgot-password?error=link_expired`);
+      }
+      return NextResponse.redirect(`${origin}/reset-password`);
+    }
+
     if (!error && data.user) {
       // New sign-up confirmed via email → redirect to Stripe checkout
       const isNewUser = data.user.created_at === data.user.last_sign_in_at;

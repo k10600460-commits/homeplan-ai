@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-// Suspense boundary required by Next.js App Router when using useSearchParams
+// useSearchParams requires a Suspense boundary in Next.js App Router
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={<VerifyingScreen />}>
@@ -14,7 +14,7 @@ export default function ResetPasswordPage() {
   );
 }
 
-// ── Shared UI pieces ──────────────────────────────────────────────────────────
+// ── Shared UI ─────────────────────────────────────────────────────────────────
 
 function NavBar() {
   return (
@@ -40,6 +40,33 @@ function VerifyingScreen() {
   );
 }
 
+function LinkExpiredScreen({ message }: { message: string }) {
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <NavBar />
+      <div className="flex flex-1 items-center justify-center px-4 py-16">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 px-8 py-8">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mb-4">
+              <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Link expired</h1>
+            <p className="text-sm text-gray-500 mb-6">{message}</p>
+            <Link
+              href="/forgot-password"
+              className="block text-center py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Request a new reset link
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main content ──────────────────────────────────────────────────────────────
 
 function ResetPasswordContent() {
@@ -47,9 +74,24 @@ function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
-  // "verifying" = token exchange in progress; false = form or error can be shown
-  const [verifying, setVerifying] = useState(true);
-  const [linkError, setLinkError] = useState("");
+  // Derive initial state from URL params synchronously — avoids setState-in-effect warning.
+  // ?error=link_expired  → callback route signalled a failed code exchange
+  // ?token_hash=xxx      → Supabase OTP direct link (no PKCE verifier needed)
+  // (nothing)            → normal path: session already set by /auth/callback
+  const errorParam  = searchParams.get("error");
+  const tokenHash   = searchParams.get("token_hash");
+  const typeParam   = searchParams.get("type");
+
+  const isExpiredUrl   = errorParam === "link_expired";
+  const isTokenHashUrl = Boolean(tokenHash && typeParam === "recovery");
+
+  // When the error is already known from the URL, skip verifying immediately.
+  const [verifying, setVerifying] = useState(!isExpiredUrl);
+  const [linkError, setLinkError] = useState(
+    isExpiredUrl
+      ? "This reset link has expired or already been used. Please request a new one."
+      : "",
+  );
 
   // Form state
   const [newPassword, setNewPassword] = useState("");
@@ -58,55 +100,48 @@ function ResetPasswordContent() {
   const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const didVerify = useRef(false);
+  const didRun = useRef(false);
 
   useEffect(() => {
-    // Guard against double-invocation in React StrictMode
-    if (didVerify.current) return;
-    didVerify.current = true;
+    // Already resolved synchronously from URL params above
+    if (isExpiredUrl) return;
 
-    const code = searchParams.get("code");
+    if (didRun.current) return;
+    didRun.current = true;
 
-    // ── PKCE flow: ?code=xxx ──────────────────────────────────────────────────
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+    // ── Path A: token_hash direct link ────────────────────────────────────────
+    // Supabase sends ?token_hash=xxx&type=recovery directly to our page.
+    // verifyOtp does not need a PKCE code_verifier.
+    if (isTokenHashUrl && tokenHash) {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" }).then(({ error }) => {
         setVerifying(false);
-        if (error || !data.session) {
-          setLinkError("Invalid or expired reset link. Please request a new one.");
-        } else {
-          setVerifying(false);
-        }
+        if (error) setLinkError("Invalid or expired reset link. Please request a new one.");
+        // on success: verifying=false, linkError="" → form renders
       });
       return;
     }
 
-    // ── Implicit flow fallback: #access_token=xxx&type=recovery ──────────────
-    // 5-second timeout prevents infinite loading if neither event fires
+    // ── Path B (main): /auth/callback established the session server-side. ────
+    // The Supabase server-side client (createServerClient) exchanged the code and
+    // wrote the session into cookies. getSession() reads it immediately.
+    // 5s timeout guards against unexpected cases (no redirect from callback, etc.).
     const timeoutId = setTimeout(() => {
       setVerifying(false);
-      setLinkError("Reset link verification timed out. Please request a new link.");
+      setLinkError("Reset link verification timed out. Please request a new one.");
     }, 5000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        clearTimeout(timeoutId);
-        setVerifying(false);
-      }
-    });
-
-    // Handle page-reload case where session already exists
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        clearTimeout(timeoutId);
-        setVerifying(false);
+      clearTimeout(timeoutId);
+      setVerifying(false);
+      if (!session) {
+        setLinkError(
+          "No active session found. Please use the link from your email, or request a new one.",
+        );
       }
     });
 
-    return () => {
-      clearTimeout(timeoutId);
-      subscription.unsubscribe();
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => clearTimeout(timeoutId);
+  }, [isExpiredUrl, isTokenHashUrl, tokenHash, supabase.auth]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -130,38 +165,11 @@ function ResetPasswordContent() {
     setTimeout(() => router.push("/dashboard"), 3000);
   }
 
-  // ── Loading ───────────────────────────────────────────────────────────────
+  // ── Render states ─────────────────────────────────────────────────────────
   if (verifying) return <VerifyingScreen />;
+  if (linkError)  return <LinkExpiredScreen message={linkError} />;
 
-  // ── Link error ────────────────────────────────────────────────────────────
-  if (linkError) {
-    return (
-      <div className="min-h-screen flex flex-col bg-gray-50">
-        <NavBar />
-        <div className="flex flex-1 items-center justify-center px-4 py-16">
-          <div className="w-full max-w-md">
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 px-8 py-8">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mb-4">
-                <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Link expired</h1>
-              <p className="text-sm text-gray-500 mb-6">{linkError}</p>
-              <Link
-                href="/forgot-password"
-                className="block text-center py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
-              >
-                Request a new reset link
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Form ──────────────────────────────────────────────────────────────────
+  // ── Password form ─────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <NavBar />
