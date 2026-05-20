@@ -825,7 +825,7 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <a href="/login" className="block text-center py-3 rounded-xl border border-slate-600 font-bold text-slate-300 hover:border-slate-400 hover:text-white transition-all text-sm">
+              <a href="/login?tab=signup" className="block text-center py-3 rounded-xl border border-slate-600 font-bold text-slate-300 hover:border-slate-400 hover:text-white transition-all text-sm">
                 {t.pricing.free.cta}
               </a>
             </div>
@@ -850,7 +850,7 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <a href="/login" className="block text-center py-3 rounded-xl font-bold text-white transition-colors shadow-lg text-sm"
+              <a href="/login?tab=signup" className="block text-center py-3 rounded-xl font-bold text-white transition-colors shadow-lg text-sm"
                 style={{ background: "#3B82F6" }}
                 onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
                 onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
@@ -979,10 +979,21 @@ export default function Home() {
 
       {/* ── 13. Footer ──────────────────────────────────────────────── */}
       <footer className="border-t py-8 px-6" style={{ background: "#0F172A", borderColor: "#1E293B" }}>
-        <div className="relative max-w-5xl mx-auto flex items-center justify-between">
-          <span className="text-lg font-extrabold text-white shrink-0">Splan<span className="text-blue-400">AI</span></span>
-          <p className="absolute left-1/2 -translate-x-1/2 text-sm text-slate-500 text-center whitespace-nowrap">{t.footer}</p>
-          <div className="flex items-center gap-5 text-sm text-slate-500 ml-auto shrink-0">
+        {/* Mobile: vertical stack / Desktop: horizontal row */}
+        <div className="max-w-5xl mx-auto flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:relative">
+          {/* Logo */}
+          <span className="text-lg font-extrabold text-white">Splan<span className="text-blue-400">AI</span></span>
+
+          {/* Center: copyright + email */}
+          <div className="flex flex-col items-center gap-1 sm:absolute sm:left-1/2 sm:-translate-x-1/2">
+            <p className="text-sm text-slate-500 text-center whitespace-nowrap">{t.footer}</p>
+            <a href="mailto:hello@splanai.com" className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+              Questions? hello@splanai.com
+            </a>
+          </div>
+
+          {/* Nav links */}
+          <div className="flex items-center gap-5 text-sm text-slate-500 sm:ml-auto">
             <a href="#pricing" className="hover:text-slate-300 transition-colors">{t.nav.pricing}</a>
             <a href="/login" className="hover:text-slate-300 transition-colors">{t.nav.signin}</a>
             <a href="/dashboard" className="hover:text-slate-300 transition-colors">{t.nav.dashboard}</a>
