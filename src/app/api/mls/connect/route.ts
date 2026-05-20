@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { encrypt, hashIp } from "@/lib/crypto";
 import { getClientIp } from "@/lib/security";
+import { getUserPlan } from "@/lib/usage";
 
 const TRESTLE_TOKEN_URL = "https://api.trestle.com/connect/token";
 
@@ -36,6 +37,15 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Plan gate: MLS integration is Pro/Team only
+    const plan = await getUserPlan(user.id);
+    if (plan === "free") {
+      return NextResponse.json(
+        { error: "MLS integration requires Pro or Team plan.", upgradeUrl: "/pricing" },
+        { status: 403 },
+      );
     }
 
     const body = await req.json() as {
