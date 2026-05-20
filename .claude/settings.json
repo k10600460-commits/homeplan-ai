@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(grep -v \"^$\")",
+      "Bash(node -e ' *)",
+      "Bash(node scripts/generate-og.mjs)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -21,11 +28,6 @@
           }
         ]
       }
-    ]
-  },
-  "permissions": {
-    "allow": [
-      "Bash(grep -v \"^$\")"
     ]
   }
 }

@@ -30,7 +30,7 @@ async function sendLimitAlert(service: Service, count: number, type: 'warning' |
     : `[SplanAI] ${service} AUTO-STOPPED at ${count} requests`
 
   await resend.emails.send({
-    from: 'SplanAI <noreply@homeplan-ai.com>',
+    from: 'SplanAI <noreply@splanai.com>',
     to: ALERT_EMAIL,
     subject,
     html: `<p>External API usage alert for <strong>${service}</strong>.</p>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt, encrypt, hashIp } from "@/lib/crypto";
-import { getClientIp } from "@/lib/security";
+import { getClientIp, checkRateLimit } from "@/lib/security";
 
 const TRESTLE_API_BASE = "https://api.trestle.com/reso/odata";
 const TRESTLE_TOKEN_URL = "https://api.trestle.com/connect/token";
@@ -69,6 +69,13 @@ async function refreshToken(
 
 export async function GET(req: NextRequest) {
   try {
+    // Rate limit: 10 MLS lookups/min per IP
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(`mls:${ip}`);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

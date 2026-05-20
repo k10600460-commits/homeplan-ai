@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
 const ADMIN_EMAIL = "k10600460@gmail.com";
-const FROM_EMAIL = "SplanAI <noreply@homeplan-ai.com>";
+const FROM_EMAIL = "SplanAI <noreply@splanai.com>";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -190,7 +190,7 @@ function buildEmailHtml(stats: {
     <!-- Footer -->
     <div style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
       <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">
-        SplanAI · <a href="https://homeplan-ai.vercel.app/dashboard" style="color:#3b82f6;text-decoration:none;">Open Dashboard</a>
+        SplanAI · <a href="https://splanai.com/dashboard" style="color:#3b82f6;text-decoration:none;">Open Dashboard</a>
         · Automated by Vercel Cron at 7:00 AM JST
       </p>
     </div>
