@@ -13,8 +13,6 @@ export async function POST(req: NextRequest) {
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      payment_method_types: ["card"],
-      // Card is always required — even during free trial
       payment_method_collection: "always",
       line_items: [
         {
