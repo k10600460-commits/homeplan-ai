@@ -32,7 +32,8 @@ const T = {
       streetHint: "Optional — adds lot size & zoning data (coming soon)",
       locationNote: "Optional — adds neighborhood & market data",
       cta: "Generate 3 Plans →", generating: "Generating Plans…",
-      disclaimer: "No credit card required · 3 free plans included",
+      signupNote: "✨ Quick signup to receive your plans · No credit card required",
+      disclaimer: "No credit card required · 30-second signup · 3 free plans included",
     },
     pain: {
       heading: "Sound familiar?",
@@ -141,7 +142,8 @@ const T = {
       streetHint: "Opcional — agrega tamaño del lote y zonificación (próximamente)",
       locationNote: "Opcional — agrega datos del vecindario y mercado",
       cta: "Generar 3 Planos →", generating: "Generando Planos…",
-      disclaimer: "Sin tarjeta de crédito · 3 planos gratis incluidos",
+      signupNote: "✨ Registro rápido para recibir tus planos · Sin tarjeta de crédito",
+      disclaimer: "Sin tarjeta de crédito · Registro en 30 segundos · 3 planos gratis incluidos",
     },
     pain: {
       heading: "¿Te suena familiar?",
@@ -557,6 +559,7 @@ export default function Home() {
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-6">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.form.title}</p>
+            <p className="mt-2 text-sm text-slate-400">{t.form.signupNote}</p>
           </div>
           <form onSubmit={handleSubmit} className="bg-white border-2 border-slate-200 rounded-2xl shadow-xl p-8">
             {/* MLS Listing # — only shown when connected */}
