@@ -2,6 +2,7 @@ import { stripe, STRIPE_PRICE_ID, STRIPE_TEAM_PRICE_ID, TRIAL_PERIOD_DAYS } from
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { getClientIp, checkRateLimit } from "@/lib/security";
 
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,6 +10,13 @@ const supabaseAdmin = createAdmin(
 );
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 5 checkout sessions per IP per 15 minutes
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`checkout:${ip}`, { max: 5, windowMs: 15 * 60 * 1000 });
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+  }
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

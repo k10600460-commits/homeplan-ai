@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
+import { getClientIp, checkRateLimit } from '@/lib/security'
 
 // Exact messages per spec
 const GMAPS_UNAVAILABLE  = { available: false, reason: 'Data unavailable at this time' }
@@ -77,6 +78,13 @@ function computeSafetyScore(policeCount: number, fireCount: number): number {
 }
 
 export async function GET(req: NextRequest) {
+  // Rate limit: 30 neighborhood lookups per IP per minute
+  const ip = getClientIp(req)
+  const rl = checkRateLimit(`neighborhood:${ip}`, { max: 30, windowMs: 60_000 })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 })
+  }
+
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
