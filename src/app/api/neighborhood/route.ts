@@ -45,7 +45,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return parseFloat((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1))
 }
 
-async function geocode(city: string, state: string): Promise<{ lat: number; lng: number; zipCode: string | null } | null> {
+async function geocode(city: string, state: string): Promise<{ lat: number; lng: number; zipCode: string | null; usedReverseGeocode: boolean } | null> {
   const key = process.env.GOOGLE_MAPS_API_KEY!
   const query = encodeURIComponent(`${city}, ${state}, USA`)
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${key}`
@@ -53,8 +53,28 @@ async function geocode(city: string, state: string): Promise<{ lat: number; lng:
   const data = await res.json() as GoogleGeocodeResponse
   if (data.status !== 'OK' || !data.results[0]) return null
   const r = data.results[0]
-  const zipComponent = r.address_components.find(c => c.types.includes('postal_code'))
-  return { ...r.geometry.location, zipCode: zipComponent?.long_name ?? null }
+  const { lat, lng } = r.geometry.location
+
+  let zipCode = r.address_components.find(c => c.types.includes('postal_code'))?.long_name ?? null
+  let usedReverseGeocode = false
+
+  // City-level geocodes rarely contain a postal_code component.
+  // Fall back to reverse-geocoding the center coordinates to get one.
+  if (!zipCode) {
+    try {
+      const revUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&result_type=postal_code&key=${key}`
+      const revRes = await fetch(revUrl)
+      const revData = await revRes.json() as GoogleGeocodeResponse
+      if (revData.status === 'OK' && revData.results[0]) {
+        zipCode = revData.results[0].address_components.find(c => c.types.includes('postal_code'))?.long_name ?? null
+        usedReverseGeocode = true
+      }
+    } catch {
+      // Proceed without zip code if reverse geocode fails
+    }
+  }
+
+  return { lat, lng, zipCode, usedReverseGeocode }
 }
 
 async function getNearbyPlaces(
@@ -73,7 +93,10 @@ async function getNearbyPlaces(
 }
 
 function computeSafetyScore(policeCount: number, fireCount: number): number {
-  const raw = 3 + policeCount * 2 + fireCount * 1
+  // Baseline = 5 (Moderate). Google Places doesn't reliably index police/fire stations,
+  // so we treat missing results as neutral rather than "unsafe".
+  // Each found station is an additive signal toward "High".
+  const raw = 5 + Math.min(policeCount, 3) + Math.min(fireCount, 2)
   return Math.min(10, raw)
 }
 
@@ -109,13 +132,15 @@ export async function GET(req: NextRequest) {
       market:       RENTCAST_LIMIT,
     }
 
-    let geocodeResult: { lat: number; lng: number; zipCode: string | null } | null = null
+    let geocodeResult: { lat: number; lng: number; zipCode: string | null; usedReverseGeocode: boolean } | null = null
 
     // ── Google Maps ──────────────────────────────────────────────────
     const mapsCheck = await checkExternalUsage('google_maps')
     if (mapsCheck.allowed && process.env.GOOGLE_MAPS_API_KEY) {
       geocodeResult = await geocode(city, state)
-      await recordExternalUsage('google_maps') // 1 req: geocoding
+      // Count forward geocode (always 1). Count reverse geocode if it was used.
+      await recordExternalUsage('google_maps')
+      if (geocodeResult?.usedReverseGeocode) await recordExternalUsage('google_maps')
 
       if (geocodeResult) {
         const coords = { lat: geocodeResult.lat, lng: geocodeResult.lng }
