@@ -3,29 +3,40 @@
 // Replace with Upstash Redis when scaling to multiple regions.
 
 const rateLimitStore = new Map<string, number[]>();
-const WINDOW_MS = 60_000;       // 1 minute
-const MAX_REQUESTS_PER_MIN = 5; // per IP per minute for /api/generate
 
-export function checkRateLimit(identifier: string): {
+export interface RateLimitOptions {
+  /** Maximum requests allowed within the window. Default: 5 */
+  max?: number;
+  /** Window size in milliseconds. Default: 60_000 (1 minute) */
+  windowMs?: number;
+}
+
+export function checkRateLimit(
+  identifier: string,
+  options?: RateLimitOptions,
+): {
   allowed: boolean;
   remaining: number;
   resetAt: number;
 } {
-  const now = Date.now();
-  const windowStart = now - WINDOW_MS;
-  const timestamps = (rateLimitStore.get(identifier) ?? []).filter(
+  const max       = options?.max       ?? 5;
+  const windowMs  = options?.windowMs  ?? 60_000;
+
+  const now         = Date.now();
+  const windowStart = now - windowMs;
+  const timestamps  = (rateLimitStore.get(identifier) ?? []).filter(
     (t) => t > windowStart,
   );
 
-  const allowed = timestamps.length < MAX_REQUESTS_PER_MIN;
+  const allowed = timestamps.length < max;
   if (allowed) {
     timestamps.push(now);
     rateLimitStore.set(identifier, timestamps);
   }
 
-  // Reset map entries older than 5 minutes to prevent memory leak
+  // Evict stale entries to prevent unbounded memory growth
   if (rateLimitStore.size > 10_000) {
-    const cutoff = now - 5 * WINDOW_MS;
+    const cutoff = now - 5 * windowMs;
     for (const [key, times] of rateLimitStore.entries()) {
       if (times.every((t) => t < cutoff)) rateLimitStore.delete(key);
     }
@@ -33,8 +44,8 @@ export function checkRateLimit(identifier: string): {
 
   return {
     allowed,
-    remaining: Math.max(0, MAX_REQUESTS_PER_MIN - timestamps.length),
-    resetAt: timestamps[0] ? timestamps[0] + WINDOW_MS : now + WINDOW_MS,
+    remaining: Math.max(0, max - timestamps.length),
+    resetAt: timestamps[0] ? timestamps[0] + windowMs : now + windowMs,
   };
 }
 

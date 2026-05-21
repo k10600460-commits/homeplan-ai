@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { randomBytes } from 'crypto'
+import { getClientIp, checkRateLimit } from '@/lib/security'
 
 function generateSlug(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -10,6 +11,13 @@ function generateSlug(): string {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 20 shared links per user per hour
+  const ip = getClientIp(req)
+  const rl = checkRateLimit(`share:${ip}`, { max: 20, windowMs: 60 * 60 * 1000 })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 })
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
