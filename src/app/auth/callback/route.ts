@@ -45,15 +45,7 @@ export async function GET(request: NextRequest) {
         sendWelcomeEmail(data.user.email).catch(console.error);
       }
       if (isNewUser) {
-        const checkoutRes = await fetch(`${origin}/api/stripe/checkout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: data.user.id, email: data.user.email }),
-        });
-        const checkoutData = await checkoutRes.json();
-        if (checkoutData.url) {
-          return NextResponse.redirect(checkoutData.url);
-        }
+        return NextResponse.redirect(`${origin}/dashboard?new_signup=1`);
       }
 
       return NextResponse.redirect(`${origin}${next}`);

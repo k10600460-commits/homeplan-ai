@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DashboardClient from "./DashboardClient";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ new_signup?: string }>;
+}) {
   const supabase = await createClient();
 
   const {
@@ -10,6 +14,8 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  const { new_signup } = await searchParams;
 
   // Fetch subscription status
   const { data: subscription } = await supabase
@@ -25,6 +31,7 @@ export default async function DashboardPage() {
   return (
     <DashboardClient
       user={{ id: user.id, email: user.email ?? "" }}
+      isNewSignup={new_signup === "1"}
       subscription={
         subscription
           ? {
