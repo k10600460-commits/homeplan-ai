@@ -304,7 +304,7 @@ function AnimateIn({
 function HeroPreview({ scrollY = 0 }: { scrollY?: number }) {
   return (
     <div
-      className="relative w-full max-w-lg mx-auto lg:mx-0 pb-10 md:pb-0"
+      className="relative w-full max-w-lg mx-auto lg:mx-0"
       style={{ transform: `translateY(${Math.min(scrollY * 0.05, 10)}px)`, transition: "transform 0.1s linear" }}
     >
       <div className="absolute -inset-6 bg-blue-500/20 rounded-3xl blur-3xl" />
@@ -364,8 +364,8 @@ function HeroPreview({ scrollY = 0 }: { scrollY?: number }) {
           </div>
         </div>
       </div>
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 md:bottom-auto md:left-auto md:translate-x-0 md:-bottom-3 md:-right-3 bg-white rounded-xl shadow-xl border border-slate-100 px-2 py-1.5 md:px-3 md:py-2 flex items-center gap-1.5 md:gap-2">
-        <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-emerald-400 animate-pulse" />
+      <div className="absolute -bottom-4 right-0 bg-white rounded-xl shadow-xl border border-slate-100 px-2.5 py-1.5 flex items-center gap-1.5 whitespace-nowrap">
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
         <span className="text-xs font-semibold text-slate-700">Client viewed plan</span>
         <span className="text-xs text-slate-400">just now</span>
       </div>
