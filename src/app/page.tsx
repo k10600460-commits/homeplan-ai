@@ -105,15 +105,11 @@ const T = {
       ],
     },
     testimonials: {
-      heading: "Builders close faster with SplanAI",
-      sub: "Trusted across the US",
-      items: [
-        { name: "James R.", role: "Custom Home Builder · Texas", text: "I used to spend hours sketching plans for client meetings. Now I walk in with 3 AI-generated proposals and close deals on the spot.", stars: 5 },
-        { name: "Maria L.", role: "General Contractor · Florida", text: "The PDF output looks incredibly professional. My clients are always impressed. This tool paid for itself on the first deal.", stars: 5 },
-        { name: "Kevin T.", role: "Home Builder · Arizona", text: "Super fast and easy. I generate plans during the client call itself. It's become my secret weapon for winning new projects.", stars: 5 },
-      ],
+      heading: "Built for home builders who close deals",
+      sub: "Launching on ProductHunt · May 26, 2026 — be one of our founding builders",
+      items: [] as const,
     },
-    ctaBanner: { heading: "Ready to close more deals?", sub: "Join home builders using AI floor plans to win clients before the competition.", cta: "Start Free — No Credit Card" },
+    ctaBanner: { heading: "Ready to close more deals?", sub: "Be one of the first builders to close deals with AI floor plans.", cta: "Start Free — No Credit Card" },
     footer: "© 2026 SplanAI. Built for home builders.",
   },
   es: {
@@ -215,15 +211,11 @@ const T = {
       ],
     },
     testimonials: {
-      heading: "Constructores cierran más con SplanAI",
-      sub: "Utilizado en todo Estados Unidos",
-      items: [
-        { name: "James R.", role: "Constructor de casas · Texas", text: "Solía pasar horas dibujando planos. Ahora entro con 3 propuestas generadas por IA y cierro contratos en el momento.", stars: 5 },
-        { name: "Maria L.", role: "Contratista General · Florida", text: "El PDF se ve increíblemente profesional. Mis clientes siempre quedan impresionados. Se pagó solo en el primer contrato.", stars: 5 },
-        { name: "Kevin T.", role: "Constructor de casas · Arizona", text: "Rápido y fácil. Genero planos durante la llamada con el cliente. Se ha convertido en mi arma secreta.", stars: 5 },
-      ],
+      heading: "Hecho para constructores que cierran contratos",
+      sub: "Lanzamiento en ProductHunt · 26 de mayo de 2026 — sé uno de nuestros primeros constructores",
+      items: [] as const,
     },
-    ctaBanner: { heading: "¿Listo para cerrar más contratos?", sub: "Únete a los constructores que usan planos con IA para ganar clientes.", cta: "Empieza Gratis — Sin Tarjeta" },
+    ctaBanner: { heading: "¿Listo para cerrar más contratos?", sub: "Sé uno de los primeros constructores en cerrar contratos con planos de IA.", cta: "Empieza Gratis — Sin Tarjeta" },
     footer: "© 2026 SplanAI. Construido para constructores.",
   },
 } as const;
@@ -939,22 +931,9 @@ export default function Home() {
             <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.testimonials.heading}</h2>
             <p className="text-slate-500">{t.testimonials.sub}</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {t.testimonials.items.map(item => (
-              <div key={item.name} className="rounded-2xl p-7 flex flex-col gap-4 border-2 border-slate-100 hover:border-blue-100 hover:shadow-md transition-all" style={{ background: "#F8FAFC" }}>
-                <Stars count={item.stars} />
-                <p className="text-slate-600 text-sm leading-relaxed flex-1">"{item.text}"</p>
-                <div className="flex items-center gap-3 pt-3 border-t border-slate-200">
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ background: "#3B82F6" }}>
-                    {item.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm" style={{ color: "#0F172A" }}>{item.name}</p>
-                    <p className="text-xs text-slate-400">{item.role}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="rounded-2xl p-8 text-center border-2 border-blue-100" style={{ background: "#F0F7FF" }}>
+            <p className="text-3xl mb-4">🚀</p>
+            <p className="text-slate-600 text-base leading-relaxed max-w-xl mx-auto">{t.testimonials.sub}</p>
           </div>
         </div>
       </section>
