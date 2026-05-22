@@ -42,3 +42,8 @@ next-env.d.ts
 
 # Large font files — download separately (see step25-zh-pdf.md)
 public/fonts/*.woff2
+
+# scripts/ 出力ファイル (個人情報・ビジネス情報を含む)
+builders.csv
+scripts/.env.scripts
+!scripts/.env.scripts.example
