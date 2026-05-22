@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { ProductHuntBadge } from "@/components/ProductHuntBadge";
+import { SocialProofBar } from "@/components/SocialProofBar";
 
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
@@ -272,7 +274,27 @@ function HeroPreview() {
               <span className="px-2 py-1 rounded text-xs bg-blue-500 text-white font-semibold">PDF</span>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          {/* Neighborhood data first — establishes insight/relief before showing plan output */}
+          <div className="grid grid-cols-3 gap-1.5 mb-2">
+            <div className="rounded-lg bg-blue-50 border border-blue-100 p-2 flex items-center gap-1.5">
+              <span className="text-sm">🏫</span>
+              <div><p className="text-xs font-semibold text-slate-700">Schools</p><p className="text-xs text-slate-400">★ 8.4/10</p></div>
+            </div>
+            <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-2 flex items-center gap-1.5">
+              <span className="text-sm">🛡️</span>
+              <div><p className="text-xs font-semibold text-slate-700">Safety</p><p className="text-xs text-slate-400">High</p></div>
+            </div>
+            <div className="rounded-lg bg-violet-50 border border-violet-100 p-2 flex items-center gap-1.5">
+              <span className="text-sm">📊</span>
+              <div><p className="text-xs font-semibold text-slate-700">Avg Rent</p><p className="text-xs text-slate-400">$1,850/mo</p></div>
+            </div>
+          </div>
+          <div className="mb-3 rounded-lg bg-slate-800 p-2.5 flex items-center justify-between">
+            <span className="text-xs text-slate-400">Mortgage (20% down, 30yr, 7%)</span>
+            <span className="text-sm font-extrabold text-white">$1,876<span className="text-slate-400 text-xs font-normal">/mo</span></span>
+          </div>
+          {/* 3 AI-generated plans — shown after neighborhood context is established */}
+          <div className="grid grid-cols-3 gap-2">
             {[
               { id: "01", name: "Craftsman Ranch", sqft: "2,100 sqft", cost: "$315K", bd: "3bd/2ba", color: "blue", selected: false },
               { id: "02", name: "Modern Farmhouse", sqft: "2,350 sqft", cost: "$352K", bd: "4bd/2.5ba", color: "emerald", selected: true },
@@ -290,24 +312,6 @@ function HeroPreview() {
                 </div>
               </div>
             ))}
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            <div className="rounded-lg bg-blue-50 border border-blue-100 p-2 flex items-center gap-1.5">
-              <span className="text-sm">🏫</span>
-              <div><p className="text-xs font-semibold text-slate-700">Schools</p><p className="text-xs text-slate-400">★ 8.4/10</p></div>
-            </div>
-            <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-2 flex items-center gap-1.5">
-              <span className="text-sm">🛡️</span>
-              <div><p className="text-xs font-semibold text-slate-700">Safety</p><p className="text-xs text-slate-400">High</p></div>
-            </div>
-            <div className="rounded-lg bg-violet-50 border border-violet-100 p-2 flex items-center gap-1.5">
-              <span className="text-sm">📊</span>
-              <div><p className="text-xs font-semibold text-slate-700">Avg Rent</p><p className="text-xs text-slate-400">$1,850/mo</p></div>
-            </div>
-          </div>
-          <div className="mt-2 rounded-lg bg-slate-800 p-2.5 flex items-center justify-between">
-            <span className="text-xs text-slate-400">Mortgage (20% down, 30yr, 7%)</span>
-            <span className="text-sm font-extrabold text-white">$1,876<span className="text-slate-400 text-xs font-normal">/mo</span></span>
           </div>
         </div>
       </div>
@@ -486,10 +490,7 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
           <div className="flex flex-col lg:flex-row items-center gap-16">
             <div className="flex-1 text-center lg:text-left max-w-xl mx-auto lg:mx-0">
-              <a href="https://www.producthunt.com/posts/splanai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-1.5 mb-6 text-xs font-bold tracking-widest text-blue-300 uppercase bg-blue-500/10 rounded-full border border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-400 transition-colors cursor-pointer">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                🚀 {t.hero.badge}
-              </a>
+              <ProductHuntBadge state="pre-launch" lang={lang} />
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-white mb-5">
                 {t.hero.headline1}{" "}
                 <span className="text-blue-400">{t.hero.headline2}</span>
@@ -520,6 +521,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* ── 3a. Social Proof Bar ─────────────────────────────────────── */}
+      <SocialProofBar lang={lang} />
 
       {/* ── 3. Trust Bar ────────────────────────────────────────────── */}
       <section className="border-y border-slate-200 py-5 px-6" style={{ background: "#fff" }}>
@@ -720,7 +724,32 @@ export default function Home() {
                     <button className="text-xs px-3 py-1.5 rounded-lg text-white font-semibold" style={{ background: "#3B82F6" }}>Export PDF</button>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3 mb-4">
+                {/* Neighborhood context first — mirrors Hero resequencing (per @DesignByMaeL) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                  {[
+                    { icon: "🏫", label: "Schools", val: "★ 8.4/10", bg: "#EFF6FF", border: "#DBEAFE", text: "#1D4ED8" },
+                    { icon: "🛡️", label: "Safety", val: "High", bg: "#F0FDF4", border: "#BBF7D0", text: "#15803D" },
+                    { icon: "🛒", label: "Grocery", val: "0.5 km", bg: "#FAF5FF", border: "#E9D5FF", text: "#6B21A8" },
+                    { icon: "📊", label: "Avg Rent", val: "$1,850/mo", bg: "#F8FAFC", border: "#CBD5E1", text: "#334155" },
+                  ].map(n => (
+                    <div key={n.label} className="rounded-lg p-2.5 flex items-center gap-2 border" style={{ background: n.bg, borderColor: n.border }}>
+                      <span className="text-base shrink-0">{n.icon}</span>
+                      <div>
+                        <p className="text-xs font-bold leading-none" style={{ color: n.text }}>{n.label}</p>
+                        <p className="text-xs mt-0.5" style={{ color: n.text }}>{n.val}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-xl p-3 flex items-center justify-between border border-slate-200 bg-white mb-4">
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <span>🏦</span> Mortgage est. <span className="font-semibold text-slate-800">$1,876/mo</span>
+                    <span className="text-xs text-slate-400">(20% down · 30yr · 7%)</span>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full text-emerald-700 font-semibold" style={{ background: "#ECFDF5", border: "1px solid #A7F3D0" }}>Live</span>
+                </div>
+                {/* AI-generated plans shown after lot context is established */}
+                <div className="grid grid-cols-3 gap-3">
                   {[
                     { label: "Plan 1", name: "Craftsman Ranch", sqft: "2,100", bd: "3bd/2ba", cost: "$315K", color: "#3B82F6", sel: false },
                     { label: "Plan 2", name: "Modern Farmhouse", sqft: "2,350", bd: "4bd/2.5ba", cost: "$352K", color: "#10B981", sel: true },
@@ -738,29 +767,6 @@ export default function Home() {
                       </div>
                     </div>
                   ))}
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                  {[
-                    { icon: "🏫", label: "Schools", val: "★ 8.4/10", bg: "#EFF6FF", border: "#DBEAFE", text: "#1D4ED8" },
-                    { icon: "🛡️", label: "Safety", val: "High", bg: "#F0FDF4", border: "#BBF7D0", text: "#15803D" },
-                    { icon: "🛒", label: "Grocery", val: "0.5 km", bg: "#FAF5FF", border: "#E9D5FF", text: "#6B21A8" },
-                    { icon: "📊", label: "Avg Rent", val: "$1,850/mo", bg: "#F8FAFC", border: "#CBD5E1", text: "#334155" },
-                  ].map(n => (
-                    <div key={n.label} className="rounded-lg p-2.5 flex items-center gap-2 border" style={{ background: n.bg, borderColor: n.border }}>
-                      <span className="text-base shrink-0">{n.icon}</span>
-                      <div>
-                        <p className="text-xs font-bold leading-none" style={{ color: n.text }}>{n.label}</p>
-                        <p className="text-xs mt-0.5" style={{ color: n.text }}>{n.val}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="rounded-xl p-3 flex items-center justify-between border border-slate-200 bg-white">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <span>🏦</span> Mortgage est. <span className="font-semibold text-slate-800">$1,876/mo</span>
-                    <span className="text-xs text-slate-400">(20% down · 30yr · 7%)</span>
-                  </div>
-                  <span className="text-xs px-2 py-1 rounded-full text-emerald-700 font-semibold" style={{ background: "#ECFDF5", border: "1px solid #A7F3D0" }}>Live</span>
                 </div>
               </div>
             </div>
