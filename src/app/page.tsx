@@ -983,8 +983,9 @@ export default function Home() {
           {/* Nav links */}
           <div className="flex items-center gap-5 text-sm text-slate-500 sm:ml-auto">
             <a href="#pricing" className="hover:text-slate-300 transition-colors">{t.nav.pricing}</a>
+            <a href="/terms" className="hover:text-slate-300 transition-colors">Terms</a>
+            <a href="/privacy" className="hover:text-slate-300 transition-colors">Privacy</a>
             <a href="/login" className="hover:text-slate-300 transition-colors">{t.nav.signin}</a>
-            <a href="/dashboard" className="hover:text-slate-300 transition-colors">{t.nav.dashboard}</a>
           </div>
         </div>
       </footer>
