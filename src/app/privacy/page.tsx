@@ -37,11 +37,19 @@ export default function PrivacyPage() {
 
             <section>
               <h2 className="text-lg font-bold text-slate-900 mb-3">1. Overview</h2>
-              <p className="leading-relaxed">
+              <p className="leading-relaxed mb-3">
                 SplanAI (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) is committed to protecting your privacy.
                 This Privacy Policy explains what information we collect when you use SplanAI,
                 how we use it, and who we share it with. By using SplanAI, you agree to the
                 practices described in this policy.
+              </p>
+              <p className="leading-relaxed">
+                SplanAI is operated as an individual business based in Japan. If you have
+                any questions about this Privacy Policy or your personal data, you can
+                contact us at{" "}
+                <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">
+                  {CONTACT_EMAIL}
+                </a>.
               </p>
             </section>
 
