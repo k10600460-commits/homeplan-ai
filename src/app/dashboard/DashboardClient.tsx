@@ -711,6 +711,28 @@ export default function DashboardClient({ user, subscription }: Props) {
           </div>
         )}
 
+        {/* Upgrade to Pro CTA (for Free users) */}
+        {userPlan === "free" && (
+          <div className="mt-6 bg-white rounded-2xl border border-blue-200 shadow-sm p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-sm font-bold text-gray-800">Unlock unlimited plans</h2>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-600 text-white font-semibold">Most popular</span>
+                </div>
+                <p className="text-xs text-gray-500">Unlimited generations · Branded PDF · Neighborhood data · $49/mo</p>
+              </div>
+              <button
+                onClick={handleSubscribe}
+                disabled={checkoutLoading}
+                className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 shrink-0"
+              >
+                {checkoutLoading ? "Loading…" : "Start Free Trial →"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Upgrade to Team CTA (for Pro users) */}
         {userPlan === "pro" && (
           <div className="mt-6 bg-white rounded-2xl border border-emerald-200 shadow-sm p-6">
