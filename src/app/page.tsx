@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ProductHuntBadge } from "@/components/ProductHuntBadge";
@@ -254,10 +254,59 @@ function Check() {
   );
 }
 
-// ── Hero product preview (right panel) ───────────────────────────────
-function HeroPreview() {
+// ── Scroll-triggered fade+slide-up (respects prefers-reduced-motion) ─
+function AnimateIn({
+  children,
+  delay = 0,
+  className,
+  style,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setVisible(true);
+      return;
+    }
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   return (
-    <div className="relative w-full max-w-lg mx-auto lg:mx-0">
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        ...style,
+        transition: `opacity 0.55s ease ${delay}ms, transform 0.55s ease ${delay}ms`,
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(22px)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ── Hero product preview (right panel) ───────────────────────────────
+function HeroPreview({ scrollY = 0 }: { scrollY?: number }) {
+  return (
+    <div
+      className="relative w-full max-w-lg mx-auto lg:mx-0"
+      style={{ transform: `translateY(${Math.min(scrollY * 0.05, 10)}px)`, transition: "transform 0.1s linear" }}
+    >
       <div className="absolute -inset-6 bg-blue-500/20 rounded-3xl blur-3xl" />
       <div className="relative bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
         <div className="flex items-center gap-1.5 px-4 py-3 bg-slate-900/80 border-b border-slate-700">
@@ -348,6 +397,15 @@ export default function Home() {
   const [error, setError] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [lang, setLang] = useState<Lang>("en");
+
+  // Hero parallax
+  const [heroScrollY, setHeroScrollY] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const onScroll = () => setHeroScrollY(window.scrollY);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // MLS state
   const [mlsConnected, setMlsConnected] = useState(false);
@@ -516,7 +574,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex-1 w-full lg:max-w-lg">
-              <HeroPreview />
+              <HeroPreview scrollY={heroScrollY} />
             </div>
           </div>
         </div>
@@ -650,21 +708,23 @@ export default function Home() {
       {/* ── 4. Pain Points ──────────────────────────────────────────── */}
       <section className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
+          <AnimateIn className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.pain.heading}</h2>
             <p className="text-slate-500 max-w-xl mx-auto">{t.pain.sub}</p>
-          </div>
+          </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {t.pain.items.map((item, i) => (
-              <div key={i} className="rounded-2xl p-7 border-2 border-red-100 hover:border-red-200 hover:shadow-md transition-all flex flex-col gap-3" style={{ background: "#fff8f8" }}>
-                <span className="text-4xl">{item.icon}</span>
-                <h3 className="font-bold text-slate-900 text-base leading-snug">{item.headline}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed flex-1">{item.body}</p>
-                <p className="text-emerald-600 text-sm font-bold border-t border-red-100 pt-4">→ {item.solution}</p>
-              </div>
+              <AnimateIn key={i} delay={i * 90}>
+                <div className="rounded-2xl p-7 border-2 border-red-100 hover:border-red-200 hover:shadow-lg hover:-translate-y-1 transition-all flex flex-col gap-3 h-full" style={{ background: "#fff8f8" }}>
+                  <span className="text-4xl">{item.icon}</span>
+                  <h3 className="font-bold text-slate-900 text-base leading-snug">{item.headline}</h3>
+                  <p className="text-sm text-slate-500 leading-relaxed flex-1">{item.body}</p>
+                  <p className="text-emerald-600 text-sm font-bold border-t border-red-100 pt-4">→ {item.solution}</p>
+                </div>
+              </AnimateIn>
             ))}
           </div>
-          <div className="mt-12 text-center">
+          <AnimateIn delay={200} className="mt-12 text-center">
             <div className="inline-flex items-center gap-3 text-white px-8 py-4 rounded-2xl shadow-xl" style={{ background: "#0F172A" }}>
               <svg className="w-5 h-5 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -673,19 +733,20 @@ export default function Home() {
                 {lang === "en" ? "SplanAI solves all three — in 30 seconds." : "SplanAI resuelve los tres — en 30 segundos."}
               </span>
             </div>
-          </div>
+          </AnimateIn>
         </div>
       </section>
 
       {/* ── 5. How It Works ─────────────────────────────────────────── */}
       <section id="how" className="py-20 px-6" style={{ background: "#0F172A" }}>
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
+          <AnimateIn className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">{t.how.heading}</h2>
-          </div>
+          </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-16">
             {t.how.steps.map((step, i) => (
-              <div key={step.step} className="relative">
+              <AnimateIn key={step.step} delay={i * 100}>
+              <div className="relative">
                 <div className="relative z-10 flex flex-col gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-extrabold text-white border border-blue-500/40" style={{ background: "rgba(59,130,246,0.15)" }}>
@@ -699,6 +760,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+              </AnimateIn>
             ))}
           </div>
           {/* Inline demo UI */}
@@ -777,17 +839,19 @@ export default function Home() {
       {/* ── 6. Differentiators ──────────────────────────────────────── */}
       <section className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
+          <AnimateIn className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.diff.heading}</h2>
             <p className="text-slate-500 max-w-xl mx-auto">{t.diff.sub}</p>
-          </div>
+          </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            {t.diff.items.map(item => (
-              <div key={item.title} className="flex flex-col gap-4 p-7 rounded-2xl border-2 border-slate-100 hover:border-blue-100 hover:shadow-lg transition-all" style={{ background: "#F8FAFC" }}>
-                <span className="text-4xl">{item.icon}</span>
-                <h3 className="text-lg font-bold" style={{ color: "#0F172A" }}>{item.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
-              </div>
+            {t.diff.items.map((item, i) => (
+              <AnimateIn key={item.title} delay={i * 90}>
+                <div className="flex flex-col gap-4 p-7 rounded-2xl border-2 border-slate-100 hover:border-blue-100 hover:shadow-lg hover:-translate-y-1 transition-all h-full" style={{ background: "#F8FAFC" }}>
+                  <span className="text-4xl">{item.icon}</span>
+                  <h3 className="text-lg font-bold" style={{ color: "#0F172A" }}>{item.title}</h3>
+                  <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
+                </div>
+              </AnimateIn>
             ))}
           </div>
         </div>
@@ -796,19 +860,19 @@ export default function Home() {
       {/* ── 7. Mission ──────────────────────────────────────────────── */}
       <section className="py-24 px-6 relative overflow-hidden" style={{ background: "#0F172A" }}>
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        <div className="relative max-w-3xl mx-auto text-center">
+        <AnimateIn className="relative max-w-3xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-6 leading-tight">{t.mission.heading}</h2>
           <p className="text-slate-400 text-lg leading-relaxed">{t.mission.body}</p>
-        </div>
+        </AnimateIn>
       </section>
 
       {/* ── 8. Pricing ──────────────────────────────────────────────── */}
       <section id="pricing" className="py-20 px-6" style={{ background: "#0B1120" }}>
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-14">
+          <AnimateIn className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-extrabold mb-3 text-white">{t.pricing.heading}</h2>
             <p className="text-slate-400">{t.pricing.sub}</p>
-          </div>
+          </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-start">
             {/* Free */}
             <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-700/60" style={{ background: "#1E293B" }}>
@@ -917,14 +981,18 @@ export default function Home() {
       {/* ── 10. Security ─────────────────────────────────────────────── */}
       <section className="py-20 px-6" style={{ background: "#F8FAFC" }}>
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.security.heading}</h2>
-          <p className="text-slate-500 mb-12">{t.security.sub}</p>
+          <AnimateIn>
+            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.security.heading}</h2>
+            <p className="text-slate-500 mb-12">{t.security.sub}</p>
+          </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {t.security.items.map((item, i) => (
-              <div key={i} className="flex flex-col items-center gap-4 p-7 rounded-2xl border-2 border-slate-100 hover:border-blue-100 hover:shadow-md transition-all bg-white">
-                <span className="text-4xl">{item.icon}</span>
-                <p className="text-slate-700 text-sm font-semibold leading-relaxed text-center">{item.text}</p>
-              </div>
+              <AnimateIn key={i} delay={i * 80}>
+                <div className="flex flex-col items-center gap-4 p-7 rounded-2xl border-2 border-slate-100 hover:border-blue-100 hover:shadow-md hover:-translate-y-1 transition-all bg-white h-full">
+                  <span className="text-4xl">{item.icon}</span>
+                  <p className="text-slate-700 text-sm font-semibold leading-relaxed text-center">{item.text}</p>
+                </div>
+              </AnimateIn>
             ))}
           </div>
         </div>
@@ -933,14 +1001,14 @@ export default function Home() {
       {/* ── 11. Testimonials ────────────────────────────────────────── */}
       <section id="reviews" className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
+          <AnimateIn className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.testimonials.heading}</h2>
             <p className="text-slate-500">{t.testimonials.sub}</p>
-          </div>
-          <div className="rounded-2xl p-8 text-center border-2 border-blue-100" style={{ background: "#F0F7FF" }}>
+          </AnimateIn>
+          <AnimateIn delay={100} className="rounded-2xl p-8 text-center border-2 border-blue-100" style={{ background: "#F0F7FF" }}>
             <p className="text-3xl mb-4">🚀</p>
             <p className="text-slate-600 text-base leading-relaxed max-w-xl mx-auto">{t.testimonials.sub}</p>
-          </div>
+          </AnimateIn>
         </div>
       </section>
 
@@ -948,7 +1016,7 @@ export default function Home() {
       <section className="py-24 px-6 relative overflow-hidden" style={{ background: "#0F172A" }}>
         <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-blue-600/15 rounded-full blur-3xl" />
-        <div className="relative max-w-3xl mx-auto text-center">
+        <AnimateIn className="relative max-w-3xl mx-auto text-center">
           <h2 className="text-4xl sm:text-5xl font-extrabold text-white mb-5">{t.ctaBanner.heading}</h2>
           <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto leading-relaxed">{t.ctaBanner.sub}</p>
           <a href="#generate"
@@ -962,7 +1030,7 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </a>
-        </div>
+        </AnimateIn>
       </section>
 
       {/* ── 13. Footer ──────────────────────────────────────────────── */}
