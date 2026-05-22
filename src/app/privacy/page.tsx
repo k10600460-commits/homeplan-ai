@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 const LAST_UPDATED = "May 22, 2026";
-const CONTACT_EMAIL = "【MAIL_PLACEHOLDER】";
+const CONTACT_EMAIL = "hello@splanai.com";
 
 export default function PrivacyPage() {
   return (
