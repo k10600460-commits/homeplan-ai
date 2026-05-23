@@ -41,6 +41,7 @@ interface TeamMember {
 interface Props {
   user: User;
   subscription: Subscription | null;
+  isNewSignup?: boolean;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -63,7 +64,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://homeplan-ai.vercel.a
 // ── MLS connection state ──────────────────────────────────────────────────────
 type MlsStatus = "idle" | "connected" | "connecting" | "error";
 
-export default function DashboardClient({ user, subscription }: Props) {
+export default function DashboardClient({ user, subscription, isNewSignup = false }: Props) {
   const router = useRouter();
   const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -310,15 +311,26 @@ export default function DashboardClient({ user, subscription }: Props) {
 
   async function handleSubscribe() {
     setCheckoutLoading(true);
-    const res = await fetch("/api/stripe/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.id, email: user.email }),
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-    else setCheckoutLoading(false);
+    try {
+      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else setCheckoutLoading(false);
+    } catch {
+      setCheckoutLoading(false);
+    }
   }
+
+  // Auto-fire checkout for new signups arriving via /dashboard?new_signup=1.
+  // ref guard prevents double-fire under React StrictMode (effect runs twice in dev).
+  const autoSubscribeFiredRef = useRef(false);
+  useEffect(() => {
+    if (!isNewSignup || autoSubscribeFiredRef.current) return;
+    autoSubscribeFiredRef.current = true;
+    window.history.replaceState({}, "", "/dashboard");
+    handleSubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const statusInfo = STATUS_LABELS[subscription?.status ?? "inactive"] ?? STATUS_LABELS.inactive;
 

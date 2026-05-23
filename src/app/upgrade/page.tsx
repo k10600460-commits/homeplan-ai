@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 export default function UpgradePage() {
   return (
@@ -21,33 +20,18 @@ function UpgradeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
 
   const current = Number(searchParams.get("current") ?? 0);
   const limit   = Number(searchParams.get("limit") ?? 5);
   const plan    = searchParams.get("plan") ?? "free";
 
-  const supabase = createClient();
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserId(data.user?.id ?? null);
-      setEmail(data.user?.email ?? null);
-    });
-  }, [supabase]);
-
   async function handleUpgrade() {
-    if (!userId || !email) {
+    setLoading(true);
+    const res = await fetch("/api/stripe/checkout", { method: "POST" });
+    if (res.status === 401) {
       router.push("/login");
       return;
     }
-    setLoading(true);
-    const res = await fetch("/api/stripe/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, email }),
-    });
     const data = await res.json();
     if (data.url) window.location.href = data.url;
     else setLoading(false);
