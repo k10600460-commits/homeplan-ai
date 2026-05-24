@@ -11,6 +11,7 @@ interface User {
 
 interface Subscription {
   status: string;
+  plan: "free" | "pro" | "team";
   trialEnd: string | null;
   periodEnd: string | null;
   customerId: string | null;
@@ -370,7 +371,9 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                 {statusInfo.label}
               </span>
               {subscription?.isActive && (
-                <span className="text-sm text-gray-500">$49/month</span>
+                <span className="text-sm text-gray-500">
+                  {subscription.plan === "team" ? "$149/month" : "$49/month"}
+                </span>
               )}
             </div>
 

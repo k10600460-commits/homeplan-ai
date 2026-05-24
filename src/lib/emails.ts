@@ -27,16 +27,21 @@ export async function sendWelcomeEmail(to: string) {
   }).catch(console.error);
 }
 
-export async function sendTrialReminderEmail(to: string, trialEndDate: string) {
+export async function sendTrialReminderEmail(to: string, trialEndDate: string, plan: "pro" | "team" = "pro") {
+  const planLabel = plan === "team" ? "Team" : "Pro";
+  const price = plan === "team" ? "$149/month" : "$49/month";
+  const generationsLine = plan === "team"
+    ? "don't lose access to unlimited floor plan generations and branded PDFs."
+    : "don't lose access to 100 floor plan generations/month and branded PDFs.";
   await resend.emails.send({
     from: FROM,
     to,
-    subject: "Your SplanAI Pro trial ends in 3 days",
+    subject: `Your SplanAI ${planLabel} trial ends in 3 days`,
     html: `
 <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
   <h1 style="font-size:22px;font-weight:800;margin-bottom:8px">Your free trial ends on ${trialEndDate} ⏰</h1>
-  <p style="color:#475569;margin-bottom:24px">You've been using SplanAI Pro — don't lose access to 100 floor plan generations/month and branded PDFs.</p>
-  <p style="color:#475569;margin-bottom:24px">After your trial, you'll automatically continue at <strong>$49/month</strong> — or you can cancel anytime from your dashboard with one click.</p>
+  <p style="color:#475569;margin-bottom:24px">You've been using SplanAI ${planLabel} — ${generationsLine}</p>
+  <p style="color:#475569;margin-bottom:24px">After your trial, you'll automatically continue at <strong>${price}</strong> — or you can cancel anytime from your dashboard with one click.</p>
   <a href="${APP_URL}/dashboard" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Manage Your Subscription →</a>
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
   <p style="color:#cbd5e1;font-size:12px">© 2026 SplanAI · <a href="${APP_URL}" style="color:#94a3b8">splanai.com</a></p>
@@ -62,19 +67,23 @@ export async function sendFirstPlanFollowupEmail(to: string) {
   }).catch(console.error);
 }
 
-export async function sendCancellationEmail(to: string, periodEndDate: string) {
+export async function sendCancellationEmail(to: string, periodEndDate: string, plan: "pro" | "team" = "pro") {
   const APP = process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com";
+  const planLabel = plan === "team" ? "Team" : "Pro";
+  const generationsItem = plan === "team"
+    ? "Generate unlimited floor plans"
+    : "Generate up to 100 floor plans per month";
   await resend.emails.send({
     from: FROM,
     to,
-    subject: `Your SplanAI Pro access continues until ${periodEndDate}`,
+    subject: `Your SplanAI ${planLabel} access continues until ${periodEndDate}`,
     html: `
 <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
-  <h1 style="font-size:22px;font-weight:800;margin-bottom:8px">Your Pro access is still active 🏠</h1>
-  <p style="color:#475569;margin-bottom:16px">We received your cancellation request. Your SplanAI Pro subscription remains <strong>fully active until ${periodEndDate}</strong>.</p>
+  <h1 style="font-size:22px;font-weight:800;margin-bottom:8px">Your ${planLabel} access is still active 🏠</h1>
+  <p style="color:#475569;margin-bottom:16px">We received your cancellation request. Your SplanAI ${planLabel} subscription remains <strong>fully active until ${periodEndDate}</strong>.</p>
   <p style="color:#475569;margin-bottom:16px">Until then you can still:</p>
   <ul style="color:#475569;padding-left:20px;margin-bottom:24px">
-    <li>Generate up to 100 floor plans per month</li>
+    <li>${generationsItem}</li>
     <li>Export branded PDFs with your logo</li>
     <li>Share client links and track views</li>
     <li>Access neighborhood and market data</li>

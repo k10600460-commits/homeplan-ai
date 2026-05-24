@@ -86,10 +86,11 @@ export async function POST(req: NextRequest) {
           const periodEnd = new Date(item.current_period_end * 1000).toLocaleDateString(
             "en-US", { year: "numeric", month: "long", day: "numeric" },
           );
+          const plan = planFromPriceId(item.price.id);
           const { data: userData } = await supabase.auth.admin.getUserById(userId);
           if (userData.user?.email) {
             const { sendCancellationEmail } = await import("@/lib/emails");
-            sendCancellationEmail(userData.user.email, periodEnd).catch(console.error);
+            sendCancellationEmail(userData.user.email, periodEnd, plan).catch(console.error);
           }
         }
         break;

@@ -20,7 +20,7 @@ export default async function DashboardPage({
   // Fetch subscription status
   const { data: subscription } = await supabase
     .from("subscriptions")
-    .select("status, trial_end, current_period_end, stripe_customer_id, cancel_at_period_end")
+    .select("status, trial_end, current_period_end, stripe_customer_id, cancel_at_period_end, plan")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -36,6 +36,7 @@ export default async function DashboardPage({
         subscription
           ? {
               status: subscription.status,
+              plan: (subscription.plan as "free" | "pro" | "team") ?? "pro",
               trialEnd: subscription.trial_end,
               periodEnd: subscription.current_period_end,
               customerId: subscription.stripe_customer_id,

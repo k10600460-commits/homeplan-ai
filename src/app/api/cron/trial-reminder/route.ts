@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   const { data: trials } = await supabase
     .from("subscriptions")
-    .select("user_id, trial_end")
+    .select("user_id, trial_end, plan")
     .eq("status", "trialing")
     .gte("trial_end", from.toISOString())
     .lte("trial_end", to.toISOString());
@@ -40,7 +40,8 @@ export async function GET(req: NextRequest) {
       const dateStr = new Date(row.trial_end).toLocaleDateString("en-US", {
         month: "long", day: "numeric", year: "numeric",
       });
-      await sendTrialReminderEmail(user.user.email, dateStr).catch(console.error);
+      const plan = row.plan === "team" ? "team" : "pro";
+      await sendTrialReminderEmail(user.user.email, dateStr, plan).catch(console.error);
       sent++;
     }
   }
