@@ -29,6 +29,10 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
+    if (error) {
+      console.error("[auth/callback] exchangeCodeForSession error:", error.message, "| status:", error.status);
+    }
+
     // Password reset flow: session is established here; redirect to form page
     if (next === "/reset-password") {
       if (error || !data.session) {
