@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://splanai.com" },
   openGraph: {
     type: "website",
+    siteName: "SplanAI",
     url: "https://splanai.com",
     title: "SplanAI — AI Floor Plan Generator for Home Builders",
     description:
