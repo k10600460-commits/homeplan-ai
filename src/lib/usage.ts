@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 export const PLAN_LIMITS = {
   free: { requestsPerMonth: 3,   label: 'Free Plan' },
   pro:  { requestsPerMonth: 100, label: 'Pro Plan ($49/mo)' },
-  team: { requestsPerMonth: 100, label: 'Team Plan ($149/mo)' },
+  team: { requestsPerMonth: 9999, label: 'Team Plan ($149/mo)' },
 } as const
 
 export type Plan = keyof typeof PLAN_LIMITS
