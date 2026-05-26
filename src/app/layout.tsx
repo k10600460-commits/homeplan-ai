@@ -13,7 +13,6 @@ export const metadata: Metadata = {
   description:
     "Turn any lot into 3 custom floor plan proposals in 30 seconds. AI-powered tool built for home builders. Close more deals with polished PDF proposals.",
   robots: "index, follow",
-  alternates: { canonical: "https://splanai.com" },
   openGraph: {
     type: "website",
     siteName: "SplanAI",
