@@ -217,21 +217,6 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     year: "numeric", month: "long", day: "numeric",
   });
 
-  // Fetch logo once and convert to Base64
-  let logoBase64: string | null = null;
-  try {
-    const res = await fetch("/logo.png");
-    const blob = await res.blob();
-    logoBase64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    // Logo fetch failed — fall back to text
-  }
-
   plans.forEach((plan, pi) => {
     if (pi > 0) doc.addPage();
 
@@ -244,14 +229,18 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     doc.setDrawColor(220, 220, 220);
     doc.line(0, HEADER_H, PW, HEADER_H);
 
-    // Logo: 70×21mm, top at y=4.5 — visually centred in 28mm header
-    if (logoBase64) {
-      doc.addImage(logoBase64, "PNG", ML, 2, 80, 24);
-    } else {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
+    // Text wordmark: "Splan" dark + "AI" brand blue (or company name for white-label)
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    if (whiteLabel) {
       doc.setTextColor(17, 24, 39);
-      doc.text(whiteLabel ? companyLabel : "SplanAI", ML, HEADER_H / 2 + 2);
+      doc.text(companyLabel, ML, HEADER_H / 2 + 2);
+    } else {
+      doc.setTextColor(17, 24, 39);
+      doc.text("Splan", ML, HEADER_H / 2 + 2);
+      const splanW = doc.getTextWidth("Splan");
+      doc.setTextColor(59, 130, 246);
+      doc.text("AI", ML + splanW, HEADER_H / 2 + 2);
     }
 
     // Right side: date + page number in dark grey
@@ -295,6 +284,10 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     doc.setFontSize(15);
     doc.setTextColor(cr, cg, cb);
     doc.text(`$${plan.estimatedCost.toLocaleString()}`, PW - ML, y, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text("Estimated cost", PW - ML, y + 4.5, { align: "right" });
 
     if (formData) {
       y += 7;
@@ -442,6 +435,18 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
       doc.setTextColor(107, 114, 128);
       doc.text(`${room.sqft} sqft`, rx + roomColW - 4, ry, { align: "right" });
     });
+
+    y += Math.ceil(plan.rooms.length / 2) * 9 + 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(
+      doc.splitTextToSize(
+        "Room sizes are approximate and exclude hallways, walls, and circulation space.",
+        CW,
+      ) as string[],
+      ML, y,
+    );
 
     // ── Footer ────────────────────────────────────────────────
     doc.setFillColor(248, 250, 252);
@@ -710,9 +715,7 @@ export default function Results() {
           <h1 className="text-3xl font-extrabold text-gray-900">Your 3 Floor Plan Proposals</h1>
           {formData && (
             <p className="mt-2 text-gray-500">
-              {Number(formData.lotSize).toLocaleString()} sq ft lot &nbsp;·&nbsp;
-              ${Number(formData.budget).toLocaleString()} budget &nbsp;·&nbsp;
-              {formData.familySize} {Number(formData.familySize) === 1 ? "person" : "people"}
+              {`${Number(formData.lotSize).toLocaleString()} sq ft lot · $${Number(formData.budget).toLocaleString()} budget · ${formData.familySize} ${Number(formData.familySize) === 1 ? "person" : "people"}`}
             </p>
           )}
           {/* MLS badge + attribution */}
