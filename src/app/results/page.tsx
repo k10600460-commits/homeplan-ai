@@ -388,22 +388,28 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     y += 6;
 
     const featColW = CW / 2 - 3;
-    plan.features.forEach((feat, fi) => {
-      const col = fi % 2;
-      const row = Math.floor(fi / 2);
-      const fx = ML + col * (CW / 2);
-      const fy = y + row * 9;
+    for (let fi = 0; fi < plan.features.length; fi += 2) {
+      const leftLines = doc.splitTextToSize(plan.features[fi], featColW - 8) as string[];
+      const rightFeat = plan.features[fi + 1];
+      const rightLines = rightFeat ? (doc.splitTextToSize(rightFeat, featColW - 8) as string[]) : [];
+      const rowH = Math.max(7, Math.max(leftLines.length, rightLines.length) * 4.5 + 3);
 
       doc.setFillColor(243, 244, 246);
-      doc.roundedRect(fx, fy - 4, featColW, 7, 1.5, 1.5, "F");
+      doc.roundedRect(ML, y - 4, featColW, rowH, 1.5, 1.5, "F");
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(55, 65, 81);
-      const truncated = feat.length > 32 ? feat.slice(0, 30) + "…" : feat;
-      doc.text(truncated, fx + featColW / 2, fy, { align: "center" });
-    });
+      doc.text(leftLines, ML + 4, y);
 
-    y += Math.ceil(plan.features.length / 2) * 9 + 4;
+      if (rightFeat) {
+        doc.setFillColor(243, 244, 246);
+        doc.roundedRect(ML + CW / 2, y - 4, featColW, rowH, 1.5, 1.5, "F");
+        doc.text(rightLines, ML + CW / 2 + 4, y);
+      }
+
+      y += rowH + 2;
+    }
+    y += 4;
 
     doc.setDrawColor(229, 231, 235);
     doc.line(ML, y, PW - ML, y);
@@ -437,6 +443,8 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     });
 
     y += Math.ceil(plan.rooms.length / 2) * 9 + 5;
+    // Clamp above footer so the disclaimer is never painted over by the footer rect
+    const disclaimerY = Math.min(y, PH - 14 - 8);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(156, 163, 175);
@@ -445,7 +453,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
         "Room sizes are approximate and exclude hallways, walls, and circulation space.",
         CW,
       ) as string[],
-      ML, y,
+      ML, disclaimerY,
     );
 
     // ── Footer ────────────────────────────────────────────────
