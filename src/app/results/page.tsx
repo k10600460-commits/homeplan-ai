@@ -509,8 +509,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     }
     y += 3;
 
-    // Disclaimer — directly after room table, no clamp, paginated like any other content
-    maybeNewPage(8);
+    // Disclaimer — directly after room table; discH already reserved in roomPitch formula
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(156, 163, 175);
