@@ -548,7 +548,7 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
           <div className="flex flex-col lg:flex-row items-center gap-16">
             <div className="flex-1 text-center lg:text-left max-w-xl mx-auto lg:mx-0">
-              <ProductHuntBadge state="pre-launch" lang={lang} />
+              <ProductHuntBadge state="launch-day" lang={lang} />
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-white mb-5">
                 {t.hero.headline1}{" "}
                 <span className="text-blue-400">{t.hero.headline2}</span>

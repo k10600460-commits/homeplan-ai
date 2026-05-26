@@ -11,7 +11,7 @@ export function ProductHuntBadge({ state, lang = "en" }: ProductHuntBadgeProps) 
   if (state === "top-product") {
     return (
       <a
-        href="https://www.producthunt.com/posts/splanai"
+        href="https://www.producthunt.com/products/splanai?launch=splanai"
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 px-3 py-1.5 mb-6 text-xs font-bold tracking-widest uppercase rounded-full border transition-colors cursor-pointer text-amber-300 bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20"
@@ -27,7 +27,7 @@ export function ProductHuntBadge({ state, lang = "en" }: ProductHuntBadgeProps) 
   if (state === "launch-day") {
     return (
       <a
-        href="https://www.producthunt.com/posts/splanai"
+        href="https://www.producthunt.com/products/splanai?launch=splanai"
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 px-3 py-1.5 mb-6 text-xs font-bold tracking-widest uppercase rounded-full border transition-colors cursor-pointer text-orange-300 bg-orange-500/15 border-orange-400/40 hover:bg-orange-500/25"
@@ -46,7 +46,7 @@ export function ProductHuntBadge({ state, lang = "en" }: ProductHuntBadgeProps) 
   // pre-launch (default)
   return (
     <a
-      href="https://www.producthunt.com/posts/splanai"
+      href="https://www.producthunt.com/products/splanai?launch=splanai"
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex items-center gap-2 px-3 py-1.5 mb-6 text-xs font-bold tracking-widest uppercase rounded-full border transition-colors cursor-pointer text-blue-300 bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-400"
