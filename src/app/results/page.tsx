@@ -324,7 +324,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     doc.text("Estimated cost", PW - ML, y + 4.5, { align: "right" });
 
     if (formData) {
-      y += 7;
+      y += 5;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(156, 163, 175);
@@ -334,7 +334,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
       );
     }
 
-    y += 8;
+    y += 6;
 
     // ── Stats row ─────────────────────────────────────────────
     doc.setDrawColor(229, 231, 235);
@@ -367,35 +367,35 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
       }
     });
 
-    y += 26;
+    y += 22;
     doc.setDrawColor(229, 231, 235);
     doc.line(ML, y, PW - ML, y);
-    y += 7;
+    y += 5;
 
     // ── Description ───────────────────────────────────────────
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(156, 163, 175);
     doc.text("DESCRIPTION", ML, y);
-    y += 5;
+    y += 4;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(55, 65, 81);
     const descLines = doc.splitTextToSize(plan.description, CW) as string[];
     doc.text(descLines, ML, y);
-    y += descLines.length * 5.5 + 5;
+    y += descLines.length * 5.5 + 3;
 
     doc.setDrawColor(229, 231, 235);
     doc.line(ML, y, PW - ML, y);
-    y += 7;
+    y += 5;
 
     // ── Highlights ────────────────────────────────────────────
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(156, 163, 175);
     doc.text("KEY HIGHLIGHTS", ML, y);
-    y += 6;
+    y += 5;
 
     plan.highlights.forEach((h) => {
       // Wrap text to content width minus bullet indent (7mm)
@@ -411,18 +411,18 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
       y += hH;
     });
 
-    y += 3;
+    y += 2;
     doc.setDrawColor(229, 231, 235);
     doc.line(ML, y, PW - ML, y);
-    y += 7;
+    y += 5;
 
     // ── Features ──────────────────────────────────────────────
-    maybeNewPage(14);
+    maybeNewPage(12);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(156, 163, 175);
     doc.text("FEATURES", ML, y);
-    y += 6;
+    y += 5;
 
     const featColW = CW / 2 - 3;
     for (let fi = 0; fi < plan.features.length; fi += 2) {
@@ -448,24 +448,24 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
 
       y += rowH + 2;
     }
-    y += 4;
+    y += 3;
 
     doc.setDrawColor(229, 231, 235);
     doc.line(ML, y, PW - ML, y);
-    y += 7;
+    y += 5;
 
     // ── Room breakdown ────────────────────────────────────────
-    maybeNewPage(20);
+    maybeNewPage(16);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(156, 163, 175);
     doc.text("ROOM BREAKDOWN", ML, y);
-    y += 6;
+    y += 5;
 
     const roomColW = CW / 2 - 3;
     // Iterate in pairs (left/right columns) so we can paginate row-by-row
     for (let ri = 0; ri < plan.rooms.length; ri += 2) {
-      maybeNewPage(9);
+      maybeNewPage(8);
 
       const leftRoom = plan.rooms[ri];
       const rightRoom = plan.rooms[ri + 1];
@@ -492,9 +492,9 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
         doc.text(`${rightRoom.sqft} sqft`, ML + CW / 2 + roomColW - 4, y, { align: "right" });
       }
 
-      y += 9;
+      y += 8;
     }
-    y += 5;
+    y += 3;
 
     // Disclaimer — directly after room table, no clamp, paginated like any other content
     maybeNewPage(8);
