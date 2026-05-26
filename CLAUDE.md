@@ -17,7 +17,7 @@ returns 3 floor-plan proposals as PDFs in ~30 seconds.
 
 ## Pricing (do not invent or alter; ask if unsure)
 - Free: signup required, no credit card.
-- Pro $49/mo: unlimited generations, MLS data via Trestle.
+- Pro $49/mo: 100 generations/month, MLS data via Trestle.
 - Team $149/mo: 5–15 users, white-label.
 - Promo code PRODUCTHUNT = 1 month free, through June 30, 2026.
 
@@ -151,6 +151,12 @@ src/
     supabase/
       client.ts                  ← browser Supabase client
       server.ts                  ← server-side Supabase client (SSR cookies)
+agents/
+  sales.md                       ← outbound DM patterns / funnel / KPI / white-glove rules
+  commander.md                   ← daily brief / escalation / automation protocol
+  x-content-agent.md             ← @SplanAI X draft agent (SEO/brand only, not customer acquisition)
+scripts/
+  x-analytics-sync.ts            ← X post metrics sync (own posts only, Free tier)
 ```
 
 **Infrastructure references**
