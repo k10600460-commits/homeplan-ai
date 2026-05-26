@@ -462,17 +462,30 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     doc.text("ROOM BREAKDOWN", ML, y);
     y += 5;
 
+    // Measure-then-fit: compute row pitch from remaining page height so all rooms land on one page.
+    // discH = 3 mm gap after rows + ~3 mm for the 7pt disclaimer line.
+    const ROOM_PITCH_MAX = 8;
+    const ROOM_PITCH_MIN = 6;
+    const rowCount = Math.ceil(plan.rooms.length / 2);
+    const discH = 6;
+    const roomPitch = Math.min(
+      ROOM_PITCH_MAX,
+      Math.max(ROOM_PITCH_MIN, (SAFE_BOTTOM - y - discH) / rowCount),
+    );
+    // Badge height scales with pitch (1 mm gap between adjacent badges)
+    const roomBadgeH = roomPitch - 1;
+    const roomBadgeTop = roomBadgeH / 2 + 0.5; // offset from text baseline to badge top edge
+
     const roomColW = CW / 2 - 3;
-    // Iterate in pairs (left/right columns) so we can paginate row-by-row
     for (let ri = 0; ri < plan.rooms.length; ri += 2) {
-      maybeNewPage(8);
+      maybeNewPage(roomPitch + 1); // safety net for extreme room counts
 
       const leftRoom = plan.rooms[ri];
       const rightRoom = plan.rooms[ri + 1];
 
       doc.setFillColor(249, 250, 251);
       doc.setDrawColor(229, 231, 235);
-      doc.roundedRect(ML, y - 4, roomColW, 7, 1.5, 1.5, "FD");
+      doc.roundedRect(ML, y - roomBadgeTop, roomColW, roomBadgeH, 1.5, 1.5, "FD");
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(55, 65, 81);
@@ -483,7 +496,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
       if (rightRoom) {
         doc.setFillColor(249, 250, 251);
         doc.setDrawColor(229, 231, 235);
-        doc.roundedRect(ML + CW / 2, y - 4, roomColW, 7, 1.5, 1.5, "FD");
+        doc.roundedRect(ML + CW / 2, y - roomBadgeTop, roomColW, roomBadgeH, 1.5, 1.5, "FD");
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(55, 65, 81);
@@ -492,7 +505,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
         doc.text(`${rightRoom.sqft} sqft`, ML + CW / 2 + roomColW - 4, y, { align: "right" });
       }
 
-      y += 8;
+      y += roomPitch;
     }
     y += 3;
 
