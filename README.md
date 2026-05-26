@@ -4,7 +4,7 @@
 
 An AI-powered home planning tool for residential builders in the USA. Generate 3 custom home plans instantly with a single land description.
 
-**Live Demo:** [homeplan-ai.vercel.app](https://homeplan-ai.vercel.app)  
+**Live:** [splanai.com](https://splanai.com)  
 **Launch Date:** May 26, 2026 (ProductHunt)
 
 ---
@@ -32,8 +32,10 @@ An AI-powered home planning tool for residential builders in the USA. Generate 3
 |------|-------|--------|----------|
 | **Free** | $0 | 3 plans/month | PDF export, basic home plans |
 | **Pro** | $49/mo | Unlimited | 14-day free trial, custom branding, priority support |
+| **Team** | $149/mo | Unlimited | 14-day free trial, 5–15 users, white-label PDF, team dashboard |
 
-Upgrade path: Free → Pro (via Stripe)
+Upgrade path: Free → Pro → Team (via Stripe)  
+Payment methods: Card / Google Pay / Link / Apple Pay (PayPal not supported)
 
 ---
 
@@ -114,7 +116,8 @@ src/
 │   │   ├── usage/            # API usage tracking
 │   │   └── auth/             # Supabase auth callback
 │   ├── auth/
-│   │   └── callback/         # OAuth callback
+│   │   ├── callback/         # PKCE callback (password reset only)
+│   │   └── confirm/          # Email confirmation via token_hash (added 2026-05-24)
 │   ├── dashboard/            # User dashboard (plans history, usage)
 │   ├── login/                # Authentication UI
 │   ├── results/              # Generated plans display & PDF export
@@ -195,16 +198,19 @@ src/
 - [x] Step 3: Usage quotas (Free/Pro)
 - [x] Step 4: Branded PDF output
 - [x] Step 5: Stripe webhook integration
-- [x] Step 6: Vercel deployment
-- [x] Step 7: Landing page optimization
-- [ ] Step 8: Production testing (E2E flows)
-- [ ] Step 9: ProductHunt launch
+- [x] Step 6: Vercel deployment + production activation
+- [x] Step 7: Landing page optimization (SEO, OGP, pricing)
+- [x] Step 6.5: Security hardening (checkout auth, rate limiting, HTTP headers)
+- [x] Step 8: Production E2E testing + auth_error bug fix (cross-browser email confirmation)
+- [ ] Step 9: ProductHunt launch (May 26, 2026)
 
-**Future features:**
-- Shareable plan links with view tracking
+**Implemented (post-launch):**
+- Shareable plan links with real-time view tracking
 - Mortgage calculator integration
-- Zillow listing integration
-- MLS data syncing (RentCast API)
+- Zillow listing links
+- MLS data (Trestle API)
+- Team plan (multi-user, white-label)
+- Client sharing portal
 
 ---
 

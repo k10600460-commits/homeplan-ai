@@ -37,17 +37,14 @@ public/.well-known/apple-developer-merchantid-domain-association
 
 URL: https://dashboard.stripe.com/settings/payment_methods
 
-- [ ] **PayPal** を Activate
-  - Subscription mode 対応・trial 対応
-  - US demographic に高利用率
-- [ ] **Apple Pay** を Activate
+- [x] ~~**PayPal** を Activate~~ — **採用しない（DEC-008 確定 / 2026-05-22）**
+  - Stripe 経由の PayPal は EU 系アカウント限定。日本拠点・US 法人設立後も対象外。
+  - 将来の拡張候補は ACH（US Bank Account）。PayPal ではない。
+- [ ] **Apple Pay** を Activate（OI-002 完了後）
   - Domain verification が必要（下記手順）
-- [ ] **Google Pay** を Activate
-  - Domain verification 不要・自動有効化
-- [ ] **Link by Stripe** を Activate
-  - リピーター向け1クリック決済
-- [ ] (optional) **Cash App Pay** — Gen Z / Millennial 向け
-- [ ] (optional) **US Bank Account (ACH)** — Team plan 向け・手数料が低い
+- [x] **Google Pay** — Dashboard 設定で有効化済み（Domain verification 不要・自動有効化）
+- [x] **Link by Stripe** — Dashboard 設定で有効化済み（リピーター向け1クリック決済）
+- [ ] (optional) **US Bank Account (ACH)** — Team plan 向け・post-launch 検討
 
 ### Apple Pay Domain Verification 手順
 
