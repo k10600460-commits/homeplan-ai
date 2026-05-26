@@ -2,12 +2,14 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "SplanAI <noreply@splanai.com>";
+const REPLY_TO = "hello@splanai.com";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com";
 
 export async function sendWelcomeEmail(to: string) {
   await resend.emails.send({
     from: FROM,
     to,
+    replyTo: REPLY_TO,
     subject: "Welcome to SplanAI — your first floor plan is free",
     html: `
 <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
@@ -36,6 +38,7 @@ export async function sendTrialReminderEmail(to: string, trialEndDate: string, p
   await resend.emails.send({
     from: FROM,
     to,
+    replyTo: REPLY_TO,
     subject: `Your SplanAI ${planLabel} trial ends in 3 days`,
     html: `
 <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
@@ -53,6 +56,7 @@ export async function sendFirstPlanFollowupEmail(to: string) {
   await resend.emails.send({
     from: FROM,
     to,
+    replyTo: REPLY_TO,
     subject: "Did you send the PDF to your client?",
     html: `
 <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
@@ -76,6 +80,7 @@ export async function sendCancellationEmail(to: string, periodEndDate: string, p
   await resend.emails.send({
     from: FROM,
     to,
+    replyTo: REPLY_TO,
     subject: `Your SplanAI ${planLabel} access continues until ${periodEndDate}`,
     html: `
 <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
@@ -101,6 +106,7 @@ export async function sendTeamInviteEmail(to: string, ownerEmail: string, invite
   await resend.emails.send({
     from: FROM,
     to,
+    replyTo: REPLY_TO,
     subject: `You've been invited to join a SplanAI Team`,
     html: `
 <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
