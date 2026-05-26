@@ -208,10 +208,13 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
   const companyLabel = whiteLabelOptions?.companyName?.trim() || "Your Builder";
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-  const PW = 210;   // page width
-  const PH = 297;   // page height
-  const ML = 20;    // margin left/right
-  const CW = PW - ML * 2;  // content width
+  const PW = 210;
+  const PH = 297;
+  const ML = 20;
+  const CW = PW - ML * 2;
+  const FOOTER_TOP = PH - 14;   // 283mm
+  const SAFE_BOTTOM = FOOTER_TOP - 4;  // 279mm — last safe y for body content
+  const CONT_TOP = 20;  // top margin for continuation pages
 
   const dateStr = new Date().toLocaleDateString("en-US", {
     year: "numeric", month: "long", day: "numeric",
@@ -221,6 +224,27 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     if (pi > 0) doc.addPage();
 
     const [cr, cg, cb] = PLAN_COLORS[pi % PLAN_COLORS.length];
+
+    // Draws footer on the current page at fixed position
+    const drawFooter = () => {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(0, FOOTER_TOP, PW, 14, "F");
+      doc.setDrawColor(229, 231, 235);
+      doc.line(0, FOOTER_TOP, PW, FOOTER_TOP);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(156, 163, 175);
+      if (whiteLabel) {
+        doc.text(companyLabel, ML, PH - 9);
+        doc.text(`© ${new Date().getFullYear()} ${companyLabel}. All rights reserved.`, PW - ML, PH - 9, { align: "right" });
+      } else {
+        doc.text("Powered by SplanAI · Data: Google Maps + RentCast · splanai.com", ML, PH - 9);
+        doc.text(`© ${new Date().getFullYear()} SplanAI. All rights reserved.`, PW - ML, PH - 9, { align: "right" });
+      }
+      doc.setFontSize(6);
+      doc.setTextColor(180, 180, 180);
+      doc.text("For informational purposes only. Data subject to change. Not a substitute for professional architectural or legal advice.", ML, PH - 4);
+    };
 
     // ── Header bar (white with bottom border) ─────────────────
     const HEADER_H = 28;
@@ -269,6 +293,16 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
 
     // Plan name: 6mm gap below badge bottom
     let y = BADGE_Y + BADGE_H + 6;
+
+    // If y + neededMm would overflow the safe area, flush footer and start a new page
+    const maybeNewPage = (neededMm: number) => {
+      if (y + neededMm > SAFE_BOTTOM) {
+        drawFooter();
+        doc.addPage();
+        y = CONT_TOP;
+      }
+    };
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
     doc.setTextColor(17, 24, 39);
@@ -366,13 +400,15 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     plan.highlights.forEach((h) => {
       // Wrap text to content width minus bullet indent (7mm)
       const hLines = doc.splitTextToSize(h, CW - 7) as string[];
+      const hH = hLines.length * 5.5 + 1.5;
+      maybeNewPage(hH);
       doc.setFillColor(cr, cg, cb);
       doc.circle(ML + 2, y - 1.5, 1.5, "F");
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(55, 65, 81);
       doc.text(hLines, ML + 7, y);
-      y += hLines.length * 5.5 + 1.5;
+      y += hH;
     });
 
     y += 3;
@@ -381,6 +417,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     y += 7;
 
     // ── Features ──────────────────────────────────────────────
+    maybeNewPage(14);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(156, 163, 175);
@@ -393,6 +430,8 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
       const rightFeat = plan.features[fi + 1];
       const rightLines = rightFeat ? (doc.splitTextToSize(rightFeat, featColW - 8) as string[]) : [];
       const rowH = Math.max(7, Math.max(leftLines.length, rightLines.length) * 4.5 + 3);
+
+      maybeNewPage(rowH + 2);
 
       doc.setFillColor(243, 244, 246);
       doc.roundedRect(ML, y - 4, featColW, rowH, 1.5, 1.5, "F");
@@ -416,6 +455,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     y += 7;
 
     // ── Room breakdown ────────────────────────────────────────
+    maybeNewPage(20);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(156, 163, 175);
@@ -423,28 +463,41 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     y += 6;
 
     const roomColW = CW / 2 - 3;
-    plan.rooms.forEach((room, ri) => {
-      const col = ri % 2;
-      const row = Math.floor(ri / 2);
-      const rx = ML + col * (CW / 2);
-      const ry = y + row * 9;
+    // Iterate in pairs (left/right columns) so we can paginate row-by-row
+    for (let ri = 0; ri < plan.rooms.length; ri += 2) {
+      maybeNewPage(9);
+
+      const leftRoom = plan.rooms[ri];
+      const rightRoom = plan.rooms[ri + 1];
 
       doc.setFillColor(249, 250, 251);
       doc.setDrawColor(229, 231, 235);
-      doc.roundedRect(rx, ry - 4, roomColW, 7, 1.5, 1.5, "FD");
-
+      doc.roundedRect(ML, y - 4, roomColW, 7, 1.5, 1.5, "FD");
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(55, 65, 81);
-      doc.text(room.name, rx + 4, ry);
-
+      doc.text(leftRoom.name, ML + 4, y);
       doc.setTextColor(107, 114, 128);
-      doc.text(`${room.sqft} sqft`, rx + roomColW - 4, ry, { align: "right" });
-    });
+      doc.text(`${leftRoom.sqft} sqft`, ML + roomColW - 4, y, { align: "right" });
 
-    y += Math.ceil(plan.rooms.length / 2) * 9 + 5;
-    // Clamp above footer so the disclaimer is never painted over by the footer rect
-    const disclaimerY = Math.min(y, PH - 14 - 8);
+      if (rightRoom) {
+        doc.setFillColor(249, 250, 251);
+        doc.setDrawColor(229, 231, 235);
+        doc.roundedRect(ML + CW / 2, y - 4, roomColW, 7, 1.5, 1.5, "FD");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(55, 65, 81);
+        doc.text(rightRoom.name, ML + CW / 2 + 4, y);
+        doc.setTextColor(107, 114, 128);
+        doc.text(`${rightRoom.sqft} sqft`, ML + CW / 2 + roomColW - 4, y, { align: "right" });
+      }
+
+      y += 9;
+    }
+    y += 5;
+
+    // Disclaimer — directly after room table, no clamp, paginated like any other content
+    maybeNewPage(8);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(156, 163, 175);
@@ -453,28 +506,11 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
         "Room sizes are approximate and exclude hallways, walls, and circulation space.",
         CW,
       ) as string[],
-      ML, disclaimerY,
+      ML, y,
     );
 
     // ── Footer ────────────────────────────────────────────────
-    doc.setFillColor(248, 250, 252);
-    doc.rect(0, PH - 14, PW, 14, "F");
-    doc.setDrawColor(229, 231, 235);
-    doc.line(0, PH - 14, PW, PH - 14);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(156, 163, 175);
-    if (whiteLabel) {
-      doc.text(companyLabel, ML, PH - 9);
-      doc.text(`© ${new Date().getFullYear()} ${companyLabel}. All rights reserved.`, PW - ML, PH - 9, { align: "right" });
-    } else {
-      doc.text("Powered by SplanAI · Data: Google Maps + RentCast · splanai.com", ML, PH - 9);
-      doc.text(`© ${new Date().getFullYear()} SplanAI. All rights reserved.`, PW - ML, PH - 9, { align: "right" });
-    }
-    doc.setFontSize(6);
-    doc.setTextColor(180, 180, 180);
-    doc.text("For informational purposes only. Data subject to change. Not a substitute for professional architectural or legal advice.", ML, PH - 4);
+    drawFooter();
   });
 
   return doc;
