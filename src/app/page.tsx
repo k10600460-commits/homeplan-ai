@@ -609,7 +609,7 @@ export default function Home() {
       </section>
 
       {/* ── Generate Form ────────────────────────────────────────────── */}
-      <section id="generate" className="py-16 px-6 scroll-mt-24" style={{ background: "#F8FAFC" }}>
+      <section id="generate" className="py-16 px-6 scroll-mt-[64px]" style={{ background: "#F8FAFC" }}>
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-6">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.form.title}</p>
