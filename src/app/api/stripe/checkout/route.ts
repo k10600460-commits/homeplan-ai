@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
     const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
       mode: "subscription",
       payment_method_collection: "always",
+      allow_promotion_codes: true,
       line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
       subscription_data: {
         ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),

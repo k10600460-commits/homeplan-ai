@@ -16,10 +16,10 @@ returns 3 floor-plan proposals as PDFs in ~30 seconds.
   marketing ideas against "does this actually reach home builders?"
 
 ## Pricing (do not invent or alter; ask if unsure)
-- Free: signup required, no credit card.
-- Pro $49/mo: 100 generations/month, MLS data via Trestle.
-- Team $149/mo: 5–15 users, white-label.
-- Promo code PRODUCTHUNT = 1 month free, through June 30, 2026.
+- Free: $0/mo — 3 generations/month, SplanAI-branded PDF, neighborhood & market data, client sharing portal. Signup required, no credit card.
+- Pro: $49/mo — 100 generations/month, logo-branded PDF, MLS data via Trestle, priority support. 14-day free trial (card required at signup).
+- Team: $149/mo — unlimited generations (fair use), white-label PDF, 5–15 users, team dashboard & KPIs, dedicated support. 14-day free trial (card required at signup).
+- Founding promo: code PRODUCTHUNT = 100% off first month, valid through 2026-06-30.
 
 ## Stack & architecture
 - Next.js (App Router): layout.tsx, page.tsx, sitemap.ts, robots.ts.

@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_collection: "always",
+      allow_promotion_codes: true,
       line_items: [{ price: STRIPE_TEAM_PRICE_ID, quantity: 1 }],
       subscription_data: {
         trial_period_days: TRIAL_PERIOD_DAYS,
