@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 import { createClient } from '@/lib/supabase/server';
+import { checkRateLimitDB } from '@/lib/rate-limit-db';
+
+// 10 PDF generations per authenticated user per minute (CPU-intensive endpoint)
+const PDF_RATE = { limit: 10, windowSec: 60 };
 
 export const runtime = 'nodejs';
 export const maxDuration = 15;
@@ -198,6 +202,15 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Shared DB rate limit (10 req/min per user)
+    const rl = await checkRateLimitDB(`pdf:user:${user.id}`, PDF_RATE);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+      );
     }
 
     const body = await req.json() as { planData?: PlanData[]; language?: string };

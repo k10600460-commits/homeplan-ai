@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt, encrypt, hashIp } from "@/lib/crypto";
-import { getClientIp, checkRateLimit } from "@/lib/security";
+import { getClientIp } from "@/lib/security";
+import { checkRateLimitDB } from "@/lib/rate-limit-db";
 import { getUserPlan } from "@/lib/usage";
+
+// 10 MLS lookups per authenticated user per minute
+const MLS_RATE = { limit: 10, windowSec: 60 };
 
 const TRESTLE_API_BASE = "https://api.trestle.com/reso/odata";
 const TRESTLE_TOKEN_URL = "https://api.trestle.com/connect/token";
@@ -70,17 +74,19 @@ async function refreshToken(
 
 export async function GET(req: NextRequest) {
   try {
-    // Rate limit: 10 MLS lookups/min per IP
-    const ip = getClientIp(req);
-    const rl = checkRateLimit(`mls:${ip}`);
-    if (!rl.allowed) {
-      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
-    }
-
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Shared DB rate limit (10 req/min per user)
+    const rl = await checkRateLimitDB(`mls:user:${user.id}`, MLS_RATE);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+      );
     }
 
     // Plan gate: MLS integration is Pro/Team only

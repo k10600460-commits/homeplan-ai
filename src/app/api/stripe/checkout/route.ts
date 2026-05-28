@@ -2,7 +2,11 @@ import { stripe, STRIPE_PRICE_ID, TRIAL_PERIOD_DAYS } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { getClientIp, checkRateLimit } from "@/lib/security";
+import { getClientIp } from "@/lib/security";
+import { checkRateLimitDB } from "@/lib/rate-limit-db";
+
+// 5 checkout attempts per IP per 15 minutes (matches /api/checkout)
+const CHECKOUT_RATE = { limit: 5, windowSec: 900 };
 
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,11 +14,14 @@ const supabaseAdmin = createAdmin(
 );
 
 export async function POST(req: NextRequest) {
-  // Rate limit: 5 checkout sessions per IP per 15 minutes (matches /api/checkout)
+  // Rate limit: 5 checkout sessions per IP per 15 minutes (pre-auth, IP-based)
   const ip = getClientIp(req);
-  const rl = checkRateLimit(`checkout:${ip}`, { max: 5, windowMs: 15 * 60 * 1000 });
+  const rl = await checkRateLimitDB(`checkout:ip:${ip}`, CHECKOUT_RATE);
   if (!rl.allowed) {
-    return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    return NextResponse.json(
+      { error: "Too many requests. Please wait." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
   }
 
   try {

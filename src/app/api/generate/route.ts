@@ -2,12 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkUsageLimit, recordApiUsage } from "@/lib/usage";
-import {
-  checkRateLimit,
-  validateGenerateInput,
-  ValidationError,
-  getClientIp,
-} from "@/lib/security";
+import { validateGenerateInput, ValidationError } from "@/lib/security";
+import { checkRateLimitDB } from "@/lib/rate-limit-db";
+
+// 10 Claude generations per authenticated user per minute
+const GENERATE_RATE = { limit: 10, windowSec: 60 };
 
 const client = new Anthropic();
 
@@ -56,28 +55,21 @@ Generate exactly 3 plans that are meaningfully different in style, layout, and a
 
 export async function POST(req: NextRequest) {
   try {
-    // ── IP-based rate limit (5 req/min) ───────────────────────
-    const ip = getClientIp(req);
-    const rateLimit = checkRateLimit(ip);
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please wait a minute.", code: "RATE_LIMITED" },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)),
-            "X-RateLimit-Remaining": "0",
-          },
-        },
-      );
-    }
-
     // ── Auth check ────────────────────────────────────────────
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized", code: "UNAUTHENTICATED" }, { status: 401 });
+    }
+
+    // ── Shared DB rate limit (10 req/min per user) ────────────
+    const rl = await checkRateLimitDB(`generate:user:${user.id}`, GENERATE_RATE);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a minute.", code: "RATE_LIMITED" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+      );
     }
 
     // ── Usage limit check ─────────────────────────────────────

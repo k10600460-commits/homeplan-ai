@@ -6,7 +6,8 @@
 **前回監査**: `security-audit-20260521.md`  
 **方針**: 調査専用。コード・.env・Stripe設定は変更なし。修正は所有者承認後に別途実施。
 
-**修正実施**: 2026-05-28 — H-1/H-2/H-3/M-6/M-7 を修正（要レビュー・要 Preview 検証）。build ✅
+**修正実施 Round 1**: 2026-05-28 — H-1/H-2/H-3/M-6/M-7 を修正（要レビュー・要 Preview 検証）。build ✅  
+**修正実施 Round 2**: 2026-05-28 — M-4（共有レート制限 Postgres 実装）・H-3 レート制限完成。build ✅
 
 ---
 
@@ -16,10 +17,10 @@
 |--------|------|----------|
 | Critical | 0 | — |
 | High | 3 | 3 ✅ 修正済（要レビュー） |
-| Medium | 4 | M-6/M-7 ✅ 修正済（要レビュー）/ M-4/M-5 未対応 |
+| Medium | 4 | M-4/M-6/M-7 ✅ 修正済（要レビュー）/ M-5(CSP) 未対応 |
 | Low / Info | 4 | 優先度低 |
 
-**前回から継続している課題**: CSP ヘッダ未設定（前回 Medium → 本レポートでも Medium）、in-memory rate limiter（同）
+**前回から継続している課題**: CSP ヘッダ未設定（前回 Medium → 本レポートでも Medium）
 
 ---
 
@@ -117,9 +118,9 @@ const session = await stripe.billingPortal.sessions.create({
 
 ---
 
-### H-3 【High → ✅ 修正済（要レビュー）】`/api/generate-pdf` — 認証追加済（レート制限は別タスク）
+### H-3 【High → ✅ 修正済（要レビュー）】`/api/generate-pdf` — 認証 + 共有レート制限追加済
 
-**根拠**: `src/app/api/generate-pdf/route.ts:193-216`（`getUser()` 呼び出しなし、`checkRateLimit` 呼び出しなし）
+**根拠**: `src/app/api/generate-pdf/route.ts:197-209`（認証 + 10 req/min/user の DB レート制限を追加）
 
 PDF 生成は pdfmake による CPU/メモリ集約的な処理（`maxDuration = 15`）。認証不要・レート制限なしで誰でも叩ける。
 
@@ -209,38 +210,48 @@ if (!Array.isArray(planData) || planData.length > 3) {
 
 ## 6. レート制限・濫用対策
 
-### M-1 【Medium】In-memory rate limiter — 複数インスタンス環境で無効
+### M-4 【Medium → ✅ 修正済（要レビュー）】In-memory rate limiter → Postgres 共有実装に移行
 
-**根拠**: `src/lib/security.ts:1-4`
+**根拠**: `src/lib/security.ts`（インメモリ `checkRateLimit`・`rateLimitStore` を削除）  
+**修正**: 2026-05-28 — `supabase/migrations/20260528_rate_limits.sql` + `src/lib/rate-limit-db.ts`
 
-```ts
-// Works per serverless instance; good enough for initial launch.
-// Replace with Upstash Redis when scaling to multiple regions.
-const rateLimitStore = new Map<string, number[]>();
-```
+**実装内容**:
+- Supabase に `rate_limits` テーブル（`key text, window_start timestamptz, count int`、複合 PK）
+- `check_rate_limit(key, window_sec, limit)` Postgres RPC（`INSERT ... ON CONFLICT DO UPDATE` でアトミックインクリメント）
+- RLS 有効 + `SECURITY DEFINER`、`EXECUTE` は service_role のみ
+- `lib/rate-limit-db.ts` ヘルパー：RPC エラー時は fail-open（正規ユーザーを止めない）
 
-Vercel の Serverless Functions は複数インスタンスで並列実行される。各インスタンスが独立したメモリを持つため、実際のレート制限は `設定値 × インスタンス数` になる。低トラフィック時のローンチ初期は許容範囲だが、スパイク時は無効になる。
+**適用エンドポイントと閾値（識別子 = 認証後はユーザーID、pre-auth は IP）**:
 
-**前回監査からの継続課題（2026-05-21）**
+| エンドポイント | 識別子 | 閾値 |
+|----------------|--------|------|
+| `/api/generate` | `generate:user:<uid>` | 10 req/60s |
+| `/api/generate-pdf` | `pdf:user:<uid>` | 10 req/60s |
+| `/api/neighborhood` | `neighborhood:user:<uid>` | 30 req/60s |
+| `/api/share/create` | `share:user:<uid>` | 20 req/3600s |
+| `/api/mls/lot-data` | `mls:user:<uid>` | 10 req/60s |
+| `/api/checkout` | `checkout:ip:<ip>` | 5 req/900s |
+| `/api/stripe/checkout` | `checkout:ip:<ip>` | 5 req/900s |
+| `/api/stripe/team-checkout` | `checkout:ip:<ip>` | 5 req/900s |
 
-**推奨**: MRR $500 達成後に Upstash Redis（または Vercel KV）に移行。それまでは Vercel Dashboard の WAF Rate Limiting を補完として設定する（`vercel-waf-checklist.md` 参照）。
+**注**: signup レート制限は Supabase Auth 側の設定（Next.js ルートなし）のため対象外。
 
 ---
 
-### その他のレート制限状況
+### その他のレート制限状況（Round 2 修正後）
 
-| エンドポイント | レート制限 |
-|----------------|-----------|
-| `/api/generate` | ✅ 5 req/min/IP |
-| `/api/neighborhood` | ✅ 30 req/min/IP |
-| `/api/share/create` | ✅ 20 req/h/IP |
-| `/api/checkout` | ✅ 5 req/15min/IP |
-| `/api/stripe/checkout` | ✅ 5 req/15min/IP |
-| `/api/mls/lot-data` | ✅ 10 req/min/IP |
-| `/api/generate-pdf` | ❌ なし（H-3 参照） |
-| `/api/stripe/team-checkout` | ❌ なし（H-1 参照） |
-| `/api/share/event` | ❌ なし（Low-4 参照） |
-| サインアップ | Supabase Auth 組み込みのみ（カスタムなし） |
+| エンドポイント | レート制限 | 識別子 |
+|----------------|-----------|--------|
+| `/api/generate` | ✅ 10 req/60s (DB) | user ID |
+| `/api/generate-pdf` | ✅ 10 req/60s (DB) | user ID |
+| `/api/neighborhood` | ✅ 30 req/60s (DB) | user ID |
+| `/api/share/create` | ✅ 20 req/h (DB) | user ID |
+| `/api/mls/lot-data` | ✅ 10 req/60s (DB) | user ID |
+| `/api/checkout` | ✅ 5 req/15min (DB) | IP |
+| `/api/stripe/checkout` | ✅ 5 req/15min (DB) | IP |
+| `/api/stripe/team-checkout` | ✅ 5 req/15min (DB) | IP |
+| `/api/share/event` | ❌ なし（Low-4 参照） | — |
+| サインアップ | Supabase Auth 組み込みのみ（カスタムなし） | — |
 
 ---
 
@@ -429,7 +440,7 @@ const ADMIN_EMAIL = "k10600460@gmail.com";
 | 1 | ~~**High**~~ ✅ | `/api/stripe/team-checkout` 認証なし + userId 改ざん可能 | 修正済（要レビュー） |
 | 2 | ~~**High**~~ ✅ | `/api/stripe/portal` Stripe Customer 所有権未検証 | 修正済（要レビュー） |
 | 3 | ~~**High**~~ ✅ | `/api/generate-pdf` 認証なし | 修正済（要レビュー） |
-| 4 | **Medium** | In-memory rate limiter (Vercel 複数インスタンスで無効) | `lib/security.ts` → Upstash Redis |
+| 4 | ~~**Medium**~~ ✅ | In-memory rate limiter → Postgres 共有実装に移行 | 修正済（`lib/rate-limit-db.ts`、migration `20260528_rate_limits.sql`） |
 | 5 | **Medium** | CSP ヘッダ未設定 | `next.config.ts` |
 | 6 | ~~**Medium**~~ ✅ | Stripe エラーメッセージがクライアントに露出 | 修正済（要レビュー） |
 | 7 | ~~**Medium**~~ ✅ | MLS connect エラーメッセージがクライアントに露出 | 修正済（要レビュー） |
@@ -439,4 +450,4 @@ const ADMIN_EMAIL = "k10600460@gmail.com";
 
 ---
 
-_監査日: 2026-05-28 | ブランチ: main (e21d4dc) | 変更なし（調査専用）_
+_監査日: 2026-05-28 | ブランチ: main | Round 1: e21d4dc+修正5件 | Round 2: M-4 DB rate limiter + H-3 rate limit 完成_

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
-import { getClientIp, checkRateLimit } from '@/lib/security'
+import { checkRateLimitDB } from '@/lib/rate-limit-db'
+
+// 30 neighborhood lookups per authenticated user per minute
+const NEIGHBORHOOD_RATE = { limit: 30, windowSec: 60 }
 
 // Exact messages per spec
 const GMAPS_UNAVAILABLE  = { available: false, reason: 'Data unavailable at this time' }
@@ -101,17 +104,19 @@ function computeSafetyScore(policeCount: number, fireCount: number): number {
 }
 
 export async function GET(req: NextRequest) {
-  // Rate limit: 30 neighborhood lookups per IP per minute
-  const ip = getClientIp(req)
-  const rl = checkRateLimit(`neighborhood:${ip}`, { max: 30, windowMs: 60_000 })
-  if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 })
-  }
-
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // Shared DB rate limit (30 req/min per user)
+    const rl = await checkRateLimitDB(`neighborhood:user:${user.id}`, NEIGHBORHOOD_RATE)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+      )
+    }
 
     const { searchParams } = new URL(req.url)
     const city  = searchParams.get('city')?.trim()

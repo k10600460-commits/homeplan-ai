@@ -86,7 +86,9 @@
       "Bash(curl -s -o /tmp/tc_resp.json -w '%{http_code}' -X POST http://localhost:3000/api/stripe/team-checkout -H 'Content-Type: application/json' -d '{}')",
       "Bash(curl -s -o /tmp/portal_resp.json -w '%{http_code}' -X POST http://localhost:3000/api/stripe/portal -H 'Content-Type: application/json' -d '{}')",
       "Bash(curl -s -o /tmp/pdf_resp.json -w '%{http_code}' -X POST http://localhost:3000/api/generate-pdf -H 'Content-Type: application/json' -d '{\"planData\":[{\"id\":1,\"name\":\"Test\",\"style\":\"Modern\",\"squareFootage\":2000,\"bedrooms\":3,\"bathrooms\":2,\"stories\":1,\"estimatedCost\":300000,\"description\":\"test\",\"features\":[],\"rooms\":[],\"highlights\":[]}],\"language\":\"zh\"}')",
-      "Bash(echo \"exit code: $?\")"
+      "Bash(echo \"exit code: $?\")",
+      "Bash(echo \"PID=$!\")",
+      "Bash(curl -s http://localhost:3000/api/stripe/checkout -o /dev/null -w \"%{http_code}\")"
     ],
     "additionalDirectories": [
       "/tmp",
