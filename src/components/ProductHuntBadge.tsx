@@ -1,6 +1,6 @@
 "use client";
 
-type BadgeState = "pre-launch" | "launch-day" | "top-product";
+type BadgeState = "pre-launch" | "launch-day" | "post-launch" | "top-product";
 
 interface ProductHuntBadgeProps {
   state: BadgeState;
@@ -39,6 +39,22 @@ export function ProductHuntBadge({ state, lang = "en" }: ProductHuntBadgeProps) 
         {lang === "en"
           ? "🚀 LIVE on ProductHunt — Upvote us today!"
           : "🚀 ¡EN VIVO en ProductHunt — Vótanos hoy!"}
+      </a>
+    );
+  }
+
+  if (state === "post-launch") {
+    return (
+      <a
+        href="https://www.producthunt.com/products/splanai?launch=splanai"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 px-3 py-1.5 mb-6 text-xs font-semibold tracking-widest uppercase rounded-full border transition-colors cursor-pointer text-slate-400 bg-slate-500/10 border-slate-500/20 hover:text-slate-300 hover:bg-slate-500/20"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+        {lang === "en"
+          ? "🏆 Featured on Product Hunt"
+          : "🏆 Destacado en Product Hunt"}
       </a>
     );
   }

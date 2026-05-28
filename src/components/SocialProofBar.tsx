@@ -8,13 +8,10 @@ export function SocialProofBar({ lang = "en" }: { lang?: "en" | "es" }) {
           href="https://www.producthunt.com/products/splanai?launch=splanai"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-300 transition-colors"
         >
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-          </span>
-          {lang === "en" ? "🚀 LIVE on ProductHunt — Upvote us today!" : "🚀 ¡EN VIVO en ProductHunt — Vótanos hoy!"}
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+          {lang === "en" ? "🏆 Featured on Product Hunt" : "🏆 Destacado en Product Hunt"}
         </a>
 
         <span className="hidden sm:block text-slate-700 text-xs select-none">·</span>

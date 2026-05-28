@@ -11,7 +11,7 @@ const T = {
   en: {
     nav: { how: "How it works", pricing: "Pricing", reviews: "Reviews", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
     hero: {
-      badge: "Launching on ProductHunt · May 26",
+      badge: "Featured on Product Hunt",
       headline1: "Show clients their dream home",
       headline2: "before they sign.",
       sub: "Enter lot details → AI generates 3 floor plans in 30 seconds. Share instantly. Close faster.",
@@ -108,7 +108,7 @@ const T = {
     },
     testimonials: {
       heading: "Built for home builders who close deals",
-      sub: "Launching on ProductHunt · May 26, 2026 — be one of our founding builders",
+      sub: "Early access — be one of our founding builders",
       items: [] as const,
     },
     ctaBanner: { heading: "Ready to close more deals?", sub: "Be one of the first builders to close deals with AI floor plans.", cta: "Start Free — No Credit Card" },
@@ -117,7 +117,7 @@ const T = {
   es: {
     nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Reseñas", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
     hero: {
-      badge: "Lanzamiento en ProductHunt · 26 de mayo",
+      badge: "Destacado en Product Hunt",
       headline1: "Muéstrale a tus clientes su hogar soñado",
       headline2: "antes de que firmen.",
       sub: "Ingresa los datos del lote → la IA genera 3 planos en 30 segundos. Comparte al instante. Cierra más rápido.",
@@ -214,7 +214,7 @@ const T = {
     },
     testimonials: {
       heading: "Hecho para constructores que cierran contratos",
-      sub: "Lanzamiento en ProductHunt · 26 de mayo de 2026 — sé uno de nuestros primeros constructores",
+      sub: "Acceso anticipado — sé uno de nuestros primeros constructores",
       items: [] as const,
     },
     ctaBanner: { heading: "¿Listo para cerrar más contratos?", sub: "Sé uno de los primeros constructores en cerrar contratos con planos de IA.", cta: "Empieza Gratis — Sin Tarjeta" },
@@ -548,7 +548,7 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
           <div className="flex flex-col lg:flex-row items-center gap-16">
             <div className="flex-1 text-center lg:text-left max-w-xl mx-auto lg:mx-0">
-              <ProductHuntBadge state="launch-day" lang={lang} />
+              <ProductHuntBadge state="post-launch" lang={lang} />
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-white mb-5">
                 {t.hero.headline1}{" "}
                 <span className="text-blue-400">{t.hero.headline2}</span>

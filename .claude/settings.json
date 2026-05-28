@@ -68,7 +68,9 @@
       "Bash(sort -k2)",
       "Edit(/.claude/skills/investigate/**)",
       "mcp__supabase__list_migrations",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(grep -n \"49\\\\|149\\\\|\\\\$0\\\\|free\\\\|Free\\\\|Pro\\\\|Team\\\\|generation\\\\|unlimited\\\\|100\\\\|MLS\\\\|trial\\\\|PRODUCTHUNT\\\\|promo\\\\|PROMO\\\\|promo_code\" /Users/Shoji.S/homeplan-ai/src/app/dashboard/DashboardClient.tsx)"
     ],
     "additionalDirectories": [
       "/tmp",
