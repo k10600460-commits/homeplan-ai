@@ -74,7 +74,8 @@
     ],
     "additionalDirectories": [
       "/tmp",
-      "/private/tmp"
+      "/private/tmp",
+      "/Users/Shoji.S/Downloads"
     ]
   },
   "hooks": {
