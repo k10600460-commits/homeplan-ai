@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
     const bedroomCount = Math.max(2, Math.ceil(familySize * 0.7));
 
     // ── Claude generation ─────────────────────────────────────
+    const genStart = Date.now();
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
@@ -117,6 +118,9 @@ Ensure all 3 plans are different architectural styles and each fits within the $
         },
       ],
     });
+
+    const genDurationMs = Date.now() - genStart;
+    console.log('[generate:timing]', { durationMs: genDurationMs, userId: user.id });
 
     const textBlock = response.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") {
