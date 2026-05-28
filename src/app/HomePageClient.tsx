@@ -86,7 +86,7 @@ const T = {
       heading: "Simple, transparent pricing",
       sub: "Start free. Upgrade when you're ready.",
       free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 floor plan generations / month", "SplanAI branded PDF export", "Neighborhood & market data", "Client sharing portal + view tracking", "All room types", "Email support"], cta: "Get started free" },
-      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["100 floor plan generations / month", "Branded PDF with your logo", "MLS lot data connection via Trestle", "Priority support"], cta: "Start 14-day free trial" },
+      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 floor plan generations / month", "Branded PDF with your logo", "MLS lot data connection via Trestle", "Priority support"], cta: "Start 14-day free trial" },
       team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Unlimited floor plan generations*", "Everything in Pro", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF (your logo only, no SplanAI branding)", "Dedicated support"], cta: "Start 14-day free trial" },
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
@@ -192,7 +192,7 @@ const T = {
       heading: "Precios simples y transparentes",
       sub: "Empieza gratis. Actualiza cuando estés listo.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Datos de vecindario y mercado", "Portal para clientes + seguimiento de vistas", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
-      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["100 generaciones de planos / mes", "PDF con tu logo", "Conexión MLS vía Trestle", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
+      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 generaciones de planos / mes", "PDF con tu logo", "Conexión MLS vía Trestle", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
       team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Generaciones ilimitadas de planos*", "Todo lo de Pro", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca (solo tu logo, sin SplanAI)", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
@@ -895,7 +895,7 @@ export default function Home() {
               </a>
             </div>
             {/* Pro */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 relative overflow-hidden shadow-2xl border border-blue-500/30" style={{ background: "#0F172A" }}>
+            <div className="rounded-2xl p-7 sm:py-10 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40 sm:scale-[1.04] sm:z-10" style={{ background: "#0F172A", boxShadow: "0 8px 40px rgba(59,130,246,0.30)" }}>
               <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{ background: "#3B82F6" }}>
                 {t.pricing.pro.badge}
               </div>
@@ -907,8 +907,8 @@ export default function Home() {
                 <p className="text-sm text-slate-400 mt-1">{t.pricing.pro.note}</p>
               </div>
               <ul className="flex flex-col gap-3 flex-1">
-                {t.pricing.pro.features.map(f => (
-                  <li key={f} className="flex items-center gap-2.5 text-sm text-slate-200">
+                {t.pricing.pro.features.map((f, i) => (
+                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "text-blue-300 font-medium" : "text-slate-200"}`}>
                     <svg className="w-4 h-4 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>{f}
@@ -922,7 +922,7 @@ export default function Home() {
               >{t.pricing.pro.cta}</a>
             </div>
             {/* Team — gold left border accent */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 relative overflow-hidden shadow-2xl border-l-4" style={{ background: "#0F172A", borderLeftColor: "#F59E0B", borderTopColor: "rgba(245,158,11,0.15)", borderRightColor: "rgba(245,158,11,0.15)", borderBottomColor: "rgba(245,158,11,0.15)", borderTopWidth: "1px", borderRightWidth: "1px", borderBottomWidth: "1px" }}>
+            <div className="rounded-2xl p-7 sm:py-9 flex flex-col gap-5 relative overflow-hidden shadow-2xl border-l-4" style={{ background: "#0F172A", borderLeftColor: "#F59E0B", borderTopColor: "rgba(245,158,11,0.15)", borderRightColor: "rgba(245,158,11,0.15)", borderBottomColor: "rgba(245,158,11,0.15)", borderTopWidth: "1px", borderRightWidth: "1px", borderBottomWidth: "1px" }}>
               <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#F59E0B", color: "#0F172A" }}>
                 ENTERPRISE
               </div>

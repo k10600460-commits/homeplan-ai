@@ -112,7 +112,8 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 10 https://splanai.com/sitemap.xml)",
       "Bash(curl -s --max-time 10 https://splanai.com/sitemap.xml)",
       "Bash(curl -sI --max-time 10 -A 'Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/124.0.0.0 Safari/537.36' https://splanai.com/)",
-      "Bash(vercel ls *)"
+      "Bash(vercel ls *)",
+      "Bash(grep -n \"Most Popular\\\\|MOST POPULAR\\\\|\\\\$49\\\\|pricing\\\\|Free plan\\\\|Pro plan\" /Users/Shoji.S/homeplan-ai/src/app/HomePageClient.tsx)"
     ],
     "additionalDirectories": [
       "/tmp",
