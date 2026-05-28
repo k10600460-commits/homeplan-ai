@@ -5,6 +5,14 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Admin users bypass generation limits entirely.
+// Set ADMIN_USER_IDS as a comma-separated list of Supabase user UUIDs in env.
+function isAdminUser(userId: string): boolean {
+  const ids = process.env.ADMIN_USER_IDS ?? ''
+  if (!ids) return false
+  return ids.split(',').map(s => s.trim()).includes(userId)
+}
+
 // ─── プラン設定 ───────────────────────────────
 export const PLAN_LIMITS = {
   free: { requestsPerMonth: 3,   label: 'Free Plan' },
@@ -72,6 +80,11 @@ export async function checkUsageLimit(userId: string): Promise<{
   limit:     number
   remaining: number
 }> {
+  // Admin bypass: skip all limit checks for founder/test accounts
+  if (isAdminUser(userId)) {
+    return { allowed: true, plan: 'team', current: 0, limit: 9999, remaining: 9999 }
+  }
+
   const [plan, usage] = await Promise.all([
     getUserPlan(userId),
     getMonthlyUsage(userId),

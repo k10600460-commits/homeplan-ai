@@ -114,7 +114,14 @@
       "Bash(curl -sI --max-time 10 -A 'Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/124.0.0.0 Safari/537.36' https://splanai.com/)",
       "Bash(vercel ls *)",
       "Bash(grep -n \"Most Popular\\\\|MOST POPULAR\\\\|\\\\$49\\\\|pricing\\\\|Free plan\\\\|Pro plan\" /Users/Shoji.S/homeplan-ai/src/app/HomePageClient.tsx)",
-      "Bash(claude mcp *)"
+      "Bash(claude mcp *)",
+      "Bash(xargs -I{} basename {})",
+      "Bash(npx tsx *)",
+      "Bash(node --env-file=.env.local -e \"console.log\\('ANTHROPIC_API_KEY present:', !!process.env.ANTHROPIC_API_KEY\\)\")",
+      "Bash(node --env-file=.env.local --import tsx/esm scripts/measure-generation-time.ts)",
+      "Bash(node --env-file=.env.local -e \"process.env.ANTHROPIC_API_KEY\")",
+      "Bash(node --env-file=.env.local -e \"process.stdout.write\\(process.env.ANTHROPIC_API_KEY||''\\)\")",
+      "Bash(ANTHROPIC_API_KEY=$\\(node --env-file=.env.local -e \"process.stdout.write\\(process.env.ANTHROPIC_API_KEY||''\\)\"\\) npx tsx scripts/measure-generation-time.ts)"
     ],
     "additionalDirectories": [
       "/tmp",
