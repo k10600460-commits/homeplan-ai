@@ -287,7 +287,7 @@ async function buildPDF(plans: FloorPlan[], lang: Lang): Promise<jsPDF> {
     doc.text(`© ${new Date().getFullYear()} SplanAI`, PW - ML, PH - 9, { align: "right" });
     doc.setFontSize(6);
     doc.setTextColor(180, 180, 180);
-    doc.text("For informational purposes only. Data subject to change. Not a substitute for professional architectural or legal advice.", ML, PH - 4);
+    doc.text("Floor-plan concepts are AI-generated for preliminary illustration only. They are not construction-ready drawings and may not comply with building codes or zoning. Verify with licensed professionals before relying on them.", ML, PH - 4);
   });
 
   return doc;
