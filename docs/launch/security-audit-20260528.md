@@ -7,7 +7,8 @@
 **方針**: 調査専用。コード・.env・Stripe設定は変更なし。修正は所有者承認後に別途実施。
 
 **修正実施 Round 1**: 2026-05-28 — H-1/H-2/H-3/M-6/M-7 を修正（要レビュー・要 Preview 検証）。build ✅  
-**修正実施 Round 2**: 2026-05-28 — M-4（共有レート制限 Postgres 実装）・H-3 レート制限完成。build ✅
+**修正実施 Round 2**: 2026-05-28 — M-4（共有レート制限 Postgres 実装）・H-3 レート制限完成。build ✅  
+**修正実施 Round 3**: 2026-05-28 — M-5（セキュリティヘッダ整備 + CSP-Report-Only 追加）。build ✅
 
 ---
 
@@ -17,10 +18,10 @@
 |--------|------|----------|
 | Critical | 0 | — |
 | High | 3 | 3 ✅ 修正済（要レビュー） |
-| Medium | 4 | M-4/M-6/M-7 ✅ 修正済（要レビュー）/ M-5(CSP) 未対応 |
+| Medium | 4 | M-4/M-5/M-6/M-7 ✅ 全修正済（要レビュー） |
 | Low / Info | 4 | 優先度低 |
 
-**前回から継続している課題**: CSP ヘッダ未設定（前回 Medium → 本レポートでも Medium）
+**前回から継続していた課題**: CSP ヘッダ未設定 → Round 3 で `Content-Security-Policy-Report-Only` を実装済（Preview で違反確認後に enforce 版に切替予定）
 
 ---
 
@@ -350,15 +351,44 @@ npm audit: 0 vulnerabilities (542 packages)
 | `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(self)` |
 
-### M-4 【Medium】Content-Security-Policy (CSP) ヘッダ未設定
+### M-5 【Medium → ✅ 修正済】Content-Security-Policy (CSP) ヘッダ — Report-Only 実装済
 
-**根拠**: `next.config.ts` 全体確認済。CSP ヘッダなし。
+**根拠**: `next.config.ts` 全体確認済。CSP ヘッダなし → **Round 3 で修正**。
 
 CSP がないと、XSS が成功した場合に任意スクリプトの実行・データ窃取が阻止できない。現在 XSS 脆弱点は発見されていないが、多層防御として CSP は重要。
 
-**前回監査からの継続課題（2026-05-21）**。Stripe Checkout iframe / Supabase の外部スクリプト要件の精査が必要なため先送りとなっていた。
+**修正内容 (2026-05-28)**:
+- `Content-Security-Policy-Report-Only` を `next.config.ts` 全ルートに追加
+- 外部ソース調査結果:
+  - Stripe Checkout: リダイレクト方式 (Stripe Elements iframe なし) → `frame-src` 追加不要
+  - Google Maps: サーバーサイド API のみ → browser `connect-src` 追加不要
+  - Google Fonts (Geist): `next/font/google` がビルド時にセルフホスト → `fonts.googleapis.com` 追加不要
+  - Vercel Analytics: `va.vercel-scripts.com` (script-src) + `vitals.vercel-insights.com` (connect-src)
+  - Supabase: REST + Realtime WebSocket (`wss://sabriblwzzsvxsfxoebe.supabase.co`)
 
-**推奨**: `script-src 'self' 'nonce-xxx' https://js.stripe.com; frame-src https://js.stripe.com; ...` の方向で実装。Next.js の `nonce` サポートを活用。
+**適用した CSP-Report-Only ディレクティブ**:
+
+```
+default-src 'self';
+script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com;
+style-src 'self' 'unsafe-inline';
+img-src 'self' data: blob:;
+font-src 'self';
+connect-src 'self' https://sabriblwzzsvxsfxoebe.supabase.co
+            wss://sabriblwzzsvxsfxoebe.supabase.co
+            https://vitals.vercel-insights.com;
+frame-ancestors 'none';
+object-src 'none';
+base-uri 'self';
+form-action 'self';
+```
+
+注意点:
+- `unsafe-inline` (script-src): Next.js が `__NEXT_DATA__` などのインラインスクリプトを注入するため必須。`nonce` 対応に切り替えると除去可能。
+- `unsafe-inline` (style-src): React の `style={{...}}` prop がインライン style 属性を生成するため必須。
+- HSTS: 本番環境のみに変更（`isProd` フラグで dev では送信しない）
+
+**次のアクション**: Preview デプロイ後、ブラウザの開発者ツール（コンソール）で CSP 違反を確認。違反がなければ `Content-Security-Policy-Report-Only` → `Content-Security-Policy` に切替。
 
 ### CORS: ✅
 
@@ -425,7 +455,7 @@ const ADMIN_EMAIL = "k10600460@gmail.com";
 | priceId・userId は全てサーバー側で解決（クライアント改ざん不可） | checkout, stripe/checkout |
 | Trestle MLS クレデンシャルは AES-256-GCM で暗号化保存 | `crypto.ts`, `mls/connect` |
 | プロンプトインジェクション対策（数値型強制 + 範囲制限） | `security.ts:validateGenerateInput()` |
-| セキュリティヘッダ 5 種（X-Frame-Options, HSTS, CSP 除く） | `next.config.ts` |
+| セキュリティヘッダ 6 種（X-Frame-Options, HSTS[本番のみ], X-Content-Type-Options, Referrer-Policy, Permissions-Policy, CSP-Report-Only） | `next.config.ts` |
 | CRON エンドポイント全 7 本で CRON_SECRET 確認 | cron/* ルート全確認 |
 | IP ハッシュ化（raw IP は DB に保存しない） | `crypto.ts:hashIp()`, share/event |
 | npm audit: 0 CVE | 実行確認済 |
@@ -441,7 +471,7 @@ const ADMIN_EMAIL = "k10600460@gmail.com";
 | 2 | ~~**High**~~ ✅ | `/api/stripe/portal` Stripe Customer 所有権未検証 | 修正済（要レビュー） |
 | 3 | ~~**High**~~ ✅ | `/api/generate-pdf` 認証なし | 修正済（要レビュー） |
 | 4 | ~~**Medium**~~ ✅ | In-memory rate limiter → Postgres 共有実装に移行 | 修正済（`lib/rate-limit-db.ts`、migration `20260528_rate_limits.sql`） |
-| 5 | **Medium** | CSP ヘッダ未設定 | `next.config.ts` |
+| 5 | ~~**Medium**~~ ✅ | CSP-Report-Only 実装済（違反確認後 enforce 版に切替予定） | `next.config.ts` |
 | 6 | ~~**Medium**~~ ✅ | Stripe エラーメッセージがクライアントに露出 | 修正済（要レビュー） |
 | 7 | ~~**Medium**~~ ✅ | MLS connect エラーメッセージがクライアントに露出 | 修正済（要レビュー） |
 | 8 | **Low** | `/api/team/plan` — 未認証時 200 返却 | `team/plan/route.ts` |

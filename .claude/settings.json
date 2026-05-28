@@ -88,7 +88,19 @@
       "Bash(curl -s -o /tmp/pdf_resp.json -w '%{http_code}' -X POST http://localhost:3000/api/generate-pdf -H 'Content-Type: application/json' -d '{\"planData\":[{\"id\":1,\"name\":\"Test\",\"style\":\"Modern\",\"squareFootage\":2000,\"bedrooms\":3,\"bathrooms\":2,\"stories\":1,\"estimatedCost\":300000,\"description\":\"test\",\"features\":[],\"rooms\":[],\"highlights\":[]}],\"language\":\"zh\"}')",
       "Bash(echo \"exit code: $?\")",
       "Bash(echo \"PID=$!\")",
-      "Bash(curl -s http://localhost:3000/api/stripe/checkout -o /dev/null -w \"%{http_code}\")"
+      "Bash(curl -s http://localhost:3000/api/stripe/checkout -o /dev/null -w \"%{http_code}\")",
+      "Bash(npx playwright *)",
+      "Bash(lsof -ti:3000)",
+      "Bash(curl -sI http://localhost:3000/)",
+      "Bash(curl -sI http://localhost:3000/login)",
+      "Bash(curl -sI http://localhost:3000/s/testslug)",
+      "Bash(curl -sI http://localhost:3000/dashboard)",
+      "Bash(node /tmp/csp-check.mjs)",
+      "Bash(npx playwright@1.60.0 --version)",
+      "Bash(playwright --version)",
+      "Bash(cp /tmp/csp-check.mjs /tmp/pw-csp-test/csp-check.mjs)",
+      "Bash(node csp-check.mjs)",
+      "Bash(curl -sI http://localhost:3001/)"
     ],
     "additionalDirectories": [
       "/tmp",
