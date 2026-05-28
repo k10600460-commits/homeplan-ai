@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   robots: "noindex",
 };
 
-const LAST_UPDATED = "May 24, 2026";
+const LAST_UPDATED = "May 28, 2026";
 const CONTACT_EMAIL = "hello@splanai.com";
 
 export default function TermsPage() {

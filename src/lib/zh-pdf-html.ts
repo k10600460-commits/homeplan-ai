@@ -62,7 +62,7 @@ export function buildZHHTML(plans: ZHPlanData[]): string {
     <span>Powered by SplanAI · Data: Google Maps + RentCast · splanai.com</span>
     <span>${date}</span>
   </div>
-  <div class="disclaimer">仅供参考。数据可能变动。不构成专业建筑或法律建议。</div>
+  <div class="disclaimer">仅供参考。数据可能变动。不构成专业建筑或法律建议。Floor-plan concepts are AI-generated for preliminary illustration only. They are not construction-ready drawings and may not comply with building codes or zoning. Verify with licensed professionals before relying on them.</div>
 </div>`;
   }).join('');
 

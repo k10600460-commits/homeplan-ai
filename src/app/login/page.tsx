@@ -28,6 +28,7 @@ function LoginContent() {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -67,6 +68,7 @@ function LoginContent() {
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: { terms_agreed_at: new Date().toISOString() },
       },
     });
 
@@ -265,9 +267,25 @@ function LoginContent() {
                       <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-4 py-2">{message}</p>
                     )}
 
+                    <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={agreedToTerms}
+                        onChange={(e) => setAgreedToTerms(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                        required
+                      />
+                      <span className="text-xs text-gray-500 leading-relaxed">
+                        I agree to the{" "}
+                        <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">Terms of Service</a>
+                        {" "}and{" "}
+                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">Privacy Policy</a>
+                      </span>
+                    </label>
+
                     <button
                       type="submit"
-                      disabled={loading}
+                      disabled={loading || !agreedToTerms}
                       className="mt-2 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {loading ? (
@@ -277,13 +295,6 @@ function LoginContent() {
                         </svg>
                       ) : "Start Free Trial →"}
                     </button>
-
-                    <p className="text-xs text-center text-gray-400">
-                      By signing up, you agree to our{" "}
-                      <a href="/terms" className="underline hover:text-gray-600">Terms</a>
-                      {" "}and{" "}
-                      <a href="/privacy" className="underline hover:text-gray-600">Privacy Policy</a>.
-                    </p>
                   </form>
 
                   <p className="mt-4 text-center text-sm text-gray-500">
@@ -301,6 +312,13 @@ function LoginContent() {
           </div>
         </div>
       </div>
+      <footer className="py-4 border-t border-gray-100 text-center">
+        <div className="flex items-center justify-center gap-4 text-xs text-gray-400">
+          <a href="/terms" className="hover:text-gray-600 transition-colors">Terms</a>
+          <a href="/privacy" className="hover:text-gray-600 transition-colors">Privacy</a>
+          <span>© 2026 SplanAI</span>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -51,7 +51,7 @@ function UpgradeContent() {
         </div>
       </header>
 
-      <div className="flex flex-1 items-center justify-center px-4 py-16">
+      <div className="flex flex-1 items-center justify-center px-4 py-16 pb-8">
         <div className="w-full max-w-lg">
           {/* Usage bar card */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
@@ -89,7 +89,7 @@ function UpgradeContent() {
                 <span className="text-4xl font-extrabold text-gray-900">$49</span>
                 <span className="text-gray-500">/month</span>
               </div>
-              <p className="text-sm text-gray-500 mt-1">14-day free trial • Cancel anytime</p>
+              <p className="text-sm text-gray-500 mt-1">14-day free trial, then $49/mo. Cancel anytime before it ends.</p>
             </div>
 
             <ul className="space-y-3 mb-8">
@@ -136,6 +136,13 @@ function UpgradeContent() {
           </p>
         </div>
       </div>
+      <footer className="py-4 border-t border-gray-100 text-center">
+        <div className="flex items-center justify-center gap-4 text-xs text-gray-400">
+          <a href="/terms" className="hover:text-gray-600 transition-colors">Terms</a>
+          <a href="/privacy" className="hover:text-gray-600 transition-colors">Privacy</a>
+          <span>© 2026 SplanAI</span>
+        </div>
+      </footer>
     </div>
   );
 }

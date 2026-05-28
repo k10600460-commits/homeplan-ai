@@ -100,7 +100,12 @@
       "Bash(playwright --version)",
       "Bash(cp /tmp/csp-check.mjs /tmp/pw-csp-test/csp-check.mjs)",
       "Bash(node csp-check.mjs)",
-      "Bash(curl -sI http://localhost:3001/)"
+      "Bash(curl -sI http://localhost:3001/)",
+      "Bash(dig NS splanai.com +short)",
+      "Bash(dig MX splanai.com +short)",
+      "Bash(dig TXT splanai.com +short)",
+      "Bash(dig A splanai.com +short)",
+      "Bash(dig CNAME www.splanai.com +short)"
     ],
     "additionalDirectories": [
       "/tmp",

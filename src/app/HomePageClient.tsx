@@ -86,8 +86,8 @@ const T = {
       heading: "Simple, transparent pricing",
       sub: "Start free. Upgrade when you're ready.",
       free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 floor plan generations / month", "SplanAI branded PDF export", "Neighborhood & market data", "Client sharing portal + view tracking", "All room types", "Email support"], cta: "Get started free" },
-      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial · Cancel anytime", badge: "MOST POPULAR", features: ["100 floor plan generations / month", "Branded PDF with your logo", "MLS lot data connection via Trestle", "Priority support"], cta: "Start 14-day free trial" },
-      team: { label: "Team", price: "$149", period: "/mo", note: "5–15 users · Cancel anytime", features: ["Unlimited floor plan generations*", "Everything in Pro", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF (your logo only, no SplanAI branding)", "Dedicated support"], cta: "Start 14-day free trial" },
+      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["100 floor plan generations / month", "Branded PDF with your logo", "MLS lot data connection via Trestle", "Priority support"], cta: "Start 14-day free trial" },
+      team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Unlimited floor plan generations*", "Everything in Pro", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF (your logo only, no SplanAI branding)", "Dedicated support"], cta: "Start 14-day free trial" },
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
     faq: [
@@ -192,8 +192,8 @@ const T = {
       heading: "Precios simples y transparentes",
       sub: "Empieza gratis. Actualiza cuando estés listo.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Datos de vecindario y mercado", "Portal para clientes + seguimiento de vistas", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
-      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba · Cancela cuando quieras", badge: "MÁS POPULAR", features: ["100 generaciones de planos / mes", "PDF con tu logo", "Conexión MLS vía Trestle", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
-      team: { label: "Equipo", price: "$149", period: "/mes", note: "5–15 usuarios · Cancela cuando quieras", features: ["Generaciones ilimitadas de planos*", "Todo lo de Pro", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca (solo tu logo, sin SplanAI)", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
+      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["100 generaciones de planos / mes", "PDF con tu logo", "Conexión MLS vía Trestle", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
+      team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Generaciones ilimitadas de planos*", "Todo lo de Pro", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca (solo tu logo, sin SplanAI)", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
     faq: [

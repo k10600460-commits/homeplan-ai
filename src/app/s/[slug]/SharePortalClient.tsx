@@ -546,11 +546,18 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt }
 
         {/* Footer */}
         <div className="mt-12 text-center border-t border-gray-100 pt-8">
+          <p className="text-xs text-gray-400 italic mb-5 max-w-xl mx-auto">
+            AI-generated concept — illustration only. Not an architectural or engineering plan. Verify with a licensed professional before construction.
+          </p>
           <p className="text-sm text-gray-400 mb-4">{t.contact}</p>
           <a href="https://splanai.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors">
             <span className="text-base font-extrabold tracking-tight">Splan<span className="text-blue-500">AI</span></span>
           </a>
           <p className="text-xs text-gray-300 mt-1">{t.poweredBy} SplanAI · splanai.com</p>
+          <div className="mt-4 flex items-center justify-center gap-4 text-xs text-gray-300">
+            <a href="https://splanai.com/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-500 transition-colors">Terms</a>
+            <a href="https://splanai.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-500 transition-colors">Privacy</a>
+          </div>
         </div>
       </div>
     </div>

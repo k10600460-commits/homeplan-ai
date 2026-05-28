@@ -243,7 +243,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
       }
       doc.setFontSize(6);
       doc.setTextColor(180, 180, 180);
-      doc.text("For informational purposes only. Data subject to change. Not a substitute for professional architectural or legal advice.", ML, PH - 4);
+      doc.text("Floor-plan concepts are AI-generated for preliminary illustration only. They are not construction-ready drawings and may not comply with building codes or zoning. Verify with licensed professionals before relying on them.", ML, PH - 4);
     };
 
     // ── Header bar (white with bottom border) ─────────────────
@@ -791,6 +791,11 @@ export default function Results() {
           )}
         </div>
 
+        {/* AI disclaimer */}
+        <p className="text-xs text-center text-gray-400 mb-6 max-w-2xl mx-auto">
+          AI-generated concept — illustration only. Not an architectural or engineering plan. Verify with a licensed professional before construction.
+        </p>
+
         {/* Plan cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {plans.map((plan, i) => {
@@ -1152,6 +1157,12 @@ export default function Results() {
           >
             ← Generate New Plans
           </button>
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-center gap-4 text-xs text-gray-400">
+          <a href="/terms" className="hover:text-gray-600 transition-colors">Terms</a>
+          <a href="/privacy" className="hover:text-gray-600 transition-colors">Privacy</a>
+          <span>© 2026 SplanAI</span>
         </div>
       </div>
     </div>
