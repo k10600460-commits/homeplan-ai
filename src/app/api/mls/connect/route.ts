@@ -119,6 +119,6 @@ export async function POST(req: NextRequest) {
       );
     }
     console.error("[MLS connect]", err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "MLS connection failed. Please try again." }, { status: 500 });
   }
 }

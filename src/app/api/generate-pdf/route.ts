@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
+import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const maxDuration = 15;
@@ -192,6 +193,13 @@ async function generatePdfBuffer(docDef: object, fonts: Record<string, object>):
 
 export async function POST(req: NextRequest) {
   try {
+    // Auth gate — PDF generation is CPU-intensive; only authenticated users may call this
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json() as { planData?: PlanData[]; language?: string };
     const { planData, language } = body;
 

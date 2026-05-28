@@ -1,8 +1,14 @@
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
-import { NextRequest, NextResponse } from "next/server";
+import { createClient as createAdmin } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 
-export async function POST(req: NextRequest) {
+const supabaseAdmin = createAdmin(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
+
+export async function POST() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -10,16 +16,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { customerId } = await req.json();
+    // customerId comes from DB, never from the client — prevents accessing another user's portal
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (!customerId) {
-      return NextResponse.json({ error: "customerId is required" }, { status: 400 });
+    if (!sub?.stripe_customer_id) {
+      return NextResponse.json(
+        { error: "No active paid plan found for this account." },
+        { status: 400 },
+      );
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
     const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
+      customer: sub.stripe_customer_id,
       return_url: `${appUrl}/dashboard`,
     });
 

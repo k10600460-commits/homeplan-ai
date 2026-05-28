@@ -82,10 +82,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    const stripeMsg = error instanceof Error ? error.message : String(error);
-    console.error("[checkout] Stripe error:", stripeMsg);
+    console.error("[checkout] Stripe error:", error);
     return NextResponse.json(
-      { error: `Checkout failed: ${stripeMsg}` },
+      { error: "Checkout session creation failed. Please try again." },
       { status: 500 },
     );
   }
