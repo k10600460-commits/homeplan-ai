@@ -8,7 +8,8 @@
 
 **修正実施 Round 1**: 2026-05-28 — H-1/H-2/H-3/M-6/M-7 を修正（要レビュー・要 Preview 検証）。build ✅  
 **修正実施 Round 2**: 2026-05-28 — M-4（共有レート制限 Postgres 実装）・H-3 レート制限完成。build ✅  
-**修正実施 Round 3**: 2026-05-28 — M-5（セキュリティヘッダ整備 + CSP-Report-Only 追加）。build ✅
+**修正実施 Round 3**: 2026-05-28 — M-5（セキュリティヘッダ整備 + CSP-Report-Only 追加）。build ✅  
+**修正実施 Round 4**: 2026-05-28 — Low-1/Low-2/Low-4（401 修正・管理メール env var 化・share/event レート制限）。build ✅
 
 ---
 
@@ -19,7 +20,7 @@
 | Critical | 0 | — |
 | High | 3 | 3 ✅ 修正済（要レビュー） |
 | Medium | 4 | M-4/M-5/M-6/M-7 ✅ 全修正済（要レビュー） |
-| Low / Info | 4 | 優先度低 |
+| Low / Info | 4 | Low-1/Low-2/Low-4 ✅ 修正済（要レビュー）/ Low-3(モジュロバイアス) 情報のみ |
 
 **前回から継続していた課題**: CSP ヘッダ未設定 → Round 3 で `Content-Security-Policy-Report-Only` を実装済（Preview で違反確認後に enforce 版に切替予定）
 
@@ -402,31 +403,32 @@ Next.js API Routes は同一オリジンのみがデフォルト。明示的な 
 
 ## Low / Info
 
-### Low-1: `/api/team/plan` — 未認証時に 200 + `{ plan: "free" }` を返す
+### Low-1: ✅ 修正済 `/api/team/plan` — 未認証時に 200 → 401 に変更
 
-**根拠**: `src/app/api/team/plan/route.ts:8`
+**修正**: `src/app/api/team/plan/route.ts:8`
 
-```ts
-if (!user) return NextResponse.json({ plan: "free", companyName: "" });  // 401 でない
+```diff
+- if (!user) return NextResponse.json({ plan: "free", companyName: "" });
++ if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 ```
-
-内容は無害（"free" は公開情報）だが、慣例上 401 を返すべき。推奨: `return NextResponse.json({ error: "Unauthorized" }, { status: 401 });`
 
 ---
 
-### Low-2: 管理者メールアドレスのハードコード
+### Low-2: ✅ 修正済 管理者メールアドレスのハードコード → env var フォールバック
 
-**根拠**:
-- `src/app/api/cron/daily-brief/route.ts:5`
-- `src/lib/external-apis.ts:9`
+**修正**: `src/app/api/cron/daily-brief/route.ts:5` + `src/lib/external-apis.ts:9`
 
-```ts
-const ADMIN_EMAIL = "k10600460@gmail.com";
+```diff
+# daily-brief/route.ts:5
+- const ADMIN_EMAIL = "k10600460@gmail.com";
++ const ADMIN_EMAIL = process.env.ADMIN_ALERT_EMAIL ?? "k10600460@gmail.com";
+
+# external-apis.ts:9
+- const ALERT_EMAIL = 'k10600460@gmail.com'
++ const ALERT_EMAIL = process.env.ADMIN_ALERT_EMAIL ?? 'k10600460@gmail.com'
 ```
 
-サーバー側ファイルのみ（クライアントバンドルに含まれない）。git リポジトリに公開されているが、本人のメールアドレスであり実害は限定的。
-
-**推奨**: `process.env.ADMIN_ALERT_EMAIL` に移動し、環境変数として管理する。
+`.env` に `ADMIN_ALERT_EMAIL` を設定すれば上書き可能。未設定時はフォールバック動作。
 
 ---
 
@@ -438,11 +440,29 @@ const ADMIN_EMAIL = "k10600460@gmail.com";
 
 ---
 
-### Low-4: `/api/share/event` — レート制限なし
+### Low-4: ✅ 修正済 `/api/share/event` — IP ベースレート制限追加
 
-**根拠**: `src/app/api/share/event/route.ts`（`checkRateLimit` 呼び出しなし）
+**修正**: `src/app/api/share/event/route.ts`
 
-公開ポータルからのアナリティクス記録エンドポイント。認証不要の設計は正しいが、レート制限がないため、スクリプトで `link_events` / `api_usage_external` テーブルを意図的に膨らませることができる。Vercel WAF で IP ベースの rate limit を設定することで緩和可能。
+```diff
++ import { getClientIp } from '@/lib/security'
++ import { checkRateLimitDB } from '@/lib/rate-limit-db'
++
++ // 30 events/min per IP — generous for real users, blocks scripted flooding
++ const EVENT_RATE = { limit: 30, windowSec: 60 }
++
+  export async function POST(req: NextRequest) {
++   const ip = getClientIp(req)
++   const rl = await checkRateLimitDB(`share_event:ip:${ip}`, EVENT_RATE)
++   if (!rl.allowed) {
++     return NextResponse.json(
++       { ok: false, reason: 'rate_limited' },
++       { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
++     )
++   }
++
+    try {
+```
 
 ---
 
@@ -474,10 +494,10 @@ const ADMIN_EMAIL = "k10600460@gmail.com";
 | 5 | ~~**Medium**~~ ✅ | CSP-Report-Only 実装済（違反確認後 enforce 版に切替予定） | `next.config.ts` |
 | 6 | ~~**Medium**~~ ✅ | Stripe エラーメッセージがクライアントに露出 | 修正済（要レビュー） |
 | 7 | ~~**Medium**~~ ✅ | MLS connect エラーメッセージがクライアントに露出 | 修正済（要レビュー） |
-| 8 | **Low** | `/api/team/plan` — 未認証時 200 返却 | `team/plan/route.ts` |
-| 9 | **Low** | 管理者メールのハードコード | `cron/daily-brief/route.ts:5`, `external-apis.ts:9` |
-| 10 | **Low** | `/api/share/event` レート制限なし | `share/event/route.ts` |
+| 8 | ~~**Low**~~ ✅ | `/api/team/plan` — 未認証時 401 に修正 | 修正済（要レビュー） |
+| 9 | ~~**Low**~~ ✅ | 管理者メール → `ADMIN_ALERT_EMAIL` env var フォールバック | 修正済（要レビュー） |
+| 10 | ~~**Low**~~ ✅ | `/api/share/event` — IP ベースレート制限追加 (30/60s) | 修正済（要レビュー） |
 
 ---
 
-_監査日: 2026-05-28 | ブランチ: main | Round 1: e21d4dc+修正5件 | Round 2: M-4 DB rate limiter + H-3 rate limit 完成_
+_監査日: 2026-05-28 | ブランチ: main | Round 1: H-1/H-2/H-3/M-6/M-7 | Round 2: M-4 DB rate limiter | Round 3: M-5 CSP | Round 4: Low-1/Low-2/Low-4 | push はしていない_

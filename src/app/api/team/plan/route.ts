@@ -5,7 +5,7 @@ import { getUserPlan } from "@/lib/usage";
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ plan: "free", companyName: "" });
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const [plan, profileResult] = await Promise.all([
     getUserPlan(user.id),

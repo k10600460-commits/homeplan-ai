@@ -6,7 +6,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const ALERT_EMAIL = 'k10600460@gmail.com'
+const ALERT_EMAIL = process.env.ADMIN_ALERT_EMAIL ?? 'k10600460@gmail.com'
 
 const LIMITS = {
   google_maps: { warn: 25_000, stop: 28_000 },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-const ADMIN_EMAIL = "k10600460@gmail.com";
+const ADMIN_EMAIL = process.env.ADMIN_ALERT_EMAIL ?? "k10600460@gmail.com";
 const FROM_EMAIL = "SplanAI <noreply@splanai.com>";
 
 export const runtime = "nodejs";

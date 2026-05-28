@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
+import { getClientIp } from '@/lib/security'
+import { checkRateLimitDB } from '@/lib/rate-limit-db'
 
 const ALLOWED_EVENTS = ['view', 'pdf_download', 'plan_selected'] as const
 type EventType = (typeof ALLOWED_EVENTS)[number]
 
+// 30 events/min per IP — generous for real users, blocks scripted flooding
+const EVENT_RATE = { limit: 30, windowSec: 60 }
+
 export async function POST(req: NextRequest) {
+  // Rate limit: IP-based (unauthenticated public endpoint)
+  const ip = getClientIp(req)
+  const rl = await checkRateLimitDB(`share_event:ip:${ip}`, EVENT_RATE)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { ok: false, reason: 'rate_limited' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+    )
+  }
+
   try {
     const body = await req.json()
     const slug      = String(body?.slug ?? '').trim()
