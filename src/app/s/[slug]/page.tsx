@@ -5,6 +5,12 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
+export interface PortalBranding {
+  plan: 'free' | 'pro' | 'team';
+  companyName: string;
+  logoDataUrl: string | null;
+}
+
 export default async function SharePage({ params }: Props) {
   const { slug } = await params
 
@@ -15,19 +21,20 @@ export default async function SharePage({ params }: Props) {
 
   const { data: link } = await admin
     .from('shared_links')
-    .select('id, slug, plans, client_name, is_active, expires_at, view_count')
+    .select('id, slug, plans, client_name, is_active, expires_at, view_count, user_id')
     .eq('slug', slug)
     .single()
 
-  // Invalid or deactivated link
   if (!link || !link.is_active) {
     return <InvalidLinkPage />
   }
 
-  // Expired link
   if (link.expires_at && new Date(link.expires_at) < new Date()) {
     return <InvalidLinkPage expired />
   }
+
+  // Fetch builder's branding if they have a paid plan
+  const branding = await fetchBranding(admin, link.user_id)
 
   return (
     <SharePortalClient
@@ -35,8 +42,49 @@ export default async function SharePage({ params }: Props) {
       plans={link.plans}
       clientName={link.client_name ?? null}
       expiresAt={link.expires_at ?? null}
+      branding={branding}
     />
   )
+}
+
+async function fetchBranding(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  userId: string | null,
+): Promise<PortalBranding> {
+  const defaultBranding: PortalBranding = { plan: 'free', companyName: '', logoDataUrl: null };
+  if (!userId) return defaultBranding;
+
+  const [subResult, profileResult] = await Promise.all([
+    admin.from('subscriptions').select('plan, status').eq('user_id', userId).maybeSingle(),
+    admin.from('team_profiles').select('company_name, logo_url').eq('owner_user_id', userId).maybeSingle(),
+  ]);
+
+  const sub = subResult.data;
+  if (!sub || (sub.status !== 'active' && sub.status !== 'trialing')) return defaultBranding;
+
+  const plan: 'free' | 'pro' | 'team' = sub.plan === 'team' ? 'team' : sub.plan === 'pro' ? 'pro' : 'free';
+  if (plan === 'free') return defaultBranding;
+
+  const companyName: string = profileResult.data?.company_name ?? '';
+  const logoUrl: string | null = profileResult.data?.logo_url ?? null;
+
+  let logoDataUrl: string | null = null;
+  if (logoUrl) {
+    try {
+      const { data: signed } = await admin.storage.from('branding').createSignedUrl(logoUrl, 3600);
+      if (signed?.signedUrl) {
+        const res = await fetch(signed.signedUrl);
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          const mime = res.headers.get('content-type') ?? 'image/png';
+          logoDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`;
+        }
+      }
+    } catch { /* branding optional — continue without logo */ }
+  }
+
+  return { plan, companyName, logoDataUrl };
 }
 
 function InvalidLinkPage({ expired }: { expired?: boolean }) {

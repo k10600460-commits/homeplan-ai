@@ -84,12 +84,15 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [mlsDisconnecting, setMlsDisconnecting] = useState(false);
 
-  // Team state
+  // Team / branding state
   const [userPlan, setUserPlan] = useState<"free" | "pro" | "team">("free");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [companyName, setCompanyName] = useState("");
   const [companyNameInput, setCompanyNameInput] = useState("");
   const [savingCompany, setSavingCompany] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoMsg, setLogoMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -114,15 +117,16 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
     }
   }, [supabase, user.id]);
 
-  // Load team plan + members
+  // Load plan + branding + members
   useEffect(() => {
     fetch("/api/team/plan")
       .then(r => r.json())
-      .then((d: { plan: "free" | "pro" | "team"; companyName: string }) => {
+      .then((d: { plan: "free" | "pro" | "team"; companyName: string; logoSignedUrl: string | null }) => {
         setUserPlan(d.plan);
         setCompanyName(d.companyName);
         setCompanyNameInput(d.companyName);
         if (d.plan === "team") loadTeamMembers();
+        if (d.logoSignedUrl) setLogoPreview(d.logoSignedUrl);
       })
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -143,6 +147,33 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
     });
     setCompanyName(companyNameInput);
     setSavingCompany(false);
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoMsg(null);
+    setLogoUploading(true);
+    const form = new FormData();
+    form.append("logo", file);
+    const res = await fetch("/api/branding/logo", { method: "POST", body: form });
+    const data = await res.json() as { signedUrl?: string; error?: string };
+    if (res.ok && data.signedUrl) {
+      setLogoPreview(data.signedUrl);
+      setLogoMsg({ ok: true, text: "Logo uploaded" });
+    } else {
+      setLogoMsg({ ok: false, text: data.error ?? "Upload failed" });
+    }
+    setLogoUploading(false);
+    e.target.value = "";
+  }
+
+  async function handleLogoDelete() {
+    setLogoUploading(true);
+    await fetch("/api/branding/logo", { method: "DELETE" });
+    setLogoPreview(null);
+    setLogoMsg({ ok: true, text: "Logo removed" });
+    setLogoUploading(false);
   }
 
   async function handleInvite() {
@@ -636,14 +667,24 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
           </div>
         </div>
 
-        {/* ── Team Panel ── */}
-        {userPlan === "team" && (
+        {/* ── Branding Settings (Pro + Team) ── */}
+        {(userPlan === "pro" || userPlan === "team") && (
           <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Team Management</h2>
+            <div className="flex items-center gap-2 mb-5">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Branding</h2>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
+                {userPlan === "team" ? "PDF + Portal" : "PDF only"}
+              </span>
+            </div>
 
             {/* Company Name */}
-            <div className="mb-6">
-              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Company Name <span className="text-gray-300">(shown on white-label PDFs)</span></label>
+            <div className="mb-5">
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">
+                Company Name
+                <span className="text-gray-300 ml-1">
+                  {userPlan === "team" ? "(PDF header + client portal)" : "(shown on branded PDFs)"}
+                </span>
+              </label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -661,8 +702,69 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                   {savingCompany ? "Saving…" : "Save"}
                 </button>
               </div>
-              {companyName && <p className="text-xs text-emerald-600 mt-1">✓ Set — PDFs will show "{companyName}" instead of SplanAI</p>}
+              {companyName && (
+                <p className="text-xs text-emerald-600 mt-1">
+                  ✓ Set — PDFs will show &ldquo;{companyName}&rdquo;
+                  {userPlan === "team" ? " and the client portal will use your name" : " with SplanAI attribution"}
+                </p>
+              )}
             </div>
+
+            {/* Logo Upload */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">
+                Company Logo
+                <span className="text-gray-300 ml-1">
+                  {userPlan === "team" ? "(replaces SplanAI in PDF + portal)" : "(shown in PDF header)"}
+                  {" · PNG/JPEG/WebP/SVG · max 512 KB"}
+                </span>
+              </label>
+              {logoPreview ? (
+                <div className="flex items-center gap-4 p-3 rounded-xl border border-gray-200 bg-gray-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={logoPreview} alt="Your logo" className="h-10 object-contain max-w-[140px] rounded" />
+                  <div className="flex-1">
+                    <p className="text-xs text-emerald-600 font-semibold">Logo active</p>
+                    <p className="text-xs text-gray-400">
+                      {userPlan === "team" ? "Shown in PDFs and client portal header" : "Shown in PDF header"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleLogoDelete}
+                    disabled={logoUploading}
+                    className="text-xs text-red-400 hover:text-red-600 transition-colors disabled:opacity-40"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors cursor-pointer ${logoUploading ? "opacity-50 pointer-events-none" : ""}`}>
+                  <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-sm text-gray-500">
+                    {logoUploading ? "Uploading…" : "Click to upload logo"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    className="hidden"
+                    onChange={handleLogoUpload}
+                    disabled={logoUploading}
+                  />
+                </label>
+              )}
+              {logoMsg && (
+                <p className={`text-xs mt-1.5 ${logoMsg.ok ? "text-emerald-600" : "text-red-500"}`}>{logoMsg.text}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Team Panel ── */}
+        {userPlan === "team" && (
+          <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Team Management</h2>
 
             {/* Invite Member */}
             <div className="mb-5">

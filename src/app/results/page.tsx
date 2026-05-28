@@ -203,9 +203,18 @@ const STYLE_COLORS = [
   { bg: "bg-violet-50", border: "border-violet-200", badge: "bg-violet-600", accent: "text-violet-700" },
 ];
 
-async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabelOptions?: { enabled: boolean; companyName: string }): Promise<jsPDF> {
-  const whiteLabel = whiteLabelOptions?.enabled ?? false;
-  const companyLabel = whiteLabelOptions?.companyName?.trim() || "Your Builder";
+interface BrandingOptions {
+  plan: 'free' | 'pro' | 'team';
+  companyName: string;
+  logoDataUrl: string | null;
+}
+
+async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?: BrandingOptions): Promise<jsPDF> {
+  const plan = branding?.plan ?? 'free';
+  const isTeam = plan === 'team';
+  const isPro  = plan === 'pro';
+  const companyLabel = branding?.companyName?.trim() || "Your Builder";
+  const logoDataUrl  = branding?.logoDataUrl ?? null;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   const PW = 210;
@@ -234,9 +243,12 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(156, 163, 175);
-      if (whiteLabel) {
+      if (isTeam) {
         doc.text(companyLabel, ML, PH - 9);
         doc.text(`© ${new Date().getFullYear()} ${companyLabel}. All rights reserved.`, PW - ML, PH - 9, { align: "right" });
+      } else if (isPro && companyLabel !== "Your Builder") {
+        doc.text(`${companyLabel} · Powered by SplanAI · splanai.com`, ML, PH - 9);
+        doc.text(`© ${new Date().getFullYear()} SplanAI. All rights reserved.`, PW - ML, PH - 9, { align: "right" });
       } else {
         doc.text("Powered by SplanAI · Data: Google Maps + RentCast · splanai.com", ML, PH - 9);
         doc.text(`© ${new Date().getFullYear()} SplanAI. All rights reserved.`, PW - ML, PH - 9, { align: "right" });
@@ -253,13 +265,17 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, whiteLabe
     doc.setDrawColor(220, 220, 220);
     doc.line(0, HEADER_H, PW, HEADER_H);
 
-    // Text wordmark: "Splan" dark + "AI" brand blue (or company name for white-label)
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    if (whiteLabel) {
+    // Header: logo image (Pro/Team), company name text (Team fallback), or SplanAI wordmark
+    if ((isTeam || isPro) && logoDataUrl) {
+      doc.addImage(logoDataUrl, "PNG", ML, 2, 80, 24);
+    } else if (isTeam) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
       doc.setTextColor(17, 24, 39);
       doc.text(companyLabel, ML, HEADER_H / 2 + 2);
     } else {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
       doc.setTextColor(17, 24, 39);
       doc.text("Splan", ML, HEADER_H / 2 + 2);
       const splanW = doc.getTextWidth("Splan");
@@ -541,7 +557,7 @@ export default function Results() {
   const [plans, setPlans] = useState<FloorPlan[]>([]);
   const [formData, setFormData] = useState<FormData | null>(null);
   const [mlsData, setMlsData] = useState<{ attribution?: string; disclaimer?: string; mlsProvider?: string; dataTimestamp?: string } | null>(null);
-  const [whiteLabelOptions, setWhiteLabelOptions] = useState<{ enabled: boolean; companyName: string }>({ enabled: false, companyName: "" });
+  const [branding, setBranding] = useState<BrandingOptions>({ plan: 'free', companyName: '', logoDataUrl: null });
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfLang, setPdfLang] = useState<PdfLang>('en');
@@ -567,13 +583,25 @@ export default function Results() {
       if (storedForm) setFormData(JSON.parse(storedForm));
       const storedMls = sessionStorage.getItem("mlsData");
       if (storedMls) setMlsData(JSON.parse(storedMls));
-      // Check white-label settings
+      // Fetch plan + branding (Pro and Team)
       fetch("/api/team/plan")
         .then(r => r.json())
-        .then((d: { plan: string; companyName: string }) => {
-          if (d.plan === "team") {
-            setWhiteLabelOptions({ enabled: true, companyName: d.companyName });
+        .then(async (d: { plan: 'free' | 'pro' | 'team'; companyName: string; logoSignedUrl: string | null }) => {
+          if (d.plan === 'free') return;
+          let logoDataUrl: string | null = null;
+          if (d.logoSignedUrl) {
+            try {
+              const imgRes = await fetch(d.logoSignedUrl);
+              const blob = await imgRes.blob();
+              logoDataUrl = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+            } catch { /* logo unavailable, fall back to text */ }
           }
+          setBranding({ plan: d.plan, companyName: d.companyName, logoDataUrl });
         })
         .catch(() => {});
 
@@ -639,9 +667,9 @@ export default function Results() {
       if (pdfLang === "zh") {
         await downloadZH(plans, "SplanAI-Floor-Plans-ZH.pdf");
       } else {
-        const doc = await buildPDF(plans, formData, whiteLabelOptions);
-        const pdfName = whiteLabelOptions.enabled && whiteLabelOptions.companyName
-          ? `${whiteLabelOptions.companyName.replace(/\s+/g, "-")}-Floor-Plans.pdf`
+        const doc = await buildPDF(plans, formData, branding);
+        const pdfName = branding.plan !== 'free' && branding.companyName
+          ? `${branding.companyName.replace(/\s+/g, "-")}-Floor-Plans.pdf`
           : "SplanAI-Floor-Plans.pdf";
         doc.save(pdfName);
       }
@@ -655,7 +683,7 @@ export default function Results() {
     if (pdfLang === "zh") {
       await downloadZH([plan], filename);
     } else {
-      const doc = await buildPDF([plan], formData, whiteLabelOptions);
+      const doc = await buildPDF([plan], formData, branding);
       doc.save(filename);
     }
   }

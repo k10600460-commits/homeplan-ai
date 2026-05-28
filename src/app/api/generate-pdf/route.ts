@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdmin } from '@supabase/supabase-js';
 import { checkRateLimitDB } from '@/lib/rate-limit-db';
+import { getUserPlan } from '@/lib/usage';
+import { buildZHHTML, type ZHBranding, type ZHPlanData } from '@/lib/zh-pdf-html';
 
 // 10 PDF generations per authenticated user per minute (CPU-intensive endpoint)
 const PDF_RATE = { limit: 10, windowSec: 60 };
@@ -10,22 +13,12 @@ const PDF_RATE = { limit: 10, windowSec: 60 };
 export const runtime = 'nodejs';
 export const maxDuration = 15;
 
-interface PlanData {
-  id: number;
-  name: string;
-  style: string;
-  squareFootage: number;
-  bedrooms: number;
-  bathrooms: number;
-  stories: number;
-  estimatedCost: number;
-  description: string;
-  features: string[];
-  rooms: { name: string; sqft: number }[];
-  highlights: string[];
+function adminClient() {
+  return createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 }
-
-const PLAN_COLORS = ['#2563EB', '#10B981', '#7C3AED'];
 
 function getFonts(): { fonts: Record<string, object>; defaultFont: string } {
   const ttfPath = path.join(process.cwd(), 'public', 'fonts', 'NotoSansCJK-Regular.ttf');
@@ -35,7 +28,6 @@ function getFonts(): { fonts: Record<string, object>; defaultFont: string } {
       defaultFont: 'NotoSansCJK',
     };
   }
-  // Fallback: pdfmake built-in Roboto (CJK will render as squares, but PDF generates)
   const base = path.join(process.cwd(), 'node_modules', 'pdfmake', 'examples', 'fonts');
   return {
     fonts: {
@@ -50,10 +42,15 @@ function getFonts(): { fonts: Record<string, object>; defaultFont: string } {
   };
 }
 
-function buildDocDefinition(plans: PlanData[], defaultFont: string): object {
+function buildDocDefinition(plans: ZHPlanData[], defaultFont: string, branding: ZHBranding): object {
   const date = new Date().toLocaleDateString('zh-CN', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
+
+  const isTeam = branding.plan === 'team';
+  const isPro  = branding.plan === 'pro';
+  const companyName = branding.companyName?.trim() ?? '';
+  const PLAN_COLORS = ['#2563EB', '#10B981', '#7C3AED'];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const content: any[] = [];
@@ -62,7 +59,34 @@ function buildDocDefinition(plans: PlanData[], defaultFont: string): object {
     const color = PLAN_COLORS[i % PLAN_COLORS.length];
     const isLast = i === plans.length - 1;
 
-    // ── Header (colored background via table) ──────────────────
+    // ── Page header (brand) ────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let headerBrand: any;
+    if ((isTeam || isPro) && branding.logoBase64) {
+      headerBrand = {
+        image: branding.logoBase64,
+        height: 20,
+        fit: [140, 20],
+        margin: [0, 4, 0, 4],
+      };
+    } else if (isTeam && companyName) {
+      headerBrand = { text: companyName, fontSize: 15, bold: true, color: '#111827', margin: [0, 6, 0, 4] };
+    } else {
+      headerBrand = {
+        text: [
+          { text: 'Splan', fontSize: 15, bold: true, color: '#111827' },
+          { text: 'AI',    fontSize: 15, bold: true, color: '#2563eb' },
+        ],
+        margin: [0, 6, 0, 4],
+      };
+    }
+
+    content.push({
+      columns: [headerBrand, { text: date, fontSize: 9, color: '#94a3b8', alignment: 'right', margin: [0, 8, 0, 4] }],
+      margin: [0, 0, 0, 8],
+    });
+
+    // ── Plan header (colored background via table) ──────────────────
     content.push({
       table: {
         widths: ['*'],
@@ -75,7 +99,7 @@ function buildDocDefinition(plans: PlanData[], defaultFont: string): object {
           color: 'white',
           fillColor: color,
           border: [false, false, false, false],
-          margin: [20, 20, 20, 18],
+          margin: [20, 14, 20, 12],
         }]],
       },
       layout: 'noBorders',
@@ -108,20 +132,11 @@ function buildDocDefinition(plans: PlanData[], defaultFont: string): object {
 
     // ── Highlights ────────────────────────────────────────────
     content.push({ text: '核心亮点', style: 'sectionTitle', margin: [0, 0, 0, 5] });
-    content.push({
-      ul: plan.highlights,
-      style: 'body',
-      margin: [0, 0, 0, 12],
-    });
+    content.push({ ul: plan.highlights, style: 'body', margin: [0, 0, 0, 12] });
 
     // ── Features ──────────────────────────────────────────────
     content.push({ text: '主要特点', style: 'sectionTitle', margin: [0, 0, 0, 5] });
-    content.push({
-      text: plan.features.join('  ·  '),
-      fontSize: 10,
-      color: '#1d4ed8',
-      margin: [0, 0, 0, 12],
-    });
+    content.push({ text: plan.features.join('  ·  '), fontSize: 10, color: '#1d4ed8', margin: [0, 0, 0, 12] });
 
     // ── Room breakdown ────────────────────────────────────────
     content.push({ text: '房间分布', style: 'sectionTitle', margin: [0, 0, 0, 5] });
@@ -150,9 +165,20 @@ function buildDocDefinition(plans: PlanData[], defaultFont: string): object {
     });
 
     // ── Footer ────────────────────────────────────────────────
+    let footerLeft: string;
+    if (isTeam && companyName) {
+      footerLeft = `© ${new Date().getFullYear()} ${companyName}`;
+    } else if (isTeam) {
+      footerLeft = `© ${new Date().getFullYear()}`;
+    } else if (isPro && companyName) {
+      footerLeft = `${companyName} · Powered by SplanAI · splanai.com`;
+    } else {
+      footerLeft = 'Powered by SplanAI · Data: Google Maps + RentCast · splanai.com';
+    }
+
     content.push({
       columns: [
-        { text: 'Powered by SplanAI · Data: Google Maps + RentCast · splanai.com', fontSize: 8, color: '#94a3b8' },
+        { text: footerLeft, fontSize: 8, color: '#94a3b8' },
         { text: date, fontSize: 8, color: '#94a3b8', alignment: 'right' },
       ],
       margin: [0, 0, 0, 4],
@@ -195,16 +221,29 @@ async function generatePdfBuffer(docDef: object, fonts: Record<string, object>):
   });
 }
 
+async function fetchLogoBase64(logoUrl: string): Promise<string | null> {
+  try {
+    const db = adminClient();
+    const { data: signed } = await db.storage.from('branding').createSignedUrl(logoUrl, 60);
+    if (!signed?.signedUrl) return null;
+    const res = await fetch(signed.signedUrl);
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    const mime = res.headers.get('content-type') ?? 'image/png';
+    return `data:${mime};base64,${Buffer.from(buf).toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    // Auth gate — PDF generation is CPU-intensive; only authenticated users may call this
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Shared DB rate limit (10 req/min per user)
     const rl = await checkRateLimitDB(`pdf:user:${user.id}`, PDF_RATE);
     if (!rl.allowed) {
       return NextResponse.json(
@@ -213,21 +252,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json() as { planData?: PlanData[]; language?: string };
+    const body = await req.json() as { planData?: ZHPlanData[]; language?: string };
     const { planData, language } = body;
 
     if (!planData || !Array.isArray(planData) || language !== 'zh') {
       return NextResponse.json({ error: 'planData[] and language:"zh" are required' }, { status: 400 });
     }
 
+    // Fetch user branding (plan + team_profiles)
+    const db = adminClient();
+    const [plan, profileResult] = await Promise.all([
+      getUserPlan(user.id),
+      db.from('team_profiles').select('company_name, logo_url').eq('owner_user_id', user.id).maybeSingle(),
+    ]);
+
+    const companyName = profileResult.data?.company_name ?? '';
+    const logoUrl = profileResult.data?.logo_url ?? null;
+    const logoBase64 = logoUrl && (plan === 'pro' || plan === 'team')
+      ? await fetchLogoBase64(logoUrl)
+      : null;
+
+    const branding: ZHBranding = { plan, companyName, logoBase64 };
+
     const { fonts, defaultFont } = getFonts();
-    const docDef = buildDocDefinition(planData, defaultFont);
+    const docDef = buildDocDefinition(planData, defaultFont, branding);
     const buffer = await generatePdfBuffer(docDef, fonts);
+
+    const filename = plan !== 'free' && companyName
+      ? `${companyName.replace(/\s+/g, '-')}-Floor-Plans-ZH.pdf`
+      : 'SplanAI-Floor-Plans-ZH.pdf';
 
     return new NextResponse(buffer as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename="SplanAI-Floor-Plans-ZH.pdf"',
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
   } catch (err) {

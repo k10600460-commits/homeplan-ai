@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
+import type { PortalBranding } from "./page";
 
 function calcMonthly(homePrice: number, downPct: number, ratePct: number, termYears: number): number {
   const principal = homePrice * (1 - downPct / 100);
@@ -123,22 +124,15 @@ const LANG_META: Record<Lang, { flag: string; label: string }> = {
   zh: { flag: "🇨🇳", label: "中文" },
 };
 
-async function buildPDF(plans: FloorPlan[], lang: Lang): Promise<jsPDF> {
+async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding): Promise<jsPDF> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const PW = 210, PH = 297, ML = 20, CW = PW - ML * 2;
   const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
-  let logoBase64: string | null = null;
-  try {
-    const res = await fetch("/logo.png");
-    const blob = await res.blob();
-    logoBase64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch { /* fallback to text */ }
+  const isTeam = branding.plan === "team";
+  const isPro  = branding.plan === "pro";
+  const companyLabel = branding.companyName?.trim() || "";
+  const logoBase64 = branding.logoDataUrl ?? null;
 
   plans.forEach((plan, pi) => {
     if (pi > 0) doc.addPage();
@@ -150,13 +144,21 @@ async function buildPDF(plans: FloorPlan[], lang: Lang): Promise<jsPDF> {
     doc.setDrawColor(220, 220, 220);
     doc.line(0, HEADER_H, PW, HEADER_H);
 
-    if (logoBase64) {
+    if ((isTeam || isPro) && logoBase64) {
       doc.addImage(logoBase64, "PNG", ML, 2, 80, 24);
+    } else if (isTeam && companyLabel) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(17, 24, 39);
+      doc.text(companyLabel, ML, HEADER_H / 2 + 2);
     } else {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
       doc.setTextColor(17, 24, 39);
-      doc.text("SplanAI", ML, HEADER_H / 2 + 2);
+      doc.text("Splan", ML, HEADER_H / 2 + 2);
+      const splanW = doc.getTextWidth("Splan");
+      doc.setTextColor(59, 130, 246);
+      doc.text("AI", ML + splanW, HEADER_H / 2 + 2);
     }
 
     doc.setFont("helvetica", "normal");
@@ -283,8 +285,16 @@ async function buildPDF(plans: FloorPlan[], lang: Lang): Promise<jsPDF> {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(156, 163, 175);
-    doc.text("Powered by SplanAI · Data: Google Maps + RentCast · splanai.com", ML, PH - 9);
-    doc.text(`© ${new Date().getFullYear()} SplanAI`, PW - ML, PH - 9, { align: "right" });
+    if (isTeam && companyLabel) {
+      doc.text(companyLabel, ML, PH - 9);
+      doc.text(`© ${new Date().getFullYear()} ${companyLabel}`, PW - ML, PH - 9, { align: "right" });
+    } else if (isPro && companyLabel) {
+      doc.text(`${companyLabel} · Powered by SplanAI · splanai.com`, ML, PH - 9);
+      doc.text(`© ${new Date().getFullYear()} SplanAI`, PW - ML, PH - 9, { align: "right" });
+    } else {
+      doc.text("Powered by SplanAI · Data: Google Maps + RentCast · splanai.com", ML, PH - 9);
+      doc.text(`© ${new Date().getFullYear()} SplanAI`, PW - ML, PH - 9, { align: "right" });
+    }
     doc.setFontSize(6);
     doc.setTextColor(180, 180, 180);
     doc.text("Floor-plan concepts are AI-generated for preliminary illustration only. They are not construction-ready drawings and may not comply with building codes or zoning. Verify with licensed professionals before relying on them.", ML, PH - 4);
@@ -298,9 +308,12 @@ interface Props {
   plans: FloorPlan[];
   clientName: string | null;
   expiresAt: string | null;
+  branding: PortalBranding;
 }
 
-export default function SharePortalClient({ slug, plans, clientName, expiresAt }: Props) {
+export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding }: Props) {
+  const isTeam = branding.plan === "team";
+  const companyLabel = branding.companyName?.trim() || "";
   const [lang, setLang] = useState<Lang>("en");
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -336,8 +349,11 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt }
       if (lang === "zh") {
         await downloadZH(plans, "SplanAI-Floor-Plans-ZH.pdf");
       } else {
-        const doc = await buildPDF(plans, lang);
-        doc.save("SplanAI-Floor-Plans.pdf");
+        const doc = await buildPDF(plans, lang, branding);
+        const pdfName = isTeam && companyLabel
+          ? `${companyLabel.replace(/\s+/g, "-")}-Floor-Plans.pdf`
+          : "SplanAI-Floor-Plans.pdf";
+        doc.save(pdfName);
       }
       fetch("/api/share/event", {
         method: "POST",
@@ -350,11 +366,12 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt }
   }
 
   async function handleDownloadOne(plan: FloorPlan) {
-    const filename = `SplanAI-${plan.name.replace(/\s+/g, "-")}${lang === "zh" ? "-ZH" : ""}.pdf`;
+    const prefix = isTeam && companyLabel ? companyLabel.replace(/\s+/g, "-") : "SplanAI";
+    const filename = `${prefix}-${plan.name.replace(/\s+/g, "-")}${lang === "zh" ? "-ZH" : ""}.pdf`;
     if (lang === "zh") {
       await downloadZH([plan], filename);
     } else {
-      const doc = await buildPDF([plan], lang);
+      const doc = await buildPDF([plan], lang, branding);
       doc.save(filename);
     }
     fetch("/api/share/event", {
@@ -380,9 +397,16 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt }
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="https://splanai.com" className="text-xl font-bold tracking-tight text-gray-900 hover:opacity-80 transition-opacity">
-            Splan<span className="text-blue-600">AI</span>
-          </a>
+          {isTeam && branding.logoDataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={branding.logoDataUrl} alt={companyLabel || "Builder"} className="h-7 object-contain max-w-[160px]" />
+          ) : isTeam && companyLabel ? (
+            <span className="text-xl font-bold tracking-tight text-gray-900">{companyLabel}</span>
+          ) : (
+            <a href="https://splanai.com" className="text-xl font-bold tracking-tight text-gray-900 hover:opacity-80 transition-opacity">
+              Splan<span className="text-blue-600">AI</span>
+            </a>
+          )}
 
           <div className="flex items-center gap-3">
             {/* Expiry notice */}
@@ -550,10 +574,16 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt }
             AI-generated concept — illustration only. Not an architectural or engineering plan. Verify with a licensed professional before construction.
           </p>
           <p className="text-sm text-gray-400 mb-4">{t.contact}</p>
-          <a href="https://splanai.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors">
-            <span className="text-base font-extrabold tracking-tight">Splan<span className="text-blue-500">AI</span></span>
-          </a>
-          <p className="text-xs text-gray-300 mt-1">{t.poweredBy} SplanAI · splanai.com</p>
+          {isTeam ? (
+            companyLabel ? (
+              <p className="text-sm font-bold text-gray-700">{companyLabel}</p>
+            ) : null
+          ) : (
+            <a href="https://splanai.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors">
+              <span className="text-base font-extrabold tracking-tight">Splan<span className="text-blue-500">AI</span></span>
+            </a>
+          )}
+          {!isTeam && <p className="text-xs text-gray-300 mt-1">{t.poweredBy} SplanAI · splanai.com</p>}
           <div className="mt-4 flex items-center justify-center gap-4 text-xs text-gray-300">
             <a href="https://splanai.com/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-500 transition-colors">Terms</a>
             <a href="https://splanai.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-500 transition-colors">Privacy</a>

@@ -13,31 +13,69 @@ export interface ZHPlanData {
   highlights: string[];
 }
 
+export interface ZHBranding {
+  plan: 'free' | 'pro' | 'team';
+  companyName?: string;
+  logoBase64?: string | null;
+}
+
 const PLAN_COLORS = ['#2563EB', '#10B981', '#7C3AED'];
 
-export function buildZHHTML(plans: ZHPlanData[]): string {
+export function buildZHHTML(plans: ZHPlanData[], branding?: ZHBranding): string {
   const date = new Date().toLocaleDateString('zh-CN', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
 
+  const isTeam = branding?.plan === 'team';
+  const isPro  = branding?.plan === 'pro';
+  const hasBranding = isTeam || isPro;
+  const companyName = branding?.companyName?.trim() ?? '';
+  const logoBase64  = branding?.logoBase64 ?? null;
+
+  // Header logo HTML (shared across pages via CSS fixed positioning)
+  let headerBrandHtml: string;
+  if (hasBranding && logoBase64) {
+    headerBrandHtml = `<img src="${logoBase64}" alt="logo" style="height:20px;object-fit:contain;max-width:140px;">`;
+  } else if (isTeam && companyName) {
+    headerBrandHtml = `<span style="font-size:15px;font-weight:700;color:#111827">${escapeHtml(companyName)}</span>`;
+  } else {
+    headerBrandHtml = `<span style="font-size:15px;font-weight:700;color:#111827">Splan<span style="color:#2563eb">AI</span></span>`;
+  }
+
+  // Footer attribution
+  let footerLeft: string;
+  if (isTeam && companyName) {
+    footerLeft = `© ${new Date().getFullYear()} ${escapeHtml(companyName)}`;
+  } else if (isTeam) {
+    footerLeft = `© ${new Date().getFullYear()}`;
+  } else if (isPro && companyName) {
+    footerLeft = `${escapeHtml(companyName)} · Powered by SplanAI · splanai.com`;
+  } else {
+    footerLeft = `Powered by SplanAI · Data: Google Maps + RentCast · splanai.com`;
+  }
+
   const pages = plans.map((plan, i) => {
     const color = PLAN_COLORS[i % PLAN_COLORS.length];
     const roomRows = plan.rooms
-      .map(r => `<div class="room"><span>${r.name}</span><span class="muted">${r.sqft} sqft</span></div>`)
+      .map(r => `<div class="room"><span>${escapeHtml(r.name)}</span><span class="muted">${r.sqft} sqft</span></div>`)
       .join('');
     const featureTags = plan.features
-      .map(f => `<span class="tag">${f}</span>`)
+      .map(f => `<span class="tag">${escapeHtml(f)}</span>`)
       .join('');
     const highlightItems = plan.highlights
-      .map(h => `<li>${h}</li>`)
+      .map(h => `<li>${escapeHtml(h)}</li>`)
       .join('');
 
     return `
 <div class="page">
+  <div class="pg-header">
+    <div class="brand">${headerBrandHtml}</div>
+    <span class="pg-date">${date}</span>
+  </div>
   <div class="hdr" style="background:${color}">
     <div class="badge">方案 ${plan.id}</div>
-    <h1>${plan.name}</h1>
-    <p class="style-label">${plan.style}</p>
+    <h1>${escapeHtml(plan.name)}</h1>
+    <p class="style-label">${escapeHtml(plan.style)}</p>
   </div>
   <div class="body">
     <div class="stats">
@@ -50,7 +88,7 @@ export function buildZHHTML(plans: ZHPlanData[]): string {
       预估造价：<strong style="color:${color}">$${plan.estimatedCost.toLocaleString()}</strong>
     </div>
     <h2 class="sec">方案描述</h2>
-    <p class="desc">${plan.description}</p>
+    <p class="desc">${escapeHtml(plan.description)}</p>
     <h2 class="sec">核心亮点</h2>
     <ul class="hl">${highlightItems}</ul>
     <h2 class="sec">主要特点</h2>
@@ -59,7 +97,7 @@ export function buildZHHTML(plans: ZHPlanData[]): string {
     <div class="rooms">${roomRows}</div>
   </div>
   <div class="footer">
-    <span>Powered by SplanAI · Data: Google Maps + RentCast · splanai.com</span>
+    <span>${footerLeft}</span>
     <span>${date}</span>
   </div>
   <div class="disclaimer">仅供参考。数据可能变动。不构成专业建筑或法律建议。Floor-plan concepts are AI-generated for preliminary illustration only. They are not construction-ready drawings and may not comply with building codes or zoning. Verify with licensed professionals before relying on them.</div>
@@ -75,11 +113,13 @@ export function buildZHHTML(plans: ZHPlanData[]): string {
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Noto Sans CJK SC','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;color:#1e293b;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{width:210mm;min-height:297mm;page-break-after:always;display:flex;flex-direction:column}
-.hdr{color:#fff;padding:28px 24px 18px;flex-shrink:0}
+.pg-header{display:flex;justify-content:space-between;align-items:center;padding:8px 24px 6px;border-bottom:1px solid #e2e8f0;flex-shrink:0}
+.pg-date{font-size:9px;color:#94a3b8}
+.hdr{color:#fff;padding:22px 24px 14px;flex-shrink:0}
 .badge{font-size:10px;font-weight:700;letter-spacing:3px;opacity:.75;margin-bottom:5px;text-transform:uppercase}
 h1{font-size:24px;font-weight:700;margin-bottom:3px}
 .style-label{font-size:12px;opacity:.7}
-.body{flex:1;padding:18px 24px 12px}
+.body{flex:1;padding:14px 24px 12px}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .stat{background:#f8fafc;border-radius:8px;padding:10px;text-align:center}
 .val{display:block;font-size:20px;font-weight:700;color:#0f172a}
@@ -101,4 +141,12 @@ h1{font-size:24px;font-weight:700;margin-bottom:3px}
 </head>
 <body>${pages}</body>
 </html>`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
