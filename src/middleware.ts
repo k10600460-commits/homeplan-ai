@@ -37,6 +37,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  // Protect /generate — redirect unauthenticated users to login
+  if (!user && pathname.startsWith("/generate")) {
+    return NextResponse.redirect(new URL("/login?redirect=/generate", request.url));
+  }
+
   // Redirect logged-in users away from /login
   if (user && pathname === "/login") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
@@ -46,5 +51,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login"],
+  matcher: ["/dashboard/:path*", "/generate/:path*", "/login"],
 };

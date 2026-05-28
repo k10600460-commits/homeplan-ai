@@ -469,7 +469,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
             </p>
 
             <a
-              href="/"
+              href="/generate"
               className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors text-center block"
             >
               Generate Plans →
