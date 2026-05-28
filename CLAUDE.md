@@ -164,3 +164,8 @@ scripts/
 - Supabase: project `SplanAI` / id `sabriblwzzsvxsfxoebe`
 - Stripe: Japan account / Live USD / webhook `vibrant-oasis` → `https://splanai.com/api/stripe/webhook`
 - GitHub: `k10600460-commits/homeplan-ai` (repo name intentionally differs from product name — do not rename)
+
+## コミット/デプロイ運用
+- タスク完了後、`npm run build` が通ったら自動で `git add -A && git commit` を実行する（メッセージは変更内容から簡潔に生成）。ユーザーへの手動コミット依頼は不要。
+- `git push` は自動実行しない。main への push = 即本番デプロイのため、push は必ずユーザーが手動（ship）で行う。
+- 決済/認証/法務/セキュリティ/DBマイグレーション等のリスク変更は、push 前に検証専用 /goal を別途流す方針を維持。
