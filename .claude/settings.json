@@ -121,7 +121,18 @@
       "Bash(node --env-file=.env.local --import tsx/esm scripts/measure-generation-time.ts)",
       "Bash(node --env-file=.env.local -e \"process.env.ANTHROPIC_API_KEY\")",
       "Bash(node --env-file=.env.local -e \"process.stdout.write\\(process.env.ANTHROPIC_API_KEY||''\\)\")",
-      "Bash(ANTHROPIC_API_KEY=$\\(node --env-file=.env.local -e \"process.stdout.write\\(process.env.ANTHROPIC_API_KEY||''\\)\"\\) npx tsx scripts/measure-generation-time.ts)"
+      "Bash(ANTHROPIC_API_KEY=$\\(node --env-file=.env.local -e \"process.stdout.write\\(process.env.ANTHROPIC_API_KEY||''\\)\"\\) npx tsx scripts/measure-generation-time.ts)",
+      "Bash(npx vercel *)",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/Shoji.S/.config/vercel/auth.json'\\)\\); print\\('token_present:', bool\\(d.get\\('token'\\)\\)\\)\")",
+      "Bash(dig +short TXT _dmarc.splanai.com)",
+      "Bash(dig +short TXT send.splanai.com)",
+      "Bash(dig +short TXT splanai.com)",
+      "Bash(dig +short TXT resend._domainkey.send.splanai.com)",
+      "Bash(dig +short MX send.splanai.com)",
+      "Bash(dig +short TXT _dmarc.send.splanai.com)",
+      "Bash(dig ANY send.splanai.com)",
+      "Bash(dig +short MX splanai.com)",
+      "Bash(dig +short TXT google._domainkey.splanai.com)"
     ],
     "additionalDirectories": [
       "/tmp",
