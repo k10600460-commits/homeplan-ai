@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ProductHuntBadge } from "@/components/ProductHuntBadge";
 import { SocialProofBar } from "@/components/SocialProofBar";
+import { track } from "@vercel/analytics";
 
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
@@ -479,6 +480,7 @@ export default function Home() {
       else sessionStorage.removeItem("location");
       if (mlsLotData) sessionStorage.setItem("mlsData", JSON.stringify(mlsLotData));
       else sessionStorage.removeItem("mlsData");
+      track("generate_success");
       router.push("/results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate plans");
@@ -535,6 +537,7 @@ export default function Home() {
             <a href="#generate" className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors" style={{ background: "#3B82F6" }}
               onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
               onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
+              onClick={() => track("cta_click", { button: "nav_cta" })}
             >{t.nav.cta}</a>
           </div>
         </div>
@@ -559,6 +562,7 @@ export default function Home() {
                   style={{ background: "#3B82F6", boxShadow: "0 0 30px rgba(59,130,246,0.35)" }}
                   onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
                   onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
+                  onClick={() => track("cta_click", { button: "hero_primary" })}
                 >{t.hero.ctaPrimary}</a>
                 <a href="#how" className="px-7 py-4 rounded-xl font-semibold text-base border-2 border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white transition-all">
                   {t.hero.ctaSecondary}

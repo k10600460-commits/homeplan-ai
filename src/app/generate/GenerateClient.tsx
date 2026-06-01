@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { track } from "@vercel/analytics";
 
 interface MlsLotData {
   listingId: string;
@@ -101,6 +102,7 @@ export default function GenerateClient() {
       else sessionStorage.removeItem("location");
       if (mlsLotData) sessionStorage.setItem("mlsData", JSON.stringify(mlsLotData));
       else sessionStorage.removeItem("mlsData");
+      track("generate_success");
       router.push("/results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate plans");

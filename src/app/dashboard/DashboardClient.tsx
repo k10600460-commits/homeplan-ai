@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { track } from "@vercel/analytics";
 
 interface User {
   id: string;
@@ -357,6 +358,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   useEffect(() => {
     if (!isNewSignup || autoSubscribeFiredRef.current) return;
     autoSubscribeFiredRef.current = true;
+    track("signup");
     window.history.replaceState({}, "", "/dashboard");
     handleSubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
