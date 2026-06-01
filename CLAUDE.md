@@ -119,7 +119,7 @@ src/
         status/route.ts          ← MLS connection status
       cron/
         finance-snapshot/route.ts← daily MRR / cost snapshot
-        daily-brief/route.ts     ← Commander summary email (JST 7:00)
+        daily-brief/route.ts     ← Commander summary email (JST 8:00)
         sales-dm-draft/route.ts  ← 5 outbound DM drafts (JST 8:00)
         seo-draft/route.ts       ← SEO article drafts (Mon/Thu 14:00)
         legal-watch/route.ts     ← NAR/MLS/FTC crawl (Mon 9:00)

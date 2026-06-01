@@ -143,6 +143,26 @@ Ensure all 3 plans are different architectural styles and each fits within the $
     const outputTokens = response.usage.output_tokens;
     recordApiUsage(user.id, inputTokens, outputTokens).catch(console.error);
 
+    // ── Record plan generation row (non-blocking) ─────────────
+    const estimatedCostUsd = (inputTokens / 1_000_000) * 3.0 + (outputTokens / 1_000_000) * 15.0;
+    (async () => {
+      try {
+        const { error } = await supabase.from('plan_generations').insert({
+          user_id:            user.id,
+          lot_size:           lotSize,
+          budget,
+          family_size:        familySize,
+          plans:              data.plans,
+          input_tokens:       inputTokens,
+          output_tokens:      outputTokens,
+          estimated_cost_usd: estimatedCostUsd,
+        });
+        if (error) console.error('[plan_generations] insert error:', error);
+      } catch (e) {
+        console.error('[plan_generations] insert failed:', e);
+      }
+    })();
+
     // ── First-plan follow-up email (non-blocking) ─────────────
     if (usageCheck.current === 1 && user.email) {
       import("@/lib/emails").then(({ sendFirstPlanFollowupEmail }) => {
