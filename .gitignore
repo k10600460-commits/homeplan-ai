@@ -46,3 +46,4 @@ public/fonts/*.woff2
 
 # Claude Code — local-only settings (MCP configs, personal permissions; never commit)
 .claude/settings.local.json
+.claude/settings.json
