@@ -13,9 +13,9 @@ const T = {
     nav: { how: "How it works", pricing: "Pricing", reviews: "Reviews", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
     hero: {
       badge: "Featured on Product Hunt",
-      headline1: "Show clients their dream home",
-      headline2: "before they sign.",
-      sub: "Enter lot details → AI generates 3 floor plans in 30 seconds. Share instantly. Close faster.",
+      headline1: "Close more home-building deals.",
+      headline2: "Without the 3-day proposal wait.",
+      sub: "Enter lot details → get 3 buyer-ready floor plans in 30 seconds. Share a live portal. Close faster.",
       ctaPrimary: "Generate Plans Free →",
       ctaSecondary: "See how it works",
       stat1: { value: "30 sec", label: "to generate" },
@@ -119,9 +119,9 @@ const T = {
     nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Reseñas", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
     hero: {
       badge: "Destacado en Product Hunt",
-      headline1: "Muéstrale a tus clientes su hogar soñado",
-      headline2: "antes de que firmen.",
-      sub: "Ingresa los datos del lote → la IA genera 3 planos en 30 segundos. Comparte al instante. Cierra más rápido.",
+      headline1: "Cierra más contratos de construcción.",
+      headline2: "Sin esperar 3 días por la propuesta.",
+      sub: "Ingresa los datos del lote → obtén 3 planos listos para el cliente en 30 segundos. Comparte un portal en vivo. Cierra más rápido.",
       ctaPrimary: "Genera Planos Gratis →",
       ctaSecondary: "Cómo funciona",
       stat1: { value: "30 seg", label: "para generar" },
@@ -1029,6 +1029,9 @@ export default function Home() {
             </h2>
             <p className="text-slate-500 max-w-xl mx-auto">
               Actual output from a live SplanAI session — generated with real AI and real market data.
+            </p>
+            <p className="mt-2 text-xs text-slate-400 max-w-sm mx-auto">
+              Built by a solo founder. No design agency. No fluff.
             </p>
           </AnimateIn>
 
