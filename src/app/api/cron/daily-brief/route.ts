@@ -196,7 +196,7 @@ export async function GET(req: NextRequest) {
   // ── 2. Collect DB stats for the KPI block ───────────────────────────────
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [subsResult, financeResult] = await Promise.all([
+  const [subsResult, financeResult, portalViewsResult] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("plan, status", { count: "exact" })
@@ -206,6 +206,11 @@ export async function GET(req: NextRequest) {
       .select("mrr, active_pro, active_team, trialing, churned_today")
       .order("date", { ascending: false })
       .limit(2),
+    supabase
+      .from("link_events")
+      .select("link_id", { count: "exact" })
+      .eq("event_type", "view")
+      .gte("created_at", since24h),
   ]);
 
   const todaySnap = financeResult.data?.[0];
@@ -213,6 +218,24 @@ export async function GET(req: NextRequest) {
   const mrr = todaySnap?.mrr ?? 0;
   const mrrPrev = prevSnap?.mrr ?? 0;
   const mrrDelta = mrr - mrrPrev;
+
+  // Portal opens in last 24h
+  const portalViewCount = portalViewsResult.count ?? 0;
+  const uniquePortalIds = new Set(
+    (portalViewsResult.data ?? []).map((e: { link_id: string }) => e.link_id),
+  );
+  const uniquePortalCount = uniquePortalIds.size;
+
+  interface PortalDetail { client_name: string | null; slug: string }
+  let topPortals: PortalDetail[] = [];
+  if (uniquePortalIds.size > 0) {
+    const { data: pd } = await supabase
+      .from("shared_links")
+      .select("client_name, slug")
+      .in("id", Array.from(uniquePortalIds))
+      .limit(5);
+    topPortals = (pd ?? []) as PortalDetail[];
+  }
 
   // Escalation: check for high-impact legal diffs
   const { data: escalations } = await supabase
@@ -363,6 +386,9 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     activeTeam: todaySnap?.active_team ?? 0,
     trialing: todaySnap?.trialing ?? 0,
     churnedToday: todaySnap?.churned_today ?? 0,
+    portalViewCount,
+    uniquePortalCount,
+    topPortals,
     threads,
     actionableThreads: leadsAndSupport,
     drafts: claudeResult.drafts,
@@ -422,6 +448,9 @@ interface DigestParams {
   activeTeam: number;
   trialing: number;
   churnedToday: number;
+  portalViewCount: number;
+  uniquePortalCount: number;
+  topPortals: Array<{ client_name: string | null; slug: string }>;
   threads: EmailThread[];
   actionableThreads: ClauseResult["drafts"];
   drafts: ClauseResult["drafts"];
@@ -441,6 +470,7 @@ function buildDigestHtml(p: DigestParams): string {
     ["Active Team", String(p.activeTeam)],
     ["Trialing", String(p.trialing)],
     ["Churned Today", String(p.churnedToday)],
+    ["Portal Views (24h)", `${p.portalViewCount} views · ${p.uniquePortalCount} portal${p.uniquePortalCount !== 1 ? "s" : ""}`],
   ];
 
   const kpiHtml = kpiRows
@@ -515,6 +545,19 @@ function buildDigestHtml(p: DigestParams): string {
           )
           .join("");
 
+  const portalHtml =
+    p.portalViewCount === 0
+      ? `<p style="color:#6b7280;font-size:13px;">No portal opens in the last 24h.</p>`
+      : `<p style="color:#374151;font-size:14px;margin:0 0 10px;">
+          <strong>${p.portalViewCount}</strong> view${p.portalViewCount !== 1 ? "s" : ""} across
+          <strong>${p.uniquePortalCount}</strong> unique portal${p.uniquePortalCount !== 1 ? "s" : ""}
+        </p>` +
+        p.topPortals.map(pt => `
+      <div style="border:1px solid #e5e7eb;border-radius:6px;padding:10px 14px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13px;color:#111827;">${pt.client_name ?? "(unnamed)"}</span>
+        <a href="https://splanai.com/s/${pt.slug}" style="font-size:11px;color:#3b82f6;text-decoration:none;">View portal →</a>
+      </div>`).join("");
+
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -531,6 +574,10 @@ function buildDigestHtml(p: DigestParams): string {
       <!-- KPI Snapshot -->
       <h2 style="margin:0 0 14px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">📊 KPI Snapshot</h2>
       <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">${kpiHtml}</table>
+
+      <!-- Portal Opens -->
+      <h2 style="margin:0 0 12px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">🔗 Portal Opens (24h)</h2>
+      <div style="margin-bottom:28px;">${portalHtml}</div>
 
       <!-- Escalations -->
       <h2 style="margin:0 0 12px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">🚨 Escalations</h2>
