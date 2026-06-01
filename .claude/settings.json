@@ -132,7 +132,12 @@
       "Bash(dig +short TXT _dmarc.send.splanai.com)",
       "Bash(dig ANY send.splanai.com)",
       "Bash(dig +short MX splanai.com)",
-      "Bash(dig +short TXT google._domainkey.splanai.com)"
+      "Bash(dig +short TXT google._domainkey.splanai.com)",
+      "Bash(node --check /Users/Shoji.S/homeplan-ai/scripts/gmail-oauth.mjs)",
+      "Bash(awk -F= '{print \\(length\\($2\\) > 0\\) ? \"CRON_SECRET_HAS_VALUE\" : \"CRON_SECRET_EMPTY\"}')",
+      "Bash(vercel env *)",
+      "Bash(kill 62665)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)"
     ],
     "additionalDirectories": [
       "/tmp",

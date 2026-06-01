@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Large font files — download separately (see step25-zh-pdf.md)
 public/fonts/*.woff2
+
+# Claude Code — local-only settings (MCP configs, personal permissions; never commit)
+.claude/settings.local.json
