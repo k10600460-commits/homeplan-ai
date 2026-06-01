@@ -877,7 +877,7 @@ export default function Home() {
             <h2 className="text-3xl sm:text-4xl font-extrabold mb-3 text-white">{t.pricing.heading}</h2>
             <p className="text-slate-400">{t.pricing.sub}</p>
           </AnimateIn>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-start">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {/* Free */}
             <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-700/60" style={{ background: "#1E293B" }}>
               <div>
@@ -899,7 +899,7 @@ export default function Home() {
               </a>
             </div>
             {/* Pro */}
-            <div className="rounded-2xl p-7 sm:py-10 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40 sm:scale-[1.04] sm:z-10" style={{ background: "#0F172A", boxShadow: "0 8px 40px rgba(59,130,246,0.30)" }}>
+            <div className="rounded-2xl p-7 sm:py-10 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40" style={{ background: "#0F172A", boxShadow: "0 8px 40px rgba(59,130,246,0.30)" }}>
               <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{ background: "#3B82F6" }}>
                 {t.pricing.pro.badge}
               </div>
