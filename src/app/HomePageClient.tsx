@@ -87,8 +87,8 @@ const T = {
       heading: "Simple, transparent pricing",
       sub: "Start free. Upgrade when you're ready.",
       free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 floor plan generations / month", "SplanAI branded PDF export", "Neighborhood & market data", "Client sharing portal + view tracking", "All room types", "Email support"], cta: "Get started free" },
-      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 floor plan generations / month", "Branded PDF with your logo", "MLS lot data connection via Trestle", "Priority support"], cta: "Start 14-day free trial" },
-      team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Unlimited floor plan generations*", "Everything in Pro", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF (your logo only, no SplanAI branding)", "Dedicated support"], cta: "Start 14-day free trial" },
+      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 floor plan generations / month", "Branded PDF with your logo", "MLS lot data via Trestle (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
+      team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Everything in Pro, plus:", "Unlimited floor plan generations*", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF (your logo only, no SplanAI branding)", "Dedicated support"], cta: "Start 14-day free trial" },
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
     faq: [
@@ -193,8 +193,8 @@ const T = {
       heading: "Precios simples y transparentes",
       sub: "Empieza gratis. Actualiza cuando estés listo.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Datos de vecindario y mercado", "Portal para clientes + seguimiento de vistas", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
-      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 generaciones de planos / mes", "PDF con tu logo", "Conexión MLS vía Trestle", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
-      team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Generaciones ilimitadas de planos*", "Todo lo de Pro", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca (solo tu logo, sin SplanAI)", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
+      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 generaciones de planos / mes", "PDF con tu logo", "MLS via Trestle (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
+      team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Todo lo de Pro, más:", "Generaciones ilimitadas de planos*", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca (solo tu logo, sin SplanAI)", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
     faq: [
@@ -524,7 +524,7 @@ export default function Home() {
           <div className="flex items-center gap-3 ml-auto shrink-0">
             <button
               onClick={() => setLang(lang === "en" ? "es" : "en")}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs font-semibold text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-colors"
+              className="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs font-semibold text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-colors"
             >
               <span className="text-base leading-none">{lang === "en" ? "🇲🇽" : "🇺🇸"}</span>
               {lang === "en" ? "ES" : "EN"}
@@ -938,8 +938,8 @@ export default function Home() {
                 <p className="text-sm text-slate-400 mt-1">{t.pricing.team.note}</p>
               </div>
               <ul className="flex flex-col gap-3 flex-1">
-                {t.pricing.team.features.map(f => (
-                  <li key={f} className="flex items-center gap-2.5 text-sm text-slate-200">
+                {t.pricing.team.features.map((f, i) => (
+                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "font-medium" : "text-slate-200"}`} style={i === 0 ? { color: "#F59E0B" } : undefined}>
                     <svg className="w-4 h-4 flex-shrink-0" style={{ color: "#F59E0B" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>{f}
@@ -956,7 +956,17 @@ export default function Home() {
               >{teamCheckoutLoading ? "Redirecting…" : t.pricing.team.cta}</button>
             </div>
           </div>
-          <p className="mt-8 text-sm text-center text-slate-400">{t.pricing.footer}</p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
+            {["No credit card to start free", "14-day trial on Pro & Team", "Cancel anytime, no questions"].map(item => (
+              <span key={item} className="flex items-center gap-1.5 text-sm text-slate-300">
+                <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                {item}
+              </span>
+            ))}
+          </div>
+          <p className="mt-4 text-sm text-center text-slate-400">{t.pricing.footer}</p>
           <p className="mt-3 text-xs text-center" style={{ color: "#94A3B8" }}>
             *{lang === 'en' ? (
               <>Subject to our <a href="/terms#fair-use" className="underline hover:text-white transition-colors">Fair Use Policy</a>.</>
@@ -1009,16 +1019,93 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 11. Testimonials ────────────────────────────────────────── */}
+      {/* ── 11. What You Get ────────────────────────────────────────── */}
       <section id="reviews" className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
-          <AnimateIn className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.testimonials.heading}</h2>
-            <p className="text-slate-500">{t.testimonials.sub}</p>
+          <AnimateIn className="text-center mb-12">
+            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">What you get</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>
+              30 seconds. 3 proposals. Ready to close.
+            </h2>
+            <p className="text-slate-500 max-w-xl mx-auto">
+              Actual output from a live SplanAI session — generated with real AI and real market data.
+            </p>
           </AnimateIn>
-          <AnimateIn delay={100} className="rounded-2xl p-8 text-center border-2 border-blue-100" style={{ background: "#F0F7FF" }}>
-            <p className="text-3xl mb-4">🚀</p>
-            <p className="text-slate-600 text-base leading-relaxed max-w-xl mx-auto">{t.testimonials.sub}</p>
+
+          {/* Step 1 — 3 AI-generated plans */}
+          <AnimateIn delay={80} className="mb-6">
+            <div className="rounded-2xl border-2 border-slate-100 overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100 bg-slate-50">
+                <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
+                <p className="font-bold text-slate-800 text-sm">AI generates 3 distinct floor plan proposals</p>
+                <span className="ml-auto text-xs text-slate-400 font-mono shrink-0">~30 sec</span>
+              </div>
+              <div className="p-5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {([
+                    { name: "The Ridgewood Craftsman", style: "Craftsman Bungalow", sqft: "2,650", cost: "$622K", color: "#3B82F6" },
+                    { name: "The Solana Modern", style: "Contemporary Modern", sqft: "2,900", cost: "$812K", color: "#10B981" },
+                    { name: "The Cloverfield Farmhouse", style: "Modern Farmhouse", sqft: "2,800", cost: "$756K", color: "#8B5CF6" },
+                  ] as const).map((p, i) => (
+                    <div key={i} className="rounded-xl border-2 overflow-hidden" style={{ borderColor: p.color + "33" }}>
+                      <div className="px-4 py-2 text-xs font-bold text-white" style={{ background: p.color }}>Plan {i + 1}</div>
+                      <div className="p-4">
+                        <p className="font-bold text-slate-800 text-sm leading-snug">{p.name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{p.style}</p>
+                        <p className="text-xl font-extrabold text-slate-900 mt-2">{p.cost}</p>
+                        <p className="text-xs text-slate-400">{p.sqft} sq ft</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-slate-400 text-right">Actual AI output — not a mock-up</p>
+              </div>
+            </div>
+          </AnimateIn>
+
+          {/* Step 2 — Share client portal */}
+          <AnimateIn delay={160} className="mb-6">
+            <div className="rounded-2xl border-2 border-slate-100 overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100 bg-slate-50">
+                <span className="w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center shrink-0">2</span>
+                <p className="font-bold text-slate-800 text-sm">Share a live client portal — one click</p>
+              </div>
+              <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <p className="text-sm text-slate-600 leading-relaxed flex-1">Your client gets a personal portal with all 3 plans, neighborhood context, and mortgage estimates. You see the moment they open it.</p>
+                <a href="/s/nfhkewvz" target="_blank" rel="noopener noreferrer"
+                  className="shrink-0 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-colors"
+                  style={{ background: "#10B981" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#059669")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "#10B981")}
+                >
+                  See a live portal example →
+                </a>
+              </div>
+            </div>
+          </AnimateIn>
+
+          {/* Step 3 — PDF + MLS */}
+          <AnimateIn delay={240}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-2xl border-2 border-slate-100 overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100 bg-slate-50">
+                  <span className="w-6 h-6 rounded-full bg-violet-500 text-white text-xs font-bold flex items-center justify-center shrink-0">3</span>
+                  <p className="font-bold text-slate-800 text-sm">Download branded PDF</p>
+                </div>
+                <div className="p-5">
+                  <p className="text-sm text-slate-600">Professional PDF with your logo, full room breakdown, cost estimate, and neighborhood data. Print-ready for client meetings.</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border-2 border-amber-100 overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-3.5 border-b border-amber-100" style={{ background: "#FFFBEB" }}>
+                  <span className="w-6 h-6 rounded-full text-slate-900 text-xs font-bold flex items-center justify-center shrink-0" style={{ background: "#F59E0B" }}>PRO</span>
+                  <p className="font-bold text-slate-800 text-sm">MLS-enriched plans</p>
+                </div>
+                <div className="p-5">
+                  <p className="text-sm text-slate-600">Connect your MLS license via Trestle to auto-fill real lot size, zoning, and listing details into every proposal.</p>
+                </div>
+              </div>
+            </div>
           </AnimateIn>
         </div>
       </section>
