@@ -58,6 +58,194 @@ const STYLE_COLORS = [
   { bg: "bg-violet-50", border: "border-violet-200", badge: "bg-violet-600", accent: "text-violet-700" },
 ];
 
+// --- Squarified treemap layout ---
+interface TileRoom { name: string; sqft: number; area: number; x: number; y: number; w: number; h: number; }
+
+function squarifiedLayout(
+  items: Array<{ name: string; sqft: number; area: number }>,
+  x: number, y: number, w: number, h: number,
+): TileRoom[] {
+  if (items.length === 0 || w <= 0 || h <= 0) return [];
+  if (items.length === 1) return [{ ...items[0], x, y, w, h }];
+
+  const s = Math.min(w, h);
+
+  const worstAR = (row: typeof items): number => {
+    const R = row.reduce((a, r) => a + r.area, 0);
+    if (R <= 0) return Infinity;
+    const stripLen = R / s;
+    let worst = 0;
+    for (const item of row) {
+      if (item.area <= 0) continue;
+      const perpLen = item.area / stripLen;
+      const ar = stripLen > perpLen ? stripLen / perpLen : perpLen / stripLen;
+      if (ar > worst) worst = ar;
+    }
+    return worst;
+  };
+
+  // Build the optimal row greedily
+  let row: typeof items = [];
+  let i = 0;
+  while (i < items.length) {
+    const candidate = [...row, items[i]];
+    if (row.length === 0 || worstAR(candidate) <= worstAR(row)) {
+      row = candidate;
+      i++;
+    } else {
+      break;
+    }
+  }
+
+  const rowArea = row.reduce((a, r) => a + r.area, 0);
+  const stripLen = rowArea / s;
+  const result: TileRoom[] = [];
+
+  if (w >= h) {
+    // Vertical strip on the left side
+    let cy = y;
+    for (const item of row) {
+      const itemH = item.area / stripLen;
+      result.push({ ...item, x, y: cy, w: stripLen, h: itemH });
+      cy += itemH;
+    }
+    result.push(...squarifiedLayout(items.slice(i), x + stripLen, y, w - stripLen, h));
+  } else {
+    // Horizontal strip on the top
+    let cx = x;
+    for (const item of row) {
+      const itemW = item.area / stripLen;
+      result.push({ ...item, x: cx, y, w: itemW, h: stripLen });
+      cx += itemW;
+    }
+    result.push(...squarifiedLayout(items.slice(i), x, y + stripLen, w, h - stripLen));
+  }
+
+  return result;
+}
+
+const FLOOR_UPPER_RE = /\b(upper|second|2nd|upstairs)\b/i;
+
+function ConceptLayout({
+  plan,
+  colorRGB,
+  conceptLayout,
+  conceptCaption,
+  mainFloor,
+  upperFloor,
+}: {
+  plan: FloorPlan;
+  colorRGB: [number, number, number];
+  conceptLayout: string;
+  conceptCaption: string;
+  mainFloor: string;
+  upperFloor: string;
+}) {
+  const SVG_W = 400;
+  const SVG_H = 220;
+  const LABEL_H = 18;
+  const GAP = 1.5;
+  const [r, g, b] = colorRGB;
+
+  const hasUpper = plan.rooms.some(room => FLOOR_UPPER_RE.test(room.name));
+  const twoFloors = plan.stories > 1 && hasUpper;
+
+  const upperRooms = twoFloors ? plan.rooms.filter(room =>  FLOOR_UPPER_RE.test(room.name)) : [];
+  const mainRooms  = twoFloors ? plan.rooms.filter(room => !FLOOR_UPPER_RE.test(room.name)) : plan.rooms;
+
+  function buildLayout(rooms: Room[], lx: number, ly: number, lw: number, lh: number): TileRoom[] {
+    if (rooms.length === 0) return [];
+    const total = rooms.reduce((s, room) => s + room.sqft, 0);
+    if (total <= 0) return [];
+    const sorted = [...rooms].sort((a, b) => b.sqft - a.sqft).map(room => ({
+      ...room,
+      area: (room.sqft / total) * lw * lh,
+    }));
+    return squarifiedLayout(sorted, lx, ly, lw, lh);
+  }
+
+  const maxSqft = Math.max(...plan.rooms.map(room => room.sqft), 1);
+
+  const panelW = twoFloors ? (SVG_W - 4) / 2 : SVG_W;
+  const layoutY  = twoFloors ? LABEL_H : 0;
+  const layoutH  = SVG_H - layoutY;
+
+  const mainLayout  = buildLayout(mainRooms,  0,           layoutY, panelW, layoutH);
+  const upperLayout = twoFloors ? buildLayout(upperRooms, panelW + 4, layoutY, panelW, layoutH) : [];
+
+  const allTiles = [...mainLayout, ...upperLayout];
+
+  return (
+    <div className="mt-5">
+      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">{conceptLayout}</h3>
+      <div className="rounded-xl overflow-hidden border border-gray-100">
+        <svg
+          viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+          className="w-full block"
+          aria-label={conceptCaption}
+          style={{ background: "#f9fafb" }}
+        >
+          {twoFloors && (
+            <>
+              <text x={panelW / 2} y={LABEL_H - 4} fontSize={9} fontWeight="700" textAnchor="middle"
+                fill={`rgb(${r},${g},${b})`} style={{ letterSpacing: "0.1em" }}>
+                {mainFloor.toUpperCase()}
+              </text>
+              <text x={panelW + 4 + panelW / 2} y={LABEL_H - 4} fontSize={9} fontWeight="700" textAnchor="middle"
+                fill={`rgb(${r},${g},${b})`} style={{ letterSpacing: "0.1em" }}>
+                {upperFloor.toUpperCase()}
+              </text>
+              <line x1={panelW + 2} y1={0} x2={panelW + 2} y2={SVG_H} stroke="white" strokeWidth={4} />
+            </>
+          )}
+          {allTiles.map((tile, ti) => {
+            const px = tile.x + GAP;
+            const py = tile.y + GAP;
+            const pw = Math.max(0, tile.w - GAP * 2);
+            const ph = Math.max(0, tile.h - GAP * 2);
+            const alpha = 0.18 + 0.40 * (tile.sqft / maxSqft);
+            const fillR = Math.round(r * alpha + 240 * (1 - alpha));
+            const fillG = Math.round(g * alpha + 248 * (1 - alpha));
+            const fillB = Math.round(b * alpha + 250 * (1 - alpha));
+
+            const showName = pw > 30 && ph > 15;
+            const showSqft = pw > 44 && ph > 28;
+            const maxChars = Math.max(4, Math.floor(pw / 6.2));
+            const cleanName = tile.name.replace(/\s*\(.*?\)/g, "").trim();
+            const displayName = cleanName.length > maxChars ? cleanName.slice(0, maxChars - 1) + "…" : cleanName;
+
+            return (
+              <g key={ti}>
+                <rect x={px} y={py} width={pw} height={ph} rx={3} ry={3}
+                  fill={`rgb(${fillR},${fillG},${fillB})`} />
+                {showName && (
+                  <text
+                    x={px + pw / 2} y={py + ph / 2 - (showSqft ? 5 : 0)}
+                    fontSize={8} fontWeight="600" textAnchor="middle" dominantBaseline="middle"
+                    fill={`rgb(${Math.round(r * 0.5)},${Math.round(g * 0.5)},${Math.round(b * 0.5)})`}
+                  >
+                    {displayName}
+                  </text>
+                )}
+                {showSqft && (
+                  <text
+                    x={px + pw / 2} y={py + ph / 2 + 8}
+                    fontSize={7} textAnchor="middle" dominantBaseline="middle"
+                    fill={`rgba(${r},${g},${b},0.65)`}
+                  >
+                    {tile.sqft} sqft
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <p className="text-[10px] text-gray-400 italic mt-1.5 leading-snug">{conceptCaption}</p>
+    </div>
+  );
+}
+
 const T = {
   en: {
     title: "Your Floor Plan Proposals",
@@ -90,6 +278,10 @@ const T = {
     successTitle: "The builder has been notified!",
     successBody: "They'll be in touch soon.",
     cancel: "Cancel",
+    conceptLayout: "Concept Layout",
+    conceptCaption: "Concept layout — relative room sizes, not to scale. Not a construction drawing.",
+    mainFloor: "Main Floor",
+    upperFloor: "Upper Floor",
   },
   es: {
     title: "Sus Propuestas de Planos",
@@ -122,6 +314,10 @@ const T = {
     successTitle: "¡El constructor ha sido notificado!",
     successBody: "Se pondrán en contacto pronto.",
     cancel: "Cancelar",
+    conceptLayout: "Vista Conceptual",
+    conceptCaption: "Vista conceptual — tamaños relativos de habitaciones, sin escala. No es un plano de construcción.",
+    mainFloor: "Planta Baja",
+    upperFloor: "Planta Alta",
   },
   zh: {
     title: "您的户型方案",
@@ -154,6 +350,10 @@ const T = {
     successTitle: "建造商已收到通知！",
     successBody: "他们会尽快与您联系。",
     cancel: "取消",
+    conceptLayout: "概念布局图",
+    conceptCaption: "概念布局图 — 相对房间大小，非按比例绘制，不作为施工图纸使用。",
+    mainFloor: "主层",
+    upperFloor: "上层",
   },
 } as const;
 
@@ -319,6 +519,48 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
       doc.setTextColor(107, 114, 128);
       doc.text(`${room.sqft} sqft`, rx + roomColW - 4, ry, { align: "right" });
     });
+
+    // Concept layout: proportional bars after rooms section
+    const roomsBottomY = y + Math.ceil(plan.rooms.length / 2) * 9;
+    const barTopY      = roomsBottomY + 8;
+    const barH         = 22;
+    if (barTopY + barH + 10 < PH - 16) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(156, 163, 175);
+      doc.text(T[lang].conceptLayout.toUpperCase(), ML, barTopY - 2);
+
+      const sortedRooms = [...plan.rooms].sort((a, b) => b.sqft - a.sqft);
+      const totalSqftPDF = sortedRooms.reduce((s, r) => s + r.sqft, 0);
+      const maxSqftPDF   = sortedRooms[0]?.sqft ?? 1;
+      let bx = ML;
+      for (const room of sortedRooms) {
+        const blockW = (room.sqft / totalSqftPDF) * CW;
+        const alpha  = 0.18 + 0.40 * (room.sqft / maxSqftPDF);
+        doc.setFillColor(
+          Math.round(cr * alpha + 240 * (1 - alpha)),
+          Math.round(cg * alpha + 248 * (1 - alpha)),
+          Math.round(cb * alpha + 250 * (1 - alpha)),
+        );
+        doc.roundedRect(bx, barTopY + 4, blockW - 0.5, barH, 1.5, 1.5, "F");
+        if (blockW > 16) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(6);
+          doc.setTextColor(Math.round(cr * 0.5), Math.round(cg * 0.5), Math.round(cb * 0.5));
+          const label = (doc.splitTextToSize(room.name, blockW - 4) as string[])[0];
+          doc.text(label, bx + blockW / 2 - 0.25, barTopY + 4 + barH / 2 - (blockW > 24 ? 2.5 : 0), { align: "center" });
+          if (blockW > 24) {
+            doc.setFontSize(5.5);
+            doc.text(`${room.sqft}sf`, bx + blockW / 2 - 0.25, barTopY + 4 + barH / 2 + 3.5, { align: "center" });
+          }
+        }
+        bx += blockW;
+      }
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(5.5);
+      doc.setTextColor(180, 180, 180);
+      doc.text(T[lang].conceptCaption, ML, barTopY + 4 + barH + 3);
+    }
 
     doc.setFillColor(248, 250, 252);
     doc.rect(0, PH - 14, PW, 14, "F");
@@ -748,6 +990,15 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                         </div>
                       ))}
                     </div>
+
+                    <ConceptLayout
+                      plan={plan}
+                      colorRGB={PLAN_COLORS[(plan.id - 1) % PLAN_COLORS.length]}
+                      conceptLayout={t.conceptLayout}
+                      conceptCaption={t.conceptCaption}
+                      mainFloor={t.mainFloor}
+                      upperFloor={t.upperFloor}
+                    />
 
                     <MortgageWidget homePrice={plan.estimatedCost} />
 
