@@ -113,6 +113,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const isDiag = req.nextUrl.searchParams.get("diag") === "1";
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -120,13 +122,13 @@ export async function GET(req: NextRequest) {
 
   const todayJST = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }); // YYYY-MM-DD
 
-  // Idempotency: skip if already ran today
+  // Idempotency: skip if already ran today (bypassed when ?diag=1)
   const { data: existing } = await supabase
     .from("daily_brief_log")
     .select("id, sent_at")
     .eq("run_date", todayJST)
     .maybeSingle();
-  if (existing?.sent_at) {
+  if (!isDiag && existing?.sent_at) {
     return NextResponse.json({ ok: true, skipped: "already_ran", date: todayJST });
   }
 
@@ -135,6 +137,9 @@ export async function GET(req: NextRequest) {
   // ── 1. Gmail: fetch inbox threads from last 24h ──────────────────────────
   const threads: EmailThread[] = [];
   let gmailError: string | null = null;
+  let diagAccount: string | null = null;
+  let diagQuery: string | null = null;
+  let diagRawThreads: number | null = null;
 
   const gmailConfigured =
     process.env.GMAIL_CLIENT_ID &&
@@ -144,11 +149,26 @@ export async function GET(req: NextRequest) {
   if (gmailConfigured) {
     try {
       const gmail = getGmailClient();
+
+      if (isDiag) {
+        const profile = await gmail.users.getProfile({ userId: "me" });
+        diagAccount = profile.data.emailAddress ?? null;
+        console.log("[diag] account:", diagAccount, "| messagesTotal:", profile.data.messagesTotal);
+        console.log("[diag] INBOX_EMAIL (constant) =", INBOX_EMAIL);
+        diagQuery = `in:inbox newer_than:1d to:${INBOX_EMAIL}`;
+        console.log("[diag] query =", diagQuery);
+      }
+
       const listRes = await gmail.users.threads.list({
         userId: "me",
         q: `in:inbox newer_than:1d to:${INBOX_EMAIL}`,
         maxResults: 30,
       });
+
+      if (isDiag) {
+        diagRawThreads = listRes.data.threads?.length ?? 0;
+        console.log("[diag] raw threads before noise filter:", diagRawThreads);
+      }
 
       for (const t of listRes.data.threads ?? []) {
         if (!t.id) continue;
@@ -434,6 +454,7 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     xPostsCreated: claudeResult.xPosts.length,
     emailSent: !sendError,
     gmailConfigured: !!gmailConfigured,
+    ...(isDiag ? { diag: { account: diagAccount, query: diagQuery, rawThreads: diagRawThreads } } : {}),
   });
 }
 
