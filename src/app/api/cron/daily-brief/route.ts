@@ -216,7 +216,7 @@ export async function GET(req: NextRequest) {
   // ── 2. Collect DB stats for the KPI block ───────────────────────────────
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [subsResult, financeResult, portalViewsResult] = await Promise.all([
+  const [subsResult, financeResult, portalViewsResult, newSignupsResult, newPortalLeadsResult, outreachSentResult, outreachRepliedResult] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("plan, status", { count: "exact" })
@@ -231,6 +231,24 @@ export async function GET(req: NextRequest) {
       .select("link_id", { count: "exact" })
       .eq("event_type", "view")
       .gte("created_at", since24h),
+    supabase
+      .from("profiles")
+      .select("id", { count: "exact" })
+      .gte("created_at", since24h),
+    supabase
+      .from("portal_leads")
+      .select("id", { count: "exact" })
+      .gte("created_at", since24h),
+    supabase
+      .from("outreach_log")
+      .select("id", { count: "exact" })
+      .not("sent_at", "is", null)
+      .gte("sent_at", since24h),
+    supabase
+      .from("outreach_log")
+      .select("id", { count: "exact" })
+      .not("replied_at", "is", null)
+      .gte("replied_at", since24h),
   ]);
 
   const todaySnap = financeResult.data?.[0];
@@ -241,6 +259,12 @@ export async function GET(req: NextRequest) {
 
   // Portal opens in last 24h
   const portalViewCount = portalViewsResult.count ?? 0;
+
+  const newSignups = newSignupsResult.count ?? 0;
+  const newPortalLeads = newPortalLeadsResult.count ?? 0;
+  const outreachSent = outreachSentResult.count ?? 0;
+  const outreachReplied = outreachRepliedResult.count ?? 0;
+
   const uniquePortalIds = new Set(
     (portalViewsResult.data ?? []).map((e: { link_id: string }) => e.link_id),
   );
@@ -409,6 +433,10 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     portalViewCount,
     uniquePortalCount,
     topPortals,
+    newSignups,
+    newPortalLeads,
+    outreachSent,
+    outreachReplied,
     threads,
     actionableThreads: leadsAndSupport,
     drafts: claudeResult.drafts,
@@ -436,6 +464,10 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     leads_found: leadCount,
     drafts_created: leadsAndSupport.length,
     x_posts_created: claudeResult.xPosts.length,
+    new_signups: newSignups,
+    new_portal_leads: newPortalLeads,
+    outreach_sent: outreachSent,
+    outreach_replied: outreachReplied,
     sent_at: sendError ? null : new Date().toISOString(),
     error: sendError ? JSON.stringify(sendError) : (gmailError ?? claudeError ?? null),
   };
@@ -472,6 +504,10 @@ interface DigestParams {
   portalViewCount: number;
   uniquePortalCount: number;
   topPortals: Array<{ client_name: string | null; slug: string }>;
+  newSignups: number;
+  newPortalLeads: number;
+  outreachSent: number;
+  outreachReplied: number;
   threads: EmailThread[];
   actionableThreads: ClauseResult["drafts"];
   drafts: ClauseResult["drafts"];
@@ -492,6 +528,10 @@ function buildDigestHtml(p: DigestParams): string {
     ["Trialing", String(p.trialing)],
     ["Churned Today", String(p.churnedToday)],
     ["Portal Views (24h)", `${p.portalViewCount} views · ${p.uniquePortalCount} portal${p.uniquePortalCount !== 1 ? "s" : ""}`],
+    ["New Signups (24h)", String(p.newSignups)],
+    ["Portal Leads (24h)", String(p.newPortalLeads)],
+    ["Outreach Sent (24h)", String(p.outreachSent)],
+    ["Outreach Replied (24h)", String(p.outreachReplied)],
   ];
 
   const kpiHtml = kpiRows
