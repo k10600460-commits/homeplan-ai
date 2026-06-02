@@ -102,6 +102,43 @@ export async function sendCancellationEmail(to: string, periodEndDate: string, p
 }
 
 
+export interface InquiryData {
+  buyerName: string | null;
+  buyerEmail: string | null;
+  buyerPhone: string | null;
+  planIndex: number | null;
+  message: string | null;
+  portalSlug: string;
+  portalUrl: string;
+}
+
+export async function sendInquiryNotificationEmail(to: string, data: InquiryData) {
+  const planLabel = data.planIndex != null ? `Plan ${data.planIndex + 1}` : "a plan";
+  const contactLine = [data.buyerEmail, data.buyerPhone].filter(Boolean).join(" · ");
+  await resend.emails.send({
+    from: FROM,
+    to,
+    replyTo: data.buyerEmail ?? REPLY_TO,
+    subject: `New inquiry on your SplanAI proposal`,
+    html: `
+<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
+  <h1 style="font-size:22px;font-weight:800;margin-bottom:4px">New Inquiry 🏠</h1>
+  <p style="color:#475569;margin-bottom:24px">A potential buyer expressed interest in <strong>${planLabel}</strong> on your SplanAI proposal.</p>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+    ${data.buyerName ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px;width:110px">Name</td><td style="padding:8px 0;font-weight:600">${data.buyerName}</td></tr>` : ""}
+    ${data.buyerEmail ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px">Email</td><td style="padding:8px 0"><a href="mailto:${data.buyerEmail}" style="color:#3b82f6">${data.buyerEmail}</a></td></tr>` : ""}
+    ${data.buyerPhone ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px">Phone</td><td style="padding:8px 0"><a href="tel:${data.buyerPhone}" style="color:#3b82f6">${data.buyerPhone}</a></td></tr>` : ""}
+    <tr><td style="padding:8px 0;color:#94a3b8;font-size:13px">Interested in</td><td style="padding:8px 0;font-weight:600">${planLabel}</td></tr>
+    ${data.message ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px;vertical-align:top">Message</td><td style="padding:8px 0;color:#475569">${data.message}</td></tr>` : ""}
+  </table>
+  ${contactLine ? `<a href="mailto:${data.buyerEmail ?? ""}" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Reply to Buyer →</a>` : ""}
+  <p style="margin-top:24px;color:#94a3b8;font-size:13px">View the proposal: <a href="${data.portalUrl}" style="color:#3b82f6">${data.portalUrl}</a></p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+  <p style="color:#cbd5e1;font-size:12px">© 2026 SplanAI · <a href="${APP_URL}" style="color:#94a3b8">splanai.com</a></p>
+</div>`,
+  }).catch(console.error);
+}
+
 export async function sendTeamInviteEmail(to: string, ownerEmail: string, inviteUrl: string) {
   await resend.emails.send({
     from: FROM,

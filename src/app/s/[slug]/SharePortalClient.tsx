@@ -76,6 +76,20 @@ const T = {
     expand: "Click to expand details",
     cost: "estimated cost",
     contact: "Questions? Contact your builder.",
+    interested: "I'm interested in this one",
+    inquiryTitle: "Express Interest",
+    inquirySubtitle: "The builder will be notified and reach out to you.",
+    yourName: "Your Name",
+    yourEmail: "Email",
+    yourPhone: "Phone",
+    yourMessage: "Message (optional)",
+    contactRequired: "Please enter your email or phone number.",
+    emailInvalid: "Please enter a valid email address.",
+    submit: "Send Inquiry",
+    submitting: "Sending…",
+    successTitle: "The builder has been notified!",
+    successBody: "They'll be in touch soon.",
+    cancel: "Cancel",
   },
   es: {
     title: "Sus Propuestas de Planos",
@@ -94,6 +108,20 @@ const T = {
     expand: "Clic para ver detalles",
     cost: "costo estimado",
     contact: "¿Preguntas? Comuníquese con su constructor.",
+    interested: "Me interesa este",
+    inquiryTitle: "Expresar interés",
+    inquirySubtitle: "El constructor será notificado y se pondrá en contacto.",
+    yourName: "Su nombre",
+    yourEmail: "Correo electrónico",
+    yourPhone: "Teléfono",
+    yourMessage: "Mensaje (opcional)",
+    contactRequired: "Por favor ingrese su correo o teléfono.",
+    emailInvalid: "Por favor ingrese un correo válido.",
+    submit: "Enviar consulta",
+    submitting: "Enviando…",
+    successTitle: "¡El constructor ha sido notificado!",
+    successBody: "Se pondrán en contacto pronto.",
+    cancel: "Cancelar",
   },
   zh: {
     title: "您的户型方案",
@@ -112,6 +140,20 @@ const T = {
     expand: "点击查看详情",
     cost: "预估造价",
     contact: "有疑问？请联系您的建筑商。",
+    interested: "我对这个方案感兴趣",
+    inquiryTitle: "表达兴趣",
+    inquirySubtitle: "建造商将收到通知并与您联系。",
+    yourName: "您的姓名",
+    yourEmail: "电子邮件",
+    yourPhone: "电话",
+    yourMessage: "留言（可选）",
+    contactRequired: "请输入您的邮箱或电话。",
+    emailInvalid: "请输入有效的电子邮件地址。",
+    submit: "发送询问",
+    submitting: "发送中…",
+    successTitle: "建造商已收到通知！",
+    successBody: "他们会尽快与您联系。",
+    cancel: "取消",
   },
 } as const;
 
@@ -317,6 +359,13 @@ interface Props {
   branding: PortalBranding;
 }
 
+interface InquiryForm {
+  buyerName: string;
+  buyerEmail: string;
+  buyerPhone: string;
+  message: string;
+}
+
 export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding }: Props) {
   const isTeam = branding.plan === "team";
   const isPro  = branding.plan === "pro";
@@ -326,7 +375,66 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  // Inquiry modal state
+  const [inquiryPlanIndex, setInquiryPlanIndex] = useState<number | null>(null); // null = closed
+  const [inquiryForm, setInquiryForm] = useState<InquiryForm>({ buyerName: "", buyerEmail: "", buyerPhone: "", message: "" });
+  const [inquiryError, setInquiryError] = useState<string | null>(null);
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
+  const [inquirySuccess, setInquirySuccess] = useState(false);
+
   const t = T[lang];
+
+  function openInquiry(planIndex: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    setInquiryPlanIndex(planIndex);
+    setInquiryForm({ buyerName: "", buyerEmail: "", buyerPhone: "", message: "" });
+    setInquiryError(null);
+    setInquirySuccess(false);
+  }
+
+  function closeInquiry() {
+    setInquiryPlanIndex(null);
+    setInquirySuccess(false);
+  }
+
+  async function handleInquirySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setInquiryError(null);
+
+    const email = inquiryForm.buyerEmail.trim();
+    const phone = inquiryForm.buyerPhone.trim();
+    if (!email && !phone) {
+      setInquiryError(t.contactRequired);
+      return;
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setInquiryError(t.emailInvalid);
+      return;
+    }
+
+    setInquirySubmitting(true);
+    try {
+      const res = await fetch(`/api/portal/${slug}/inquiry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buyerName:  inquiryForm.buyerName.trim() || null,
+          buyerEmail: email || null,
+          buyerPhone: phone || null,
+          planIndex:  inquiryPlanIndex,
+          message:    inquiryForm.message.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setInquiryError(data.reason === "rate_limited" ? "Too many requests. Please try again later." : "Something went wrong. Please try again.");
+        return;
+      }
+      setInquirySuccess(true);
+    } finally {
+      setInquirySubmitting(false);
+    }
+  }
 
   // Record 'view' event on mount
   useEffect(() => {
@@ -402,6 +510,95 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Inquiry modal */}
+      {inquiryPlanIndex !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 px-0 sm:px-4"
+          onClick={closeInquiry}
+        >
+          <div
+            className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {inquirySuccess ? (
+              <div className="text-center py-6">
+                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">{t.successTitle}</h2>
+                <p className="text-gray-500 text-sm">{t.successBody}</p>
+                <button onClick={closeInquiry} className="mt-6 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-5">
+                  <h2 className="text-xl font-bold text-gray-900">{t.inquiryTitle}</h2>
+                  <p className="text-sm text-gray-500 mt-1">{t.inquirySubtitle}</p>
+                  {inquiryPlanIndex !== null && (
+                    <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-xs font-bold text-white bg-blue-600">
+                      Plan {inquiryPlanIndex + 1}
+                    </span>
+                  )}
+                </div>
+                <form onSubmit={handleInquirySubmit} className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder={t.yourName}
+                    value={inquiryForm.buyerName}
+                    onChange={(e) => setInquiryForm((f) => ({ ...f, buyerName: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="email"
+                    placeholder={t.yourEmail}
+                    value={inquiryForm.buyerEmail}
+                    onChange={(e) => setInquiryForm((f) => ({ ...f, buyerEmail: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="tel"
+                    placeholder={t.yourPhone}
+                    value={inquiryForm.buyerPhone}
+                    onChange={(e) => setInquiryForm((f) => ({ ...f, buyerPhone: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <textarea
+                    placeholder={t.yourMessage}
+                    rows={3}
+                    value={inquiryForm.message}
+                    onChange={(e) => setInquiryForm((f) => ({ ...f, message: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  />
+                  {inquiryError && (
+                    <p className="text-sm text-red-500">{inquiryError}</p>
+                  )}
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={closeInquiry}
+                      className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      {t.cancel}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={inquirySubmitting}
+                      className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                    >
+                      {inquirySubmitting ? t.submitting : t.submit}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -563,11 +760,24 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                       </svg>
                       {t.download}
                     </button>
+                    <button
+                      onClick={(e) => openInquiry(plan.id - 1, e)}
+                      className="w-full mt-2 py-3 rounded-xl border-2 border-current text-sm font-semibold hover:bg-white/60 transition-colors flex items-center justify-center gap-2"
+                      style={{ color: `rgb(${PLAN_COLORS[(plan.id - 1) % PLAN_COLORS.length].join(",")})` }}
+                    >
+                      {t.interested}
+                    </button>
                   </div>
                 )}
 
                 {!isSelected && (
-                  <div className="px-6 pb-5">
+                  <div className="px-6 pb-5 space-y-2">
+                    <button
+                      onClick={(e) => openInquiry(plan.id - 1, e)}
+                      className={`w-full py-2.5 rounded-xl text-sm font-semibold text-white ${colors.badge} hover:opacity-90 transition-opacity`}
+                    >
+                      {t.interested}
+                    </button>
                     <p className="text-xs text-center text-gray-400">{t.expand}</p>
                   </div>
                 )}
