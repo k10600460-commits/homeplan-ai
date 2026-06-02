@@ -87,8 +87,8 @@ const T = {
       heading: "Simple, transparent pricing",
       sub: "Start free. Upgrade when you're ready.",
       free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 floor plan generations / month", "SplanAI branded PDF export", "Neighborhood & market data", "Client sharing portal + view tracking", "All room types", "Email support"], cta: "Get started free" },
-      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 floor plan generations / month", "Branded PDF with your logo", "MLS lot data via Trestle (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
-      team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Everything in Pro, plus:", "Unlimited floor plan generations*", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF (your logo only, no SplanAI branding)", "Dedicated support"], cta: "Start 14-day free trial" },
+      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 floor plan generations / month", "Branded PDF with your logo (Powered by SplanAI footer included)", "MLS lot data via Trestle (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
+      team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Everything in Pro, plus:", "Unlimited floor plan generations*", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF — your logo only, zero SplanAI branding", "Dedicated support"], cta: "Start 14-day free trial" },
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
     faq: [
@@ -193,8 +193,8 @@ const T = {
       heading: "Precios simples y transparentes",
       sub: "Empieza gratis. Actualiza cuando estés listo.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Datos de vecindario y mercado", "Portal para clientes + seguimiento de vistas", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
-      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 generaciones de planos / mes", "PDF con tu logo", "MLS via Trestle (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
-      team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Todo lo de Pro, más:", "Generaciones ilimitadas de planos*", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca (solo tu logo, sin SplanAI)", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
+      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 generaciones de planos / mes", "PDF con tu logo (pie Powered by SplanAI incluido)", "MLS via Trestle (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
+      team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Todo lo de Pro, más:", "Generaciones ilimitadas de planos*", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca — solo tu logo, sin branding de SplanAI", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
     faq: [
@@ -1046,22 +1046,25 @@ export default function Home() {
               <div className="p-5">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {([
-                    { name: "The Ridgewood Craftsman", style: "Craftsman Bungalow", sqft: "2,650", cost: "$622K", color: "#3B82F6" },
-                    { name: "The Solana Modern", style: "Contemporary Modern", sqft: "2,900", cost: "$812K", color: "#10B981" },
-                    { name: "The Cloverfield Farmhouse", style: "Modern Farmhouse", sqft: "2,800", cost: "$756K", color: "#8B5CF6" },
-                  ] as const).map((p, i) => (
+                    { name: "The Ridgewood Craftsman", style: "Craftsman Bungalow", sqft: "2,650", cost: 622500, color: "#3B82F6" },
+                    { name: "The Solana Modern", style: "Contemporary Modern", sqft: "2,900", cost: 812000, color: "#10B981" },
+                    { name: "The Cloverfield Farmhouse", style: "Modern Farmhouse", sqft: "2,800", cost: 756000, color: "#8B5CF6" },
+                  ] as { name: string; style: string; sqft: string; cost: number; color: string }[]).map((p, i) => (
                     <div key={i} className="rounded-xl border-2 overflow-hidden" style={{ borderColor: p.color + "33" }}>
                       <div className="px-4 py-2 text-xs font-bold text-white" style={{ background: p.color }}>Plan {i + 1}</div>
                       <div className="p-4">
                         <p className="font-bold text-slate-800 text-sm leading-snug">{p.name}</p>
                         <p className="text-xs text-slate-500 mt-0.5">{p.style}</p>
-                        <p className="text-xl font-extrabold text-slate-900 mt-2">{p.cost}</p>
-                        <p className="text-xs text-slate-400">{p.sqft} sq ft</p>
+                        <p className="text-xl font-extrabold text-slate-900 mt-2">
+                          ${(p.cost / 1000).toFixed(0)}K–${Math.round(p.cost * 1.1 / 1000)}K
+                        </p>
+                        <p className="text-xs text-slate-400 italic">Est. range — finishes-dependent.</p>
+                        <p className="text-xs text-slate-400 mt-1">{p.sqft} sq ft</p>
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-slate-400 text-right">Actual AI output — not a mock-up</p>
+                <p className="mt-2 text-xs text-slate-400 text-right">Actual AI output — matches live portal at /s/nfhkewvz</p>
               </div>
             </div>
           </AnimateIn>
@@ -1074,7 +1077,7 @@ export default function Home() {
                 <p className="font-bold text-slate-800 text-sm">Share a live client portal — one click</p>
               </div>
               <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <p className="text-sm text-slate-600 leading-relaxed flex-1">Your client gets a personal portal with all 3 plans, neighborhood context, and mortgage estimates. You see the moment they open it.</p>
+                <p className="text-sm text-slate-600 leading-relaxed flex-1">Your client gets a personal portal with all 3 plans — each with a proportional floor-plan diagram, a cost range, and an interactive mortgage calculator they can adjust. They can tap &ldquo;I&rsquo;m interested&rdquo; and you get an instant email notification. You also see the moment they open it.</p>
                 <a href="/s/nfhkewvz" target="_blank" rel="noopener noreferrer"
                   className="shrink-0 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-colors"
                   style={{ background: "#10B981" }}
@@ -1096,7 +1099,7 @@ export default function Home() {
                   <p className="font-bold text-slate-800 text-sm">Download branded PDF</p>
                 </div>
                 <div className="p-5">
-                  <p className="text-sm text-slate-600">Professional PDF with your logo, full room breakdown, cost estimate, and neighborhood data. Print-ready for client meetings.</p>
+                  <p className="text-sm text-slate-600">Professional PDF with your logo, full room breakdown, cost range and mortgage estimate, and neighborhood data. Print-ready for client meetings.</p>
                 </div>
               </div>
               <div className="rounded-2xl border-2 border-amber-100 overflow-hidden">
