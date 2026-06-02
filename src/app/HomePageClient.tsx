@@ -10,7 +10,7 @@ import { track } from "@vercel/analytics";
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
   en: {
-    nav: { how: "How it works", pricing: "Pricing", reviews: "Reviews", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
+    nav: { how: "How it works", pricing: "Pricing", reviews: "Reviews", blog: "Blog", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
     hero: {
       badge: "Featured on Product Hunt",
       headline1: "Close more home-building deals.",
@@ -116,7 +116,7 @@ const T = {
     footer: "© 2026 SplanAI. Built for home builders.",
   },
   es: {
-    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Reseñas", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
+    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Reseñas", blog: "Blog", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
     hero: {
       badge: "Destacado en Product Hunt",
       headline1: "Cierra más contratos de construcción.",
@@ -520,6 +520,7 @@ export default function Home() {
             <a href="#how" className="hover:text-white transition-colors">{t.nav.how}</a>
             <a href="#pricing" className="hover:text-white transition-colors">{t.nav.pricing}</a>
             <a href="#reviews" className="hover:text-white transition-colors">{t.nav.reviews}</a>
+            <a href="/blog" className="hover:text-white transition-colors">{t.nav.blog}</a>
           </nav>
           <div className="flex items-center gap-3 ml-auto shrink-0">
             <button
