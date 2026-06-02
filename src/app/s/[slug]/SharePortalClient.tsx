@@ -12,16 +12,53 @@ function calcMonthly(homePrice: number, downPct: number, ratePct: number, termYe
   return Math.round((principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1));
 }
 
-function MortgageWidget({ homePrice }: { homePrice: number }) {
-  const monthly = calcMonthly(homePrice, 20, 7.0, 30);
+function MortgageWidget({
+  homePrice,
+  mortgageEst,
+  mortgageDisclaimer,
+  downPctLabel,
+  interestRateLabel,
+}: {
+  homePrice: number;
+  mortgageEst: string;
+  mortgageDisclaimer: string;
+  downPctLabel: string;
+  interestRateLabel: string;
+}) {
+  const [downPct, setDownPct] = useState(20);
+  const [ratePct, setRatePct] = useState(7.0);
+  const monthly = calcMonthly(homePrice, downPct, ratePct, 30);
   return (
-    <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 flex items-center justify-between gap-4">
-      <div>
-        <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">Mortgage Est.</p>
-        <p className="text-xl font-extrabold text-blue-700">${monthly.toLocaleString()}<span className="text-sm font-normal text-blue-400">/mo</span></p>
-        <p className="text-xs text-blue-400 mt-0.5">20% down · 30yr · 7%</p>
+    <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div>
+          <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">{mortgageEst}</p>
+          <p className="text-xl font-extrabold text-blue-700">≈ ${monthly.toLocaleString()}<span className="text-sm font-normal text-blue-400">/mo</span></p>
+          <p className="text-xs text-blue-400 mt-0.5">{downPct}% down · 30yr · {ratePct.toFixed(2)}%</p>
+        </div>
+        <span className="text-2xl">🏦</span>
       </div>
-      <span className="text-2xl">🏦</span>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-blue-500 font-medium">{downPctLabel} %</label>
+          <input
+            type="range" min={0} max={50} step={5} value={downPct}
+            onChange={e => setDownPct(Number(e.target.value))}
+            className="w-full accent-blue-600 mt-1"
+          />
+          <p className="text-xs text-blue-600 font-bold text-center">{downPct}%</p>
+        </div>
+        <div>
+          <label className="text-xs text-blue-500 font-medium">{interestRateLabel} %</label>
+          <input
+            type="range" min={3} max={12} step={0.25} value={ratePct}
+            onChange={e => setRatePct(Number(e.target.value))}
+            className="w-full accent-blue-600 mt-1"
+          />
+          <p className="text-xs text-blue-600 font-bold text-center">{ratePct.toFixed(2)}%</p>
+        </div>
+      </div>
+      <p className="text-[10px] text-blue-400 italic mt-2">{mortgageDisclaimer}</p>
     </div>
   );
 }
@@ -282,6 +319,11 @@ const T = {
     conceptCaption: "Concept layout — relative room sizes, not to scale. Not a construction drawing.",
     mainFloor: "Main Floor",
     upperFloor: "Upper Floor",
+    costRange: "Est. range — finishes-dependent.",
+    mortgageEst: "Monthly Est.",
+    mortgageDisclaimer: "Illustrative estimate — not a financing offer.",
+    downPct: "Down",
+    interestRate: "Rate",
   },
   es: {
     title: "Sus Propuestas de Planos",
@@ -318,6 +360,11 @@ const T = {
     conceptCaption: "Vista conceptual — tamaños relativos de habitaciones, sin escala. No es un plano de construcción.",
     mainFloor: "Planta Baja",
     upperFloor: "Planta Alta",
+    costRange: "Rango est. — depende de los acabados.",
+    mortgageEst: "Mensualidad Est.",
+    mortgageDisclaimer: "Estimación ilustrativa — no es una oferta de financiamiento.",
+    downPct: "Entrada",
+    interestRate: "Tasa",
   },
   zh: {
     title: "您的户型方案",
@@ -354,6 +401,11 @@ const T = {
     conceptCaption: "概念布局图 — 相对房间大小，非按比例绘制，不作为施工图纸使用。",
     mainFloor: "主层",
     upperFloor: "上层",
+    costRange: "估算区间 — 取决于装修标准。",
+    mortgageEst: "月供估算",
+    mortgageDisclaimer: "仅供参考，不构成融资报价。",
+    downPct: "首付",
+    interestRate: "利率",
   },
 } as const;
 
@@ -431,9 +483,15 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
     doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
     doc.setTextColor(cr, cg, cb);
-    doc.text(`$${plan.estimatedCost.toLocaleString()}`, PW - ML, y, { align: "right" });
+    const costHigh = Math.round(plan.estimatedCost * 1.1);
+    doc.text(`$${plan.estimatedCost.toLocaleString()}–$${costHigh.toLocaleString()}`, PW - ML, y, { align: "right" });
+    const pdfMonthly = calcMonthly(plan.estimatedCost, 20, 7.0, 30);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(`≈ $${pdfMonthly.toLocaleString()}/mo · 20% dn · 30yr · 7% — illustrative only`, PW - ML, y + 4.5, { align: "right" });
 
-    y += 8;
+    y += 13;
     doc.setDrawColor(229, 231, 235);
     doc.line(ML, y, PW - ML, y);
     y += 4;
@@ -929,8 +987,10 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                       <p className={`text-sm font-medium ${colors.accent} mt-0.5`}>{plan.style}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-2xl font-extrabold text-gray-900">${(plan.estimatedCost / 1000).toFixed(0)}K</p>
-                      <p className="text-xs text-gray-500">{t.cost}</p>
+                      <p className="text-2xl font-extrabold text-gray-900">
+                        ${(plan.estimatedCost / 1000).toFixed(0)}–${Math.round(plan.estimatedCost * 1.1 / 1000)}K
+                      </p>
+                      <p className="text-xs text-gray-500">{t.costRange}</p>
                     </div>
                   </div>
                 </div>
@@ -1000,7 +1060,13 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                       upperFloor={t.upperFloor}
                     />
 
-                    <MortgageWidget homePrice={plan.estimatedCost} />
+                    <MortgageWidget
+                      homePrice={plan.estimatedCost}
+                      mortgageEst={t.mortgageEst}
+                      mortgageDisclaimer={t.mortgageDisclaimer}
+                      downPctLabel={t.downPct}
+                      interestRateLabel={t.interestRate}
+                    />
 
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDownloadOne(plan); }}
