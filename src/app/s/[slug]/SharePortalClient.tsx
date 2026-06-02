@@ -285,11 +285,17 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(156, 163, 175);
+    const contactParts: string[] = [];
+    if (branding.phone) contactParts.push(branding.phone);
+    if (branding.website) contactParts.push(branding.website.replace(/^https?:\/\//, ""));
+    const contactStr = contactParts.join(" · ");
     if (isTeam && companyLabel) {
-      doc.text(companyLabel, ML, PH - 9);
+      const leftLabel = contactStr ? `${companyLabel} · ${contactStr}` : companyLabel;
+      doc.text(leftLabel, ML, PH - 9);
       doc.text(`© ${new Date().getFullYear()} ${companyLabel}`, PW - ML, PH - 9, { align: "right" });
     } else if (isPro && companyLabel) {
-      doc.text(`${companyLabel} · Powered by SplanAI · splanai.com`, ML, PH - 9);
+      const leftLabel = contactStr ? `${companyLabel} · ${contactStr}` : `${companyLabel} · Powered by SplanAI · splanai.com`;
+      doc.text(leftLabel, ML, PH - 9);
       doc.text(`© ${new Date().getFullYear()} SplanAI`, PW - ML, PH - 9, { align: "right" });
     } else {
       doc.text("Powered by SplanAI · Data: Google Maps + RentCast · splanai.com", ML, PH - 9);
@@ -313,6 +319,8 @@ interface Props {
 
 export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding }: Props) {
   const isTeam = branding.plan === "team";
+  const isPro  = branding.plan === "pro";
+  const isBranded = isTeam || isPro;
   const companyLabel = branding.companyName?.trim() || "";
   const [lang, setLang] = useState<Lang>("en");
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
@@ -397,10 +405,10 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          {isTeam && branding.logoDataUrl ? (
+          {isBranded && branding.logoDataUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={branding.logoDataUrl} alt={companyLabel || "Builder"} className="h-7 object-contain max-w-[160px]" />
-          ) : isTeam && companyLabel ? (
+          ) : isBranded && companyLabel ? (
             <span className="text-xl font-bold tracking-tight text-gray-900">{companyLabel}</span>
           ) : (
             <a href="https://splanai.com" className="text-xl font-bold tracking-tight text-gray-900 hover:opacity-80 transition-opacity">
@@ -573,17 +581,39 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
           <p className="text-xs text-gray-400 italic mb-5 max-w-xl mx-auto">
             AI-generated concept — illustration only. Not an architectural or engineering plan. Verify with a licensed professional before construction.
           </p>
-          <p className="text-sm text-gray-400 mb-4">{t.contact}</p>
-          {isTeam ? (
-            companyLabel ? (
-              <p className="text-sm font-bold text-gray-700">{companyLabel}</p>
-            ) : null
+
+          {isBranded && (companyLabel || branding.phone || branding.website || branding.tagline) ? (
+            <div className="mb-4 space-y-1">
+              {companyLabel && <p className="text-sm font-bold text-gray-800">{companyLabel}</p>}
+              {branding.tagline && <p className="text-xs text-gray-500 italic">{branding.tagline}</p>}
+              {(branding.phone || branding.website) && (
+                <p className="text-xs text-gray-500 flex items-center justify-center gap-3 flex-wrap">
+                  {branding.phone && (
+                    <a href={`tel:${branding.phone}`} className="hover:text-blue-600 transition-colors">{branding.phone}</a>
+                  )}
+                  {branding.website && (
+                    <a href={branding.website.startsWith("http") ? branding.website : `https://${branding.website}`} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition-colors">{branding.website.replace(/^https?:\/\//, "")}</a>
+                  )}
+                </p>
+              )}
+              {branding.licenseNumber && (
+                <p className="text-xs text-gray-400">License #{branding.licenseNumber}</p>
+              )}
+            </div>
           ) : (
-            <a href="https://splanai.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors">
-              <span className="text-base font-extrabold tracking-tight">Splan<span className="text-blue-500">AI</span></span>
-            </a>
+            <>
+              <p className="text-sm text-gray-400 mb-4">{t.contact}</p>
+              <a href="https://splanai.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors">
+                <span className="text-base font-extrabold tracking-tight">Splan<span className="text-blue-500">AI</span></span>
+              </a>
+              <p className="text-xs text-gray-300 mt-1">{t.poweredBy} SplanAI · splanai.com</p>
+            </>
           )}
-          {!isTeam && <p className="text-xs text-gray-300 mt-1">{t.poweredBy} SplanAI · splanai.com</p>}
+
+          {isBranded && !isTeam && (
+            <p className="text-xs text-gray-300 mt-3">{t.poweredBy} SplanAI</p>
+          )}
+
           <div className="mt-4 flex items-center justify-center gap-4 text-xs text-gray-300">
             <a href="https://splanai.com/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-500 transition-colors">Terms</a>
             <a href="https://splanai.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-500 transition-colors">Privacy</a>

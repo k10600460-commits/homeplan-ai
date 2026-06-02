@@ -18,12 +18,16 @@ export async function GET() {
   const db = admin();
   const [plan, profileResult] = await Promise.all([
     getUserPlan(user.id),
-    db.from("team_profiles").select("company_name, logo_url, primary_color").eq("owner_user_id", user.id).maybeSingle(),
+    db.from("team_profiles").select("company_name, logo_url, primary_color, phone, website, license_number, tagline").eq("owner_user_id", user.id).maybeSingle(),
   ]);
 
   let companyName = profileResult.data?.company_name ?? "";
   let logoUrl = profileResult.data?.logo_url ?? null;
   const primaryColor = profileResult.data?.primary_color ?? "#2563EB";
+  let phone          = profileResult.data?.phone ?? "";
+  let website        = profileResult.data?.website ?? "";
+  let licenseNumber  = profileResult.data?.license_number ?? "";
+  let tagline        = profileResult.data?.tagline ?? "";
 
   // For team members: inherit owner's branding
   if (!companyName && plan === "team") {
@@ -36,11 +40,15 @@ export async function GET() {
     if (membership?.team_owner_id) {
       const { data: ownerProfile } = await db
         .from("team_profiles")
-        .select("company_name, logo_url, primary_color")
+        .select("company_name, logo_url, primary_color, phone, website, license_number, tagline")
         .eq("owner_user_id", membership.team_owner_id)
         .maybeSingle();
-      companyName = ownerProfile?.company_name ?? "";
-      logoUrl = ownerProfile?.logo_url ?? null;
+      companyName   = ownerProfile?.company_name ?? "";
+      logoUrl       = ownerProfile?.logo_url ?? null;
+      phone         = ownerProfile?.phone ?? "";
+      website       = ownerProfile?.website ?? "";
+      licenseNumber = ownerProfile?.license_number ?? "";
+      tagline       = ownerProfile?.tagline ?? "";
     }
   }
 
@@ -51,5 +59,5 @@ export async function GET() {
     logoSignedUrl = signed?.signedUrl ?? null;
   }
 
-  return NextResponse.json({ plan, companyName, logoSignedUrl, primaryColor });
+  return NextResponse.json({ plan, companyName, logoSignedUrl, primaryColor, phone, website, licenseNumber, tagline });
 }

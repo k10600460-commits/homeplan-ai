@@ -99,6 +99,17 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [teamCheckoutLoading, setTeamCheckoutLoading] = useState(false);
   const [teamCheckoutError, setTeamCheckoutError] = useState("");
+
+  // Extended branding state
+  const [phone, setPhone] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [website, setWebsite] = useState("");
+  const [websiteInput, setWebsiteInput] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [licenseInput, setLicenseInput] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [taglineInput, setTaglineInput] = useState("");
+  const [savingContact, setSavingContact] = useState(false);
   const isPro = subscription?.isActive ?? false;
 
   const supabase = createClient();
@@ -122,12 +133,16 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   useEffect(() => {
     fetch("/api/team/plan")
       .then(r => r.json())
-      .then((d: { plan: "free" | "pro" | "team"; companyName: string; logoSignedUrl: string | null }) => {
+      .then((d: { plan: "free" | "pro" | "team"; companyName: string; logoSignedUrl: string | null; phone: string; website: string; licenseNumber: string; tagline: string }) => {
         setUserPlan(d.plan);
         setCompanyName(d.companyName);
         setCompanyNameInput(d.companyName);
         if (d.plan === "team") loadTeamMembers();
         if (d.logoSignedUrl) setLogoPreview(d.logoSignedUrl);
+        setPhone(d.phone ?? "");       setPhoneInput(d.phone ?? "");
+        setWebsite(d.website ?? "");   setWebsiteInput(d.website ?? "");
+        setLicenseNumber(d.licenseNumber ?? ""); setLicenseInput(d.licenseNumber ?? "");
+        setTagline(d.tagline ?? "");   setTaglineInput(d.tagline ?? "");
       })
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -148,6 +163,25 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
     });
     setCompanyName(companyNameInput);
     setSavingCompany(false);
+  }
+
+  async function handleSaveContact() {
+    setSavingContact(true);
+    await fetch("/api/team/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: phoneInput,
+        website: websiteInput,
+        licenseNumber: licenseInput,
+        tagline: taglineInput,
+      }),
+    });
+    setPhone(phoneInput);
+    setWebsite(websiteInput);
+    setLicenseNumber(licenseInput);
+    setTagline(taglineInput);
+    setSavingContact(false);
   }
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -673,9 +707,9 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
         {(userPlan === "pro" || userPlan === "team") && (
           <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
             <div className="flex items-center gap-2 mb-5">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Branding</h2>
+              <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Builder Profile</h2>
               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
-                {userPlan === "team" ? "PDF + Portal" : "PDF only"}
+                PDF + Portal
               </span>
             </div>
 
@@ -683,9 +717,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
             <div className="mb-5">
               <label className="text-xs font-semibold text-gray-500 block mb-1.5">
                 Company Name
-                <span className="text-gray-300 ml-1">
-                  {userPlan === "team" ? "(PDF header + client portal)" : "(shown on branded PDFs)"}
-                </span>
+                <span className="text-gray-300 ml-1">(PDF header + client portal)</span>
               </label>
               <div className="flex gap-2">
                 <input
@@ -706,8 +738,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
               </div>
               {companyName && (
                 <p className="text-xs text-emerald-600 mt-1">
-                  ✓ Set — PDFs will show &ldquo;{companyName}&rdquo;
-                  {userPlan === "team" ? " and the client portal will use your name" : " with SplanAI attribution"}
+                  ✓ Set — PDFs and client portal will show &ldquo;{companyName}&rdquo;
                 </p>
               )}
             </div>
@@ -716,10 +747,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
             <div>
               <label className="text-xs font-semibold text-gray-500 block mb-1.5">
                 Company Logo
-                <span className="text-gray-300 ml-1">
-                  {userPlan === "team" ? "(replaces SplanAI in PDF + portal)" : "(shown in PDF header)"}
-                  {" · PNG/JPEG/WebP/SVG · max 512 KB"}
-                </span>
+                <span className="text-gray-300 ml-1">(PDF + portal header · PNG/JPEG/WebP/SVG · max 512 KB)</span>
               </label>
               {logoPreview ? (
                 <div className="flex items-center gap-4 p-3 rounded-xl border border-gray-200 bg-gray-50">
@@ -727,9 +755,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                   <img src={logoPreview} alt="Your logo" className="h-10 object-contain max-w-[140px] rounded" />
                   <div className="flex-1">
                     <p className="text-xs text-emerald-600 font-semibold">Logo active</p>
-                    <p className="text-xs text-gray-400">
-                      {userPlan === "team" ? "Shown in PDFs and client portal header" : "Shown in PDF header"}
-                    </p>
+                    <p className="text-xs text-gray-400">Shown in PDF + client portal header</p>
                   </div>
                   <button
                     onClick={handleLogoDelete}
@@ -759,6 +785,64 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
               {logoMsg && (
                 <p className={`text-xs mt-1.5 ${logoMsg.ok ? "text-emerald-600" : "text-red-500"}`}>{logoMsg.text}</p>
               )}
+            </div>
+
+            {/* Contact & Identity */}
+            <div className="mt-5 pt-5 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 mb-3">Contact &amp; Identity <span className="text-gray-300 font-normal">(shown in portal footer + PDF)</span></p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={phoneInput}
+                    onChange={e => setPhoneInput(e.target.value)}
+                    placeholder="e.g. (615) 555-0100"
+                    maxLength={30}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Website</label>
+                  <input
+                    type="text"
+                    value={websiteInput}
+                    onChange={e => setWebsiteInput(e.target.value)}
+                    placeholder="e.g. johnsonhomes.com"
+                    maxLength={200}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">License #</label>
+                  <input
+                    type="text"
+                    value={licenseInput}
+                    onChange={e => setLicenseInput(e.target.value)}
+                    placeholder="e.g. TN-BC-123456"
+                    maxLength={60}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Tagline</label>
+                  <input
+                    type="text"
+                    value={taglineInput}
+                    onChange={e => setTaglineInput(e.target.value)}
+                    placeholder="e.g. Building Nashville since 2003"
+                    maxLength={120}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleSaveContact}
+                disabled={savingContact || (phoneInput === phone && websiteInput === website && licenseInput === licenseNumber && taglineInput === tagline)}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors disabled:opacity-40"
+              >
+                {savingContact ? "Saving…" : "Save Contact Info"}
+              </button>
             </div>
           </div>
         )}

@@ -9,6 +9,10 @@ export interface PortalBranding {
   plan: 'free' | 'pro' | 'team';
   companyName: string;
   logoDataUrl: string | null;
+  phone: string;
+  website: string;
+  licenseNumber: string;
+  tagline: string;
 }
 
 export default async function SharePage({ params }: Props) {
@@ -52,12 +56,12 @@ async function fetchBranding(
   admin: any,
   userId: string | null,
 ): Promise<PortalBranding> {
-  const defaultBranding: PortalBranding = { plan: 'free', companyName: '', logoDataUrl: null };
+  const defaultBranding: PortalBranding = { plan: 'free', companyName: '', logoDataUrl: null, phone: '', website: '', licenseNumber: '', tagline: '' };
   if (!userId) return defaultBranding;
 
   const [subResult, profileResult] = await Promise.all([
     admin.from('subscriptions').select('plan, status').eq('user_id', userId).maybeSingle(),
-    admin.from('team_profiles').select('company_name, logo_url').eq('owner_user_id', userId).maybeSingle(),
+    admin.from('team_profiles').select('company_name, logo_url, phone, website, license_number, tagline').eq('owner_user_id', userId).maybeSingle(),
   ]);
 
   const sub = subResult.data;
@@ -84,7 +88,15 @@ async function fetchBranding(
     } catch { /* branding optional — continue without logo */ }
   }
 
-  return { plan, companyName, logoDataUrl };
+  return {
+    plan,
+    companyName,
+    logoDataUrl,
+    phone: profileResult.data?.phone ?? '',
+    website: profileResult.data?.website ?? '',
+    licenseNumber: profileResult.data?.license_number ?? '',
+    tagline: profileResult.data?.tagline ?? '',
+  };
 }
 
 function InvalidLinkPage({ expired }: { expired?: boolean }) {
