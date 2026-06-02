@@ -11,10 +11,12 @@ const ADMIN_EMAIL = process.env.ADMIN_ALERT_EMAIL ?? "k10600460@gmail.com";
 const FROM_EMAIL = "SplanAI <noreply@splanai.com>";
 const TLS_ALERT_DAYS = 21;
 
-const CHECK_ENDPOINTS = [
-  { url: "https://splanai.com", expectedStatus: 200 },
-  { url: "https://splanai.com/api/health", expectedStatus: 200, checkJson: true },
-  { url: "https://splanai.com/s/nfhkewvz", expectedStatus: 200 },
+// External URLs subject to Vercel Bot Protection.
+// 429 with x-vercel-mitigated:challenge or x-vercel-id present = edge is up (ok=true).
+// Alert only on connection failure / timeout / 5xx.
+const EXTERNAL_URLS = [
+  "https://splanai.com",
+  "https://splanai.com/s/nfhkewvz",
 ] as const;
 
 function checkSSLDays(hostname: string): Promise<number | null> {
@@ -61,38 +63,56 @@ export async function GET(req: NextRequest) {
   const rows: CheckRow[] = [];
   const alerts: string[] = [];
 
-  // HTTP endpoint checks
-  for (const endpoint of CHECK_ENDPOINTS) {
+  // External URL checks (Bot Protection aware)
+  for (const url of EXTERNAL_URLS) {
     let statusCode: number | null = null;
     let ok = false;
     let detail: string | null = null;
 
     try {
-      const res = await fetch(endpoint.url, {
+      const res = await fetch(url, {
         headers: { "User-Agent": "SplanAI-HealthCheck/1.0" },
         signal: AbortSignal.timeout(10000),
       });
       statusCode = res.status;
-      ok = res.status === endpoint.expectedStatus;
 
-      if (!ok) {
-        detail = `Expected ${endpoint.expectedStatus}, got ${res.status}`;
-        alerts.push(`${endpoint.url} → HTTP ${res.status}`);
-      } else if ("checkJson" in endpoint && endpoint.checkJson) {
-        // Verify /api/health returns { ok: true, db: "ok" }
-        const body = await res.json().catch(() => null) as { ok?: boolean; db?: string } | null;
-        if (!body?.ok || body?.db !== "ok") {
-          ok = false;
-          detail = `DB check failed: ${JSON.stringify(body)}`;
-          alerts.push(`${endpoint.url} → DB not ok`);
-        }
+      if (res.status === 200) {
+        ok = true;
+      } else if (
+        res.status === 429 &&
+        (res.headers.get("x-vercel-mitigated") === "challenge" ||
+          res.headers.has("x-vercel-id"))
+      ) {
+        // Vercel Bot Protection challenge — edge is reachable, not a real failure
+        ok = true;
+        detail = "edge reachable (challenged)";
+      } else if (res.status >= 500) {
+        ok = false;
+        detail = `Server error: HTTP ${res.status}`;
+        alerts.push(`${url} → HTTP ${res.status} (server error)`);
+      } else {
+        // 3xx, 4xx other than Bot Protection 429 — unexpected but not critical; log only
+        ok = false;
+        detail = `Unexpected status: HTTP ${res.status}`;
+        alerts.push(`${url} → HTTP ${res.status}`);
       }
     } catch (err) {
       detail = err instanceof Error ? err.message : String(err);
-      alerts.push(`${endpoint.url} → fetch error: ${detail}`);
+      alerts.push(`${url} → fetch error: ${detail}`);
     }
 
-    rows.push({ checked_at: checkedAt, endpoint: endpoint.url, status_code: statusCode, ssl_days_remaining: null, ok, detail });
+    rows.push({ checked_at: checkedAt, endpoint: url, status_code: statusCode, ssl_days_remaining: null, ok, detail });
+  }
+
+  // DB check — direct Supabase service-role query, bypasses Bot Protection entirely
+  {
+    const { error: dbError } = await supabase.from("profiles").select("id").limit(1);
+    const ok = !dbError;
+    const detail = dbError ? dbError.message : "ok";
+    rows.push({ checked_at: checkedAt, endpoint: "supabase:db", status_code: null, ssl_days_remaining: null, ok, detail });
+    if (!ok) {
+      alerts.push(`Supabase DB unreachable: ${detail}`);
+    }
   }
 
   // TLS certificate check
