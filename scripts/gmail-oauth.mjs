@@ -22,10 +22,11 @@
  *    「APIとサービス」→「OAuth 同意画面」
  *    - User Type: External
  *    - アプリ名: SplanAI Secretary
- *    - スコープ: https://www.googleapis.com/auth/gmail.modify を追加
- *      （.readonly だと将来の Draft 作成に不足するため .modify を推奨）
- *    - テストユーザー: hello@splanai.com を追加
- *    - ステータスを「テスト」のまま保存（個人用途なら公開不要）
+ *    - スコープ: https://www.googleapis.com/auth/gmail.readonly を追加
+ *      （cron は読み取り専用のため .readonly で十分かつ最小権限）
+ *    - テストユーザー: hellosplanai@gmail.com を追加
+ *    - Publishing status を「In production」に変更すること（Testing のまま
+ *      だと refresh_token が 7 日で失効するため）
  *
  * 5. OAuth 2.0 クライアント ID を作成
  *    「認証情報」→「認証情報を作成」→「OAuth 2.0 クライアント ID」
@@ -51,7 +52,7 @@
  *
  * 3. ターミナルに表示された URL をブラウザで開く
  *
- * 4. hello@splanai.com でログインして「許可」をクリック
+ * 4. hellosplanai@gmail.com でログインして「許可」をクリック
  *
  * 5. ブラウザが http://localhost:3001/callback に遷移し、
  *    ターミナルに refresh_token が表示される
@@ -76,9 +77,9 @@
  * ════════════════════════════════════════════════════════════════
  * - このスクリプトはキーをファイルに書き込まない。表示のみ。
  * - refresh_token は一度しか表示されないため必ずメモすること。
- * - OAuth 同意画面がテストモードの場合、refresh_token は 7 日で
- *   失効しないが、アクセスできるのはテストユーザーのみ。
- *   本番化（公開）は不要 — 自分専用なのでテストモードのままでよい。
+ * - OAuth 同意画面が Testing モードの場合、refresh_token は 7 日で失効する。
+ *   必ず Publishing status を「In production」に変更してからトークンを発行すること。
+ *   （Internal ユーザー向け Workspace アプリなら Internal のままで失効しない）
  * - GMAIL_REFRESH_TOKEN を Vercel に設定後、
  *   `vercel env pull .env.local` で手元を同期可能。
  */
@@ -115,10 +116,9 @@ const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET;
 const REDIRECT_URI = "http://localhost:3001/callback";
 const PORT = 3001;
 
-// gmail.modify は読み取り + Draft 作成の両方をカバー
-// .readonly のみでよければ 'https://www.googleapis.com/auth/gmail.readonly'
+// cron は読み取り専用（reply_draft は Supabase に書く、Gmail には書かない）
 const SCOPES = [
-  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/gmail.readonly",
 ];
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -144,7 +144,7 @@ authUrl.searchParams.set("prompt", "consent"); // 毎回 refresh_token を返す
 console.log("\n══════════════════════════════════════════════════════════");
 console.log("  SplanAI Gmail OAuth — refresh_token 取得");
 console.log("══════════════════════════════════════════════════════════\n");
-console.log("以下の URL をブラウザで開き、hello@splanai.com でログインして\n「許可」をクリックしてください:\n");
+console.log("以下の URL をブラウザで開き、hellosplanai@gmail.com でログインして\n「許可」をクリックしてください:\n");
 console.log(authUrl.toString());
 console.log("\nローカルサーバーを起動しています（ポート " + PORT + "）…\n");
 
