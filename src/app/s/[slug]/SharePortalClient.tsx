@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
 import type { PortalBranding } from "./page";
+import { conceptImageSrc } from "@/lib/concept-style-image";
 
 function calcMonthly(homePrice: number, downPct: number, ratePct: number, termYears: number): number {
   const principal = homePrice * (1 - downPct / 100);
@@ -81,6 +82,8 @@ interface FloorPlan {
   features: string[];
   rooms: Room[];
   highlights: string[];
+  // Phase 2: builder-provided image URL takes priority over style mapping
+  imageUrl?: string | null;
 }
 
 const PLAN_COLORS: [number, number, number][] = [
@@ -279,6 +282,38 @@ function ConceptLayout({
         </svg>
       </div>
       <p className="text-[10px] text-gray-400 italic mt-1.5 leading-snug">{conceptCaption}</p>
+    </div>
+  );
+}
+
+function ConceptImage({ style, imageUrl }: { style: string; imageUrl?: string | null }) {
+  const [src, setSrc] = useState(() => conceptImageSrc(style, imageUrl));
+  const [hidden, setHidden] = useState(false);
+
+  const handleError = () => {
+    if (src !== "/concept-styles/default.jpg") {
+      setSrc("/concept-styles/default.jpg");
+    } else {
+      setHidden(true);
+    }
+  };
+
+  if (hidden) return null;
+
+  return (
+    <div className="relative w-full aspect-video overflow-hidden bg-gray-100">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={`${style} home exterior`}
+        className="w-full h-full object-cover"
+        onError={handleError}
+      />
+      <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-black/60 to-transparent">
+        <p className="text-white text-[10px] leading-tight">
+          Representative image — your custom home will be designed for your lot.
+        </p>
+      </div>
     </div>
   );
 }
@@ -976,6 +1011,9 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                     : "border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300"
                 }`}
               >
+                {/* Exterior concept image */}
+                <ConceptImage style={plan.style} imageUrl={plan.imageUrl} />
+
                 {/* Card header */}
                 <div className={`${colors.bg} px-6 py-5 border-b ${colors.border}`}>
                   <div className="flex items-start justify-between gap-3">
