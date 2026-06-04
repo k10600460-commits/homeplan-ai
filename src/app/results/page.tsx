@@ -104,11 +104,25 @@ function calcMortgage(inputs: MortgageInputs): MortgageResult {
   };
 }
 
-function MortgageCalculator({ homePrice }: { homePrice: number }) {
-  const [downPct, setDownPct]     = useState(20);
-  const [ratePct, setRatePct]     = useState(7.0);
-  const [termYears, setTermYears] = useState(30);
-
+function MortgageCalculator({
+  homePrice,
+  downPct,
+  ratePct,
+  termYears,
+  rateAsOf,
+  onDownPct,
+  onRatePct,
+  onTermYears,
+}: {
+  homePrice: number;
+  downPct: number;
+  ratePct: number;
+  termYears: number;
+  rateAsOf: string;
+  onDownPct: (v: number) => void;
+  onRatePct: (v: number) => void;
+  onTermYears: (v: number) => void;
+}) {
   const result = calcMortgage({ homePrice, downPct, ratePct, termYears });
   const fmt    = (n: number) => `$${n.toLocaleString()}`;
 
@@ -125,7 +139,7 @@ function MortgageCalculator({ homePrice }: { homePrice: number }) {
           <div className="flex items-center gap-2">
             <input
               type="range" min={3} max={50} step={1} value={downPct}
-              onChange={e => setDownPct(Number(e.target.value))}
+              onChange={e => onDownPct(Number(e.target.value))}
               className="flex-1 accent-blue-600"
             />
             <span className="text-sm font-bold text-gray-800 w-10 text-right">{downPct}%</span>
@@ -135,11 +149,18 @@ function MortgageCalculator({ homePrice }: { homePrice: number }) {
 
         {/* Interest rate */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Interest Rate</label>
+          <label className="text-xs font-semibold text-gray-500 block mb-1.5">
+            Interest Rate
+            {rateAsOf && (
+              <span className="ml-2 font-normal text-gray-300 text-[10px]">
+                30yr avg as of {new Date(rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+            )}
+          </label>
           <div className="flex items-center gap-2">
             <input
               type="range" min={3} max={12} step={0.1} value={ratePct}
-              onChange={e => setRatePct(Number(e.target.value))}
+              onChange={e => onRatePct(Number(e.target.value))}
               className="flex-1 accent-blue-600"
             />
             <span className="text-sm font-bold text-gray-800 w-12 text-right">{ratePct.toFixed(1)}%</span>
@@ -153,7 +174,7 @@ function MortgageCalculator({ homePrice }: { homePrice: number }) {
             {[15, 20, 30].map(y => (
               <button
                 key={y}
-                onClick={() => setTermYears(y)}
+                onClick={() => onTermYears(y)}
                 className={`flex-1 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
                   termYears === y
                     ? "bg-blue-600 text-white border-blue-600"
@@ -209,7 +230,13 @@ interface BrandingOptions {
   logoDataUrl: string | null;
 }
 
-async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?: BrandingOptions): Promise<jsPDF> {
+interface MortgageSnapshot {
+  downPct: number;
+  ratePct: number;
+  termYears: number;
+}
+
+async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?: BrandingOptions, mortgage?: MortgageSnapshot): Promise<jsPDF> {
   const plan = branding?.plan ?? 'free';
   const isTeam = plan === 'team';
   const isPro  = plan === 'pro';
@@ -338,6 +365,13 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
     doc.setFontSize(7);
     doc.setTextColor(156, 163, 175);
     doc.text("Estimated cost", PW - ML, y + 4.5, { align: "right" });
+    {
+      const mDown = mortgage?.downPct ?? 20;
+      const mRate = mortgage?.ratePct ?? 6.5;
+      const mTerm = mortgage?.termYears ?? 30;
+      const mMonthly = calcMortgage({ homePrice: plan.estimatedCost, downPct: mDown, ratePct: mRate, termYears: mTerm });
+      doc.text(`≈ $${mMonthly.monthlyPayment.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}%`, PW - ML, y + 9, { align: "right" });
+    }
 
     if (formData) {
       y += 5;
@@ -350,7 +384,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       );
     }
 
-    y += 6;
+    y += 11;
 
     // ── Stats row ─────────────────────────────────────────────
     doc.setDrawColor(229, 231, 235);
@@ -567,6 +601,8 @@ export default function Results() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [mortgageInputs, setMortgageInputs] = useState<MortgageSnapshot>({ downPct: 20, ratePct: 6.5, termYears: 30 });
+  const [rateAsOf, setRateAsOf] = useState('');
 
   useEffect(() => {
     const stored = sessionStorage.getItem("floorPlans");
@@ -617,6 +653,15 @@ export default function Results() {
           .catch(() => {})
           .finally(() => setNeighborhoodLoading(false));
       }
+
+      // Fetch live 30yr fixed mortgage rate
+      fetch('/api/mortgage-rate')
+        .then(r => r.json())
+        .then((d: { rate: number; asOf: string }) => {
+          setMortgageInputs(prev => ({ ...prev, ratePct: d.rate }));
+          setRateAsOf(d.asOf);
+        })
+        .catch(() => {});
     } catch {
       router.push("/");
     }
@@ -625,10 +670,21 @@ export default function Results() {
   async function handleShare() {
     setShareLoading(true);
     try {
+      const storedLocation = sessionStorage.getItem("location");
+      const location = storedLocation ? JSON.parse(storedLocation) as { city: string; state: string } : null;
       const res = await fetch("/api/share/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plans }),
+        body: JSON.stringify({
+          plans,
+          location,
+          financials: {
+            rate: mortgageInputs.ratePct,
+            downPct: mortgageInputs.downPct,
+            termYears: mortgageInputs.termYears,
+            rateAsOf,
+          },
+        }),
       });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json() as { url: string };
@@ -667,7 +723,7 @@ export default function Results() {
       if (pdfLang === "zh") {
         await downloadZH(plans, "SplanAI-Floor-Plans-ZH.pdf");
       } else {
-        const doc = await buildPDF(plans, formData, branding);
+        const doc = await buildPDF(plans, formData, branding, mortgageInputs);
         const pdfName = branding.plan !== 'free' && branding.companyName
           ? `${branding.companyName.replace(/\s+/g, "-")}-Floor-Plans.pdf`
           : "SplanAI-Floor-Plans.pdf";
@@ -683,7 +739,7 @@ export default function Results() {
     if (pdfLang === "zh") {
       await downloadZH([plan], filename);
     } else {
-      const doc = await buildPDF([plan], formData, branding);
+      const doc = await buildPDF([plan], formData, branding, mortgageInputs);
       doc.save(filename);
     }
   }
@@ -927,7 +983,16 @@ export default function Results() {
 
                     {/* Mortgage calculator — stop propagation so card doesn't toggle */}
                     <div onClick={e => e.stopPropagation()}>
-                      <MortgageCalculator homePrice={plan.estimatedCost} />
+                      <MortgageCalculator
+                        homePrice={plan.estimatedCost}
+                        downPct={mortgageInputs.downPct}
+                        ratePct={mortgageInputs.ratePct}
+                        termYears={mortgageInputs.termYears}
+                        rateAsOf={rateAsOf}
+                        onDownPct={v => setMortgageInputs(p => ({ ...p, downPct: v }))}
+                        onRatePct={v => setMortgageInputs(p => ({ ...p, ratePct: v }))}
+                        onTermYears={v => setMortgageInputs(p => ({ ...p, termYears: v }))}
+                      />
                     </div>
                   </div>
                 )}

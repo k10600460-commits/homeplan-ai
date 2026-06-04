@@ -63,6 +63,23 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   };
 }
 
+// Strips the leading H1 from draft_content when it matches the article title,
+// preventing double-render (template H1 already appears above the article body).
+// Comparison ignores case, whitespace, and punctuation.
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function stripLeadingTitleH1(content: string, title: string): string {
+  const firstNewline = content.indexOf("\n");
+  const firstLine = firstNewline === -1 ? content : content.slice(0, firstNewline);
+  if (!firstLine.startsWith("# ")) return content;
+  const headingText = firstLine.slice(2).trim();
+  if (normalize(headingText) !== normalize(title)) return content;
+  const rest = firstNewline === -1 ? "" : content.slice(firstNewline + 1).replace(/^\n+/, "");
+  return rest;
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",
@@ -145,7 +162,7 @@ export default async function BlogArticlePage({ params }: Params) {
 
           <div className="blog-prose">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {article.draft_content ?? ""}
+              {stripLeadingTitleH1(article.draft_content ?? "", article.title)}
             </ReactMarkdown>
           </div>
         </article>
