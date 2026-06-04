@@ -1,5 +1,113 @@
 import { createClient } from '@supabase/supabase-js'
 import SharePortalClient from './SharePortalClient'
+import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
+
+// Toggle: 'live' = refresh area data per 24h TTL | 'snapshot' = use share-time fixed data only
+const PORTAL_AREA_MODE: 'live' | 'snapshot' = 'live'
+const AREA_TTL_MS = 24 * 60 * 60 * 1000
+
+interface PlaceRaw {
+  name: string
+  rating?: number
+  vicinity?: string
+  geometry?: { location: { lat: number; lng: number } }
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return parseFloat((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1))
+}
+
+async function fetchAreaData(city: string, state: string): Promise<{
+  neighborhood: Record<string, unknown>
+  market: Record<string, unknown>
+}> {
+  const GMAPS_UNAVAILABLE = { available: false, reason: 'Data unavailable at this time' }
+  const RENTCAST_LIMIT    = { available: false, reason: 'Market data limit reached' }
+  let neighborhood: Record<string, unknown> = GMAPS_UNAVAILABLE
+  let market: Record<string, unknown>       = RENTCAST_LIMIT
+
+  const mapsKey  = process.env.GOOGLE_MAPS_API_KEY
+  const mapsCheck = await checkExternalUsage('google_maps')
+  let lat: number | null = null, lng: number | null = null, zipCode: string | null = null
+
+  if (mapsCheck.allowed && mapsKey) {
+    try {
+      const geoRes  = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(`${city}, ${state}, USA`)}&key=${mapsKey}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const geoData = await geoRes.json() as any
+      await recordExternalUsage('google_maps')
+
+      if (geoData.status === 'OK' && geoData.results?.[0]) {
+        lat     = geoData.results[0].geometry.location.lat as number
+        lng     = geoData.results[0].geometry.location.lng as number
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        zipCode = geoData.results[0].address_components?.find((c: any) => c.types.includes('postal_code'))?.long_name ?? null
+
+        if (!zipCode) {
+          try {
+            const revRes  = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&result_type=postal_code&key=${mapsKey}`)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const revData = await revRes.json() as any
+            await recordExternalUsage('google_maps')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            zipCode = revData.results?.[0]?.address_components?.find((c: any) => c.types.includes('postal_code'))?.long_name ?? null
+          } catch { /* ignore */ }
+        }
+
+        const nearby = (type: string) =>
+          fetch(`https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&type=${type}&key=${mapsKey}`)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .then(r => r.json() as Promise<{ results?: PlaceRaw[] }>)
+        const [schools, hospitals, groceries, police, fire] = await Promise.all([
+          nearby('school'), nearby('hospital'), nearby('grocery_or_supermarket'), nearby('police'), nearby('fire_station'),
+        ])
+        await Promise.all(Array.from({ length: 5 }, () => recordExternalUsage('google_maps')))
+
+        const mapPlace = (p: PlaceRaw) => ({
+          name: p.name, rating: p.rating ?? null, vicinity: p.vicinity ?? null,
+          distanceKm: p.geometry ? haversineKm(lat!, lng!, p.geometry.location.lat, p.geometry.location.lng) : null,
+        })
+        const pCount = (police.results ?? []).length
+        const fCount = (fire.results ?? []).length
+        const score  = Math.min(10, 5 + Math.min(pCount, 3) + Math.min(fCount, 2))
+        neighborhood = {
+          available: true, nearingLimit: mapsCheck.nearingLimit, city, state,
+          schools:   (schools.results ?? []).slice(0, 3).map(mapPlace),
+          hospitals: (hospitals.results ?? []).slice(0, 3).map(mapPlace),
+          groceries: (groceries.results ?? []).slice(0, 3).map(mapPlace),
+          safety: { score, policeStations: pCount, fireStations: fCount, label: score >= 8 ? 'High' : score >= 5 ? 'Moderate' : 'Low' },
+        }
+      }
+    } catch { /* fall through to GMAPS_UNAVAILABLE */ }
+  }
+
+  const rentKey  = process.env.RENTCAST_API_KEY
+  const rentCheck = await checkExternalUsage('rentcast')
+  if (rentCheck.allowed && rentKey && zipCode) {
+    try {
+      const params  = new URLSearchParams({ city, state, zipCode, dataType: 'All', historyRange: '1' })
+      const rentRes = await fetch(`https://api.rentcast.io/v1/markets?${params}`, {
+        headers: { 'X-Api-Key': rentKey, Accept: 'application/json' },
+      })
+      await recordExternalUsage('rentcast')
+      if (rentRes.ok) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const d = await rentRes.json() as any
+        market = {
+          available: true, nearingLimit: rentCheck.nearingLimit, city, state,
+          averageRent: d.rentalData?.averageRent ?? null, medianRent: d.rentalData?.medianRent ?? null,
+          averageSalePrice: d.saleData?.averagePrice ?? null, medianSalePrice: d.saleData?.medianPrice ?? null,
+        }
+      }
+    } catch { /* fall through to RENTCAST_LIMIT */ }
+  }
+
+  return { neighborhood, market }
+}
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -25,7 +133,7 @@ export default async function SharePage({ params }: Props) {
 
   const { data: link } = await admin
     .from('shared_links')
-    .select('id, slug, plans, client_name, is_active, expires_at, view_count, user_id')
+    .select('id, slug, plans, client_name, is_active, expires_at, view_count, user_id, city, state, financials, neighborhood_snapshot, market_snapshot, area_refreshed_at')
     .eq('slug', slug)
     .single()
 
@@ -35,6 +143,33 @@ export default async function SharePage({ params }: Props) {
 
   if (link.expires_at && new Date(link.expires_at) < new Date()) {
     return <InvalidLinkPage expired />
+  }
+
+  // ── Area data (neighborhood + market) with 24h TTL cache per portal ──
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let neighborhood: Record<string, unknown> | null = (link.neighborhood_snapshot as any) ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let market: Record<string, unknown> | null       = (link.market_snapshot as any) ?? null
+  let areaAsOf: string | null = link.area_refreshed_at ?? null
+
+  if (PORTAL_AREA_MODE === 'live' && link.city && link.state) {
+    const lastRefresh = link.area_refreshed_at ? new Date(link.area_refreshed_at).getTime() : 0
+    const needsRefresh = (Date.now() - lastRefresh) > AREA_TTL_MS
+
+    if (needsRefresh) {
+      try {
+        const result = await fetchAreaData(link.city, link.state)
+        neighborhood = result.neighborhood
+        market       = result.market
+        areaAsOf     = new Date().toISOString()
+        // Persist updated snapshots (fire-and-forget is fine; failure falls back to old cache)
+        await admin.from('shared_links').update({
+          neighborhood_snapshot: neighborhood,
+          market_snapshot:       market,
+          area_refreshed_at:     areaAsOf,
+        }).eq('id', link.id)
+      } catch { /* Use cached data if refresh fails */ }
+    }
   }
 
   // Fetch builder's branding if they have a paid plan
@@ -47,6 +182,14 @@ export default async function SharePage({ params }: Props) {
       clientName={link.client_name ?? null}
       expiresAt={link.expires_at ?? null}
       branding={branding}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      financials={(link.financials as any) ?? null}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      neighborhood={neighborhood as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      market={market as any}
+      areaAsOf={areaAsOf}
     />
   )
 }

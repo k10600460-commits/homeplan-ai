@@ -13,29 +13,43 @@ function calcMonthly(homePrice: number, downPct: number, ratePct: number, termYe
   return Math.round((principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1));
 }
 
+interface FinancialsSnapshot {
+  rate: number;
+  downPct: number;
+  termYears: number;
+  rateAsOf: string;
+}
+
 function MortgageWidget({
   homePrice,
   mortgageEst,
   mortgageDisclaimer,
   downPctLabel,
   interestRateLabel,
+  initialFinancials,
 }: {
   homePrice: number;
   mortgageEst: string;
   mortgageDisclaimer: string;
   downPctLabel: string;
   interestRateLabel: string;
+  initialFinancials: FinancialsSnapshot | null;
 }) {
-  const [downPct, setDownPct] = useState(20);
-  const [ratePct, setRatePct] = useState(7.0);
-  const monthly = calcMonthly(homePrice, downPct, ratePct, 30);
+  const [downPct, setDownPct] = useState(initialFinancials?.downPct ?? 20);
+  const [ratePct, setRatePct] = useState(initialFinancials?.rate ?? 6.5);
+  const monthly = calcMonthly(homePrice, downPct, ratePct, initialFinancials?.termYears ?? 30);
   return (
     <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
       <div className="flex items-start justify-between gap-4 mb-3">
         <div>
           <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">{mortgageEst}</p>
           <p className="text-xl font-extrabold text-blue-700">≈ ${monthly.toLocaleString()}<span className="text-sm font-normal text-blue-400">/mo</span></p>
-          <p className="text-xs text-blue-400 mt-0.5">{downPct}% down · 30yr · {ratePct.toFixed(2)}%</p>
+          <p className="text-xs text-blue-400 mt-0.5">
+            {downPct}% down · {initialFinancials?.termYears ?? 30}yr · {ratePct.toFixed(2)}%
+            {initialFinancials?.rateAsOf && (
+              <span className="text-blue-300"> · as of {new Date(initialFinancials.rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            )}
+          </p>
         </div>
         <span className="text-2xl">🏦</span>
       </div>
@@ -453,7 +467,7 @@ const LANG_META: Record<Lang, { flag: string; label: string }> = {
   zh: { flag: "🇨🇳", label: "中文" },
 };
 
-async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding): Promise<jsPDF> {
+async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding, financials?: FinancialsSnapshot | null): Promise<jsPDF> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const PW = 210, PH = 297, ML = 20, CW = PW - ML * 2;
   const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
@@ -520,11 +534,16 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
     doc.setTextColor(cr, cg, cb);
     const costHigh = Math.round(plan.estimatedCost * 1.1);
     doc.text(`$${plan.estimatedCost.toLocaleString()}–$${costHigh.toLocaleString()}`, PW - ML, y, { align: "right" });
-    const pdfMonthly = calcMonthly(plan.estimatedCost, 20, 7.0, 30);
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(156, 163, 175);
-    doc.text(`≈ $${pdfMonthly.toLocaleString()}/mo · 20% dn · 30yr · 7% — illustrative only`, PW - ML, y + 4.5, { align: "right" });
+    {
+      const mDown = financials?.downPct ?? 20;
+      const mRate = financials?.rate ?? 6.5;
+      const mTerm = financials?.termYears ?? 30;
+      const pdfMonthly = calcMonthly(plan.estimatedCost, mDown, mRate, mTerm);
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(156, 163, 175);
+      doc.text(`≈ $${pdfMonthly.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}% — illustrative only`, PW - ML, y + 4.5, { align: "right" });
+    }
 
     y += 13;
     doc.setDrawColor(229, 231, 235);
@@ -686,12 +705,54 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
   return doc;
 }
 
+interface PlaceInfo {
+  name: string;
+  rating?: number | null;
+  vicinity?: string | null;
+  distanceKm?: number | null;
+}
+
+interface SafetyInfo {
+  score: number;
+  policeStations: number;
+  fireStations: number;
+  label: 'High' | 'Moderate' | 'Low';
+}
+
+interface NeighborhoodData {
+  available: boolean;
+  nearingLimit?: boolean;
+  reason?: string;
+  city?: string;
+  state?: string;
+  schools?: PlaceInfo[];
+  hospitals?: PlaceInfo[];
+  groceries?: PlaceInfo[];
+  safety?: SafetyInfo;
+}
+
+interface MarketData {
+  available: boolean;
+  nearingLimit?: boolean;
+  reason?: string;
+  city?: string;
+  state?: string;
+  averageRent?: number | null;
+  medianRent?: number | null;
+  averageSalePrice?: number | null;
+  medianSalePrice?: number | null;
+}
+
 interface Props {
   slug: string;
   plans: FloorPlan[];
   clientName: string | null;
   expiresAt: string | null;
   branding: PortalBranding;
+  financials: FinancialsSnapshot | null;
+  neighborhood: NeighborhoodData | null;
+  market: MarketData | null;
+  areaAsOf: string | null;
 }
 
 interface InquiryForm {
@@ -701,7 +762,7 @@ interface InquiryForm {
   message: string;
 }
 
-export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding }: Props) {
+export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding, financials, neighborhood, market, areaAsOf }: Props) {
   const isTeam = branding.plan === "team";
   const isPro  = branding.plan === "pro";
   const isBranded = isTeam || isPro;
@@ -800,7 +861,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
       if (lang === "zh") {
         await downloadZH(plans, "SplanAI-Floor-Plans-ZH.pdf");
       } else {
-        const doc = await buildPDF(plans, lang, branding);
+        const doc = await buildPDF(plans, lang, branding, financials);
         const pdfName = isTeam && companyLabel
           ? `${companyLabel.replace(/\s+/g, "-")}-Floor-Plans.pdf`
           : "SplanAI-Floor-Plans.pdf";
@@ -822,7 +883,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
     if (lang === "zh") {
       await downloadZH([plan], filename);
     } else {
-      const doc = await buildPDF([plan], lang, branding);
+      const doc = await buildPDF([plan], lang, branding, financials);
       doc.save(filename);
     }
     fetch("/api/share/event", {
@@ -995,6 +1056,178 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
           <p className="mt-1 text-sm text-gray-400">{t.subtitle}</p>
         </div>
 
+        {/* ── Area & Finance data (above plan cards) ────────────── */}
+        {(neighborhood || market || financials) && (
+          <div className="mb-10 space-y-6">
+            {/* Location header */}
+            {(neighborhood?.city || market?.city) && (
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-base">📍</span>
+                <p className="text-blue-600 font-semibold">
+                  {neighborhood?.city || market?.city}, {neighborhood?.state || market?.state}
+                </p>
+                {areaAsOf && (
+                  <span className="text-xs text-gray-400">
+                    · data as of {new Date(areaAsOf).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Safety score */}
+              {neighborhood?.available && neighborhood.safety && (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+                    <span>🛡️</span> Safety Score
+                  </h3>
+                  <div className="flex items-center gap-4">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-extrabold text-white shrink-0 ${
+                      neighborhood.safety.label === 'High' ? 'bg-emerald-500' :
+                      neighborhood.safety.label === 'Moderate' ? 'bg-yellow-500' : 'bg-red-400'
+                    }`}>
+                      {neighborhood.safety.score}
+                    </div>
+                    <div>
+                      <p className={`text-base font-bold ${
+                        neighborhood.safety.label === 'High' ? 'text-emerald-600' :
+                        neighborhood.safety.label === 'Moderate' ? 'text-yellow-600' : 'text-red-500'
+                      }`}>{neighborhood.safety.label}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {neighborhood.safety.policeStations} police · {neighborhood.safety.fireStations} fire station{neighborhood.safety.fireStations !== 1 ? 's' : ''} within 5 km
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Market data */}
+              {market?.available && (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+                    <span>📊</span> Local Market
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {market.averageRent != null && (
+                      <div className="bg-blue-50 rounded-xl p-3">
+                        <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Avg Rent</p>
+                        <p className="text-base font-bold text-gray-900 mt-1">${market.averageRent.toLocaleString()}<span className="text-xs font-normal text-gray-500">/mo</span></p>
+                      </div>
+                    )}
+                    {market.medianRent != null && (
+                      <div className="bg-emerald-50 rounded-xl p-3">
+                        <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Median Rent</p>
+                        <p className="text-base font-bold text-gray-900 mt-1">${market.medianRent.toLocaleString()}<span className="text-xs font-normal text-gray-500">/mo</span></p>
+                      </div>
+                    )}
+                    {market.averageSalePrice != null && (
+                      <div className="bg-violet-50 rounded-xl p-3">
+                        <p className="text-xs text-violet-600 font-semibold uppercase tracking-wider">Avg Sale</p>
+                        <p className="text-base font-bold text-gray-900 mt-1">${(market.averageSalePrice / 1000).toFixed(0)}K</p>
+                      </div>
+                    )}
+                    {market.medianSalePrice != null && (
+                      <div className="bg-orange-50 rounded-xl p-3">
+                        <p className="text-xs text-orange-600 font-semibold uppercase tracking-wider">Median Sale</p>
+                        <p className="text-base font-bold text-gray-900 mt-1">${(market.medianSalePrice / 1000).toFixed(0)}K</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Schools */}
+              {neighborhood?.available && neighborhood.schools && neighborhood.schools.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+                    <span>🏫</span> Nearby Schools
+                  </h3>
+                  <ul className="space-y-2">
+                    {neighborhood.schools.map((s, idx) => (
+                      <li key={idx} className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
+                          <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                            {s.distanceKm != null && <span className="font-medium text-blue-600">{s.distanceKm} km</span>}
+                            {s.vicinity && <span className="truncate">{s.vicinity}</span>}
+                          </p>
+                        </div>
+                        {s.rating != null && (
+                          <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-100">★ {s.rating}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Hospitals */}
+              {neighborhood?.available && neighborhood.hospitals && neighborhood.hospitals.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+                    <span>🏥</span> Nearby Hospitals
+                  </h3>
+                  <ul className="space-y-2">
+                    {neighborhood.hospitals.map((h, idx) => (
+                      <li key={idx}>
+                        <p className="text-sm font-medium text-gray-800">{h.name}</p>
+                        <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                          {h.distanceKm != null && <span className="font-medium text-blue-600">{h.distanceKm} km</span>}
+                          {h.vicinity && <span>{h.vicinity}</span>}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Grocery */}
+              {neighborhood?.available && neighborhood.groceries && neighborhood.groceries.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+                    <span>🛒</span> Nearby Grocery
+                  </h3>
+                  <ul className="space-y-2">
+                    {neighborhood.groceries.map((g, idx) => (
+                      <li key={idx}>
+                        <p className="text-sm font-medium text-gray-800">{g.name}</p>
+                        <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                          {g.distanceKm != null && <span className="font-medium text-blue-600">{g.distanceKm} km</span>}
+                          {g.vicinity && <span>{g.vicinity}</span>}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Unavailable notices */}
+              {neighborhood && !neighborhood.available && (
+                <div className="bg-gray-50 rounded-2xl border border-gray-200 p-5 flex items-center gap-3 text-gray-400">
+                  <span>📍</span>
+                  <p className="text-sm">Neighborhood data unavailable</p>
+                </div>
+              )}
+            </div>
+
+            {/* Finance snapshot banner */}
+            {financials && (
+              <div className="bg-blue-50 rounded-2xl border border-blue-100 px-5 py-4 flex flex-wrap items-center gap-3 text-sm">
+                <span className="text-lg">🏦</span>
+                <span className="font-semibold text-blue-800">Financing snapshot at time of sharing:</span>
+                <span className="text-blue-700">
+                  {financials.downPct}% down · {financials.termYears}yr · {financials.rate.toFixed(1)}% rate
+                </span>
+                {financials.rateAsOf && (
+                  <span className="text-blue-400 text-xs">
+                    (30yr avg as of {new Date(financials.rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Plan cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {plans.map((plan, i) => {
@@ -1104,6 +1337,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                       mortgageDisclaimer={t.mortgageDisclaimer}
                       downPctLabel={t.downPct}
                       interestRateLabel={t.interestRate}
+                      initialFinancials={financials}
                     />
 
                     <button
