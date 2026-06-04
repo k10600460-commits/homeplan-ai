@@ -21,6 +21,18 @@ interface GoogleNearbyResponse {
   status: string
 }
 
+interface NewPlaceResult {
+  displayName: { text: string }
+  rating?: number
+  formattedAddress?: string
+  location: { latitude: number; longitude: number }
+}
+
+// grocery_or_supermarket changed name in Places API (New)
+const LEGACY_TO_NEW_TYPE: Record<string, string> = {
+  grocery_or_supermarket: 'supermarket',
+}
+
 export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371
   const dLat = (lat2 - lat1) * Math.PI / 180
@@ -80,15 +92,45 @@ export async function getNearbyPlaces(
   const key = process.env.GOOGLE_MAPS_API_KEY
   if (!key) return []
 
+  // Try Places API (New) — POST endpoint
+  try {
+    const newType = LEGACY_TO_NEW_TYPE[type] ?? type
+    const newRes = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': key,
+        'X-Goog-FieldMask': 'places.displayName,places.rating,places.formattedAddress,places.location',
+      },
+      body: JSON.stringify({
+        includedTypes: [newType],
+        maxResultCount: 3,
+        locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius } },
+      }),
+      cache: 'no-store',
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newData = await newRes.json() as { places?: NewPlaceResult[]; error?: { status: string } }
+    if (newRes.ok) {
+      return (newData.places ?? []).map(p => ({
+        name: p.displayName.text,
+        rating: p.rating,
+        vicinity: p.formattedAddress,
+        geometry: { location: { lat: p.location.latitude, lng: p.location.longitude } },
+      }))
+    }
+    console.warn(`[neighborhood] nearbysearch (new) type=${type} → ${newData.error?.status ?? newRes.status} @ (${lat},${lng})`)
+  } catch { /* fall through to legacy */ }
+
+  // Fall back to legacy Places API
   const params = new URLSearchParams({ location: `${lat},${lng}`, radius: String(radius), type, key })
   const res = await fetch(
     `https://maps.googleapis.com/maps/api/place/nearbysearch/json?${params}`,
     { cache: 'no-store' },
   )
   const data = await res.json() as GoogleNearbyResponse
-
   if (data.status !== 'OK') {
-    console.warn(`[neighborhood] nearbysearch type=${type} → ${data.status} @ (${lat},${lng})`)
+    console.warn(`[neighborhood] nearbysearch (legacy) type=${type} → ${data.status} @ (${lat},${lng})`)
     return []
   }
   return data.results.slice(0, 3)
