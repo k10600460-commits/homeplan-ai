@@ -25,8 +25,8 @@ returns 3 floor-plan proposals as PDFs in ~30 seconds.
 - Next.js (App Router): layout.tsx, page.tsx, sitemap.ts, robots.ts.
 - Claude API — floor-plan generation.
 - Google Maps API (Places API New + Geocoding API) — neighborhood data.
-  Note: **"Places API (New)"** must be enabled in GCP Console. Legacy "Places API" is optional
-  (fallback path exists in `src/lib/neighborhood.ts` but is not required).
+  Note: **"Places API (New)"** must be enabled in GCP Console. Legacy "Places API" is not used
+  (fallback was removed in PR#15; only Places API New POST endpoint is active).
 - FRED API (St. Louis Fed) — 30yr fixed mortgage rate (`MORTGAGE30US`, weekly). Key: `FRED_API_KEY`
   (Production + Preview, Sensitive). Falls back to 6.5% if unset.
 - RentCast API — market data.
