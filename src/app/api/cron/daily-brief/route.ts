@@ -216,7 +216,7 @@ export async function GET(req: NextRequest) {
   // ── 2. Collect DB stats for the KPI block ───────────────────────────────
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [subsResult, financeResult, portalViewsResult, newSignupsResult, newPortalLeadsResult, outreachSentResult, outreachRepliedResult] = await Promise.all([
+  const [subsResult, financeResult, portalViewsResult, newSignupsResult, newPortalLeadsResult, outreachSentResult, outreachRepliedResult, newGenerationsResult] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("plan, status", { count: "exact" })
@@ -249,6 +249,10 @@ export async function GET(req: NextRequest) {
       .select("id", { count: "exact" })
       .not("replied_at", "is", null)
       .gte("replied_at", since24h),
+    supabase
+      .from("plan_generations")
+      .select("id", { count: "exact" })
+      .gte("created_at", since24h),
   ]);
 
   const todaySnap = financeResult.data?.[0];
@@ -264,6 +268,7 @@ export async function GET(req: NextRequest) {
   const newPortalLeads = newPortalLeadsResult.count ?? 0;
   const outreachSent = outreachSentResult.count ?? 0;
   const outreachReplied = outreachRepliedResult.count ?? 0;
+  const newGenerations = newGenerationsResult.count ?? 0;
 
   const uniquePortalIds = new Set(
     (portalViewsResult.data ?? []).map((e: { link_id: string }) => e.link_id),
@@ -435,6 +440,7 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     topPortals,
     newSignups,
     newPortalLeads,
+    newGenerations,
     outreachSent,
     outreachReplied,
     threads,
@@ -466,6 +472,7 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     x_posts_created: claudeResult.xPosts.length,
     new_signups: newSignups,
     new_portal_leads: newPortalLeads,
+    new_generations: newGenerations,
     outreach_sent: outreachSent,
     outreach_replied: outreachReplied,
     sent_at: sendError ? null : new Date().toISOString(),
@@ -506,6 +513,7 @@ interface DigestParams {
   topPortals: Array<{ client_name: string | null; slug: string }>;
   newSignups: number;
   newPortalLeads: number;
+  newGenerations: number;
   outreachSent: number;
   outreachReplied: number;
   threads: EmailThread[];
@@ -528,6 +536,7 @@ function buildDigestHtml(p: DigestParams): string {
     ["Trialing", String(p.trialing)],
     ["Churned Today", String(p.churnedToday)],
     ["Portal Views (24h)", `${p.portalViewCount} views · ${p.uniquePortalCount} portal${p.uniquePortalCount !== 1 ? "s" : ""}`],
+    ["Plans Generated (24h)", String(p.newGenerations)],
     ["New Signups (24h)", String(p.newSignups)],
     ["Portal Leads (24h)", String(p.newPortalLeads)],
     ["Outreach Sent (24h)", String(p.outreachSent)],
