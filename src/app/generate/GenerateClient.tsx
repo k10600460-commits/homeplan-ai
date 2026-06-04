@@ -9,6 +9,7 @@ interface MlsLotData {
   listingId: string;
   address?: string;
   lotSizeArea?: number;
+  zoning?: string;
   city?: string;
   state?: string;
   mlsProvider?: string;
@@ -88,7 +89,10 @@ export default function GenerateClient() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          ...(mlsLotData?.zoning ? { mlsZoning: mlsLotData.zoning } : {}),
+        }),
       });
       const data = await res.json();
       if (res.status === 401) { router.push("/login"); return; }

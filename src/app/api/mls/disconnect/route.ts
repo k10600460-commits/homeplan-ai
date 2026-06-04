@@ -29,13 +29,11 @@ export async function POST(req: NextRequest) {
 
     // Audit log
     supabase.from("mls_audit_logs").insert({
-      user_id:        user.id,
-      provider:       "trestle",
-      endpoint:       "/api/mls/disconnect",
-      action_type:    "disconnect",
-      response_status: 200,
-      ip_hash:        hashIp(getClientIp(req)),
-    }).then(() => {}, console.error);
+      user_id:  user.id,
+      action:   "disconnect",
+      metadata: { provider: "trestle" },
+      ip_hash:  hashIp(getClientIp(req)),
+    }).then(() => {}, (e) => console.error("[MLS audit]", e));
 
     return NextResponse.json({ success: true });
   } catch (err) {

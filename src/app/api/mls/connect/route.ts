@@ -100,13 +100,11 @@ export async function POST(req: NextRequest) {
 
     // Audit log (non-blocking)
     supabase.from("mls_audit_logs").insert({
-      user_id:        user.id,
-      provider:       "trestle",
-      endpoint:       TRESTLE_TOKEN_URL,
-      action_type:    "connect",
-      response_status: 200,
-      ip_hash:        hashIp(getClientIp(req)),
-    }).then(() => {}, console.error);
+      user_id:  user.id,
+      action:   "connect",
+      metadata: { provider: "trestle", endpoint: TRESTLE_TOKEN_URL },
+      ip_hash:  hashIp(getClientIp(req)),
+    }).then(() => {}, (e) => console.error("[MLS audit]", e));
 
     return NextResponse.json({ success: true, expiresAt });
   } catch (err) {
