@@ -32,7 +32,7 @@ const T = {
       cityLabel: "City", cityPlaceholder: "e.g. Austin",
       stateLabel: "State", statePlaceholder: "e.g. TX",
       streetLabel: "Street Address", streetPlaceholder: "e.g. 1234 Oak Lane, Austin, TX",
-      streetHint: "Optional — adds lot size & zoning data (coming soon)",
+      streetHint: "Optional — adds neighborhood data (lot size & zoning: connect MLS on Pro)",
       locationNote: "Optional — adds neighborhood & market data",
       cta: "Generate 3 Plans →", generating: "Generating Plans…",
       signupNote: "✨ Quick signup to receive your plans · No credit card required",
@@ -87,7 +87,7 @@ const T = {
       heading: "Simple, transparent pricing",
       sub: "Start free. Upgrade when you're ready.",
       free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 floor plan generations / month", "SplanAI branded PDF export", "Neighborhood & market data", "Client sharing portal + view tracking", "All room types", "Email support"], cta: "Get started free" },
-      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 floor plan generations / month", "Branded PDF with your logo (Powered by SplanAI footer included)", "MLS lot data via Trestle (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
+      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 floor plan generations / month", "Branded PDF with your logo (Powered by SplanAI footer included)", "MLS listing data — real lot size & zoning in every plan (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
       team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Everything in Pro, plus:", "Unlimited floor plan generations*", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF — your logo only, zero SplanAI branding", "Dedicated support"], cta: "Start 14-day free trial" },
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
@@ -138,7 +138,7 @@ const T = {
       cityLabel: "Ciudad", cityPlaceholder: "ej. Austin",
       stateLabel: "Estado", statePlaceholder: "ej. TX",
       streetLabel: "Dirección", streetPlaceholder: "ej. 1234 Oak Lane, Austin, TX",
-      streetHint: "Opcional — agrega tamaño del lote y zonificación (próximamente)",
+      streetHint: "Opcional — agrega datos del vecindario (tamaño del lote y zonificación: conecta MLS en Pro)",
       locationNote: "Opcional — agrega datos del vecindario y mercado",
       cta: "Generar 3 Planos →", generating: "Generando Planos…",
       signupNote: "✨ Registro rápido para recibir tus planos · Sin tarjeta de crédito",
@@ -193,7 +193,7 @@ const T = {
       heading: "Precios simples y transparentes",
       sub: "Empieza gratis. Actualiza cuando estés listo.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Datos de vecindario y mercado", "Portal para clientes + seguimiento de vistas", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
-      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 generaciones de planos / mes", "PDF con tu logo (pie Powered by SplanAI incluido)", "MLS via Trestle (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
+      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 generaciones de planos / mes", "PDF con tu logo (pie Powered by SplanAI incluido)", "Datos MLS — tamaño del lote y zonificación reales en cada plano (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
       team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Todo lo de Pro, más:", "Generaciones ilimitadas de planos*", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca — solo tu logo, sin branding de SplanAI", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
@@ -340,7 +340,7 @@ function HeroPreview({ scrollY = 0 }: { scrollY?: number }) {
             </div>
           </div>
           <div className="mb-3 rounded-lg bg-slate-800 p-2.5 flex items-center justify-between">
-            <span className="text-xs text-slate-400">Mortgage (20% down, 30yr, 7%)</span>
+            <span className="text-xs text-slate-400">Mortgage (20% down, 30yr, ~6.5%)</span>
             <span className="text-sm font-extrabold text-white">$1,876<span className="text-slate-400 text-xs font-normal">/mo</span></span>
           </div>
           {/* 3 AI-generated plans — shown after neighborhood context is established */}
@@ -811,7 +811,7 @@ export default function Home() {
                 <div className="rounded-xl p-3 flex items-center justify-between border border-slate-200 bg-white mb-4">
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <span>🏦</span> Mortgage est. <span className="font-semibold text-slate-800">$1,876/mo</span>
-                    <span className="text-xs text-slate-400">(20% down · 30yr · 7%)</span>
+                    <span className="text-xs text-slate-400">(20% down · 30yr · ~6.5%)</span>
                   </div>
                   <span className="text-xs px-2 py-1 rounded-full text-emerald-700 font-semibold" style={{ background: "#ECFDF5", border: "1px solid #A7F3D0" }}>Live</span>
                 </div>
@@ -1109,7 +1109,7 @@ export default function Home() {
                   <p className="font-bold text-slate-800 text-sm">MLS-enriched plans</p>
                 </div>
                 <div className="p-5">
-                  <p className="text-sm text-slate-600">Connect your MLS license via Trestle to auto-fill real lot size, zoning, and listing details into every proposal.</p>
+                  <p className="text-sm text-slate-600">Connect your own MLS license via Trestle to auto-fill real lot size &amp; zoning into every concept plan. NAR/IDX-compliant — every data call is audit-logged. Requires your own MLS license.</p>
                 </div>
               </div>
             </div>
