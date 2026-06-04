@@ -1,25 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import SharePortalClient from './SharePortalClient'
 import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
+import { geocodeCity, getNearbyPlaces, haversineKm, computeSafetyScore, PlaceResult } from '@/lib/neighborhood'
 
 // Toggle: 'live' = refresh area data per 24h TTL | 'snapshot' = use share-time fixed data only
 const PORTAL_AREA_MODE: 'live' | 'snapshot' = 'live'
 const AREA_TTL_MS = 24 * 60 * 60 * 1000
-
-interface PlaceRaw {
-  name: string
-  rating?: number
-  vicinity?: string
-  geometry?: { location: { lat: number; lng: number } }
-}
-
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lng2 - lng1) * Math.PI / 180
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
-  return parseFloat((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1))
-}
 
 async function fetchAreaData(city: string, state: string): Promise<{
   neighborhood: Record<string, unknown>
@@ -30,56 +16,43 @@ async function fetchAreaData(city: string, state: string): Promise<{
   let neighborhood: Record<string, unknown> = GMAPS_UNAVAILABLE
   let market: Record<string, unknown>       = RENTCAST_LIMIT
 
-  const mapsKey  = process.env.GOOGLE_MAPS_API_KEY
   const mapsCheck = await checkExternalUsage('google_maps')
-  let lat: number | null = null, lng: number | null = null, zipCode: string | null = null
+  let zipCode: string | null = null
 
-  if (mapsCheck.allowed && mapsKey) {
+  if (mapsCheck.allowed && process.env.GOOGLE_MAPS_API_KEY) {
     try {
-      const geoRes  = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(`${city}, ${state}, USA`)}&key=${mapsKey}`)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const geoData = await geoRes.json() as any
+      const coords = await geocodeCity(city, state)
       await recordExternalUsage('google_maps')
+      if (coords?.usedReverseGeocode) await recordExternalUsage('google_maps')
 
-      if (geoData.status === 'OK' && geoData.results?.[0]) {
-        lat     = geoData.results[0].geometry.location.lat as number
-        lng     = geoData.results[0].geometry.location.lng as number
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        zipCode = geoData.results[0].address_components?.find((c: any) => c.types.includes('postal_code'))?.long_name ?? null
-
-        if (!zipCode) {
-          try {
-            const revRes  = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&result_type=postal_code&key=${mapsKey}`)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const revData = await revRes.json() as any
-            await recordExternalUsage('google_maps')
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            zipCode = revData.results?.[0]?.address_components?.find((c: any) => c.types.includes('postal_code'))?.long_name ?? null
-          } catch { /* ignore */ }
-        }
-
-        const nearby = (type: string) =>
-          fetch(`https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&type=${type}&key=${mapsKey}`)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .then(r => r.json() as Promise<{ results?: PlaceRaw[] }>)
-        const [schools, hospitals, groceries, police, fire] = await Promise.all([
-          nearby('school'), nearby('hospital'), nearby('grocery_or_supermarket'), nearby('police'), nearby('fire_station'),
+      if (coords) {
+        zipCode = coords.zipCode
+        const { lat, lng } = coords
+        const [schools, hospitals, groceries, policeStations, fireStations] = await Promise.all([
+          getNearbyPlaces(lat, lng, 'school'),
+          getNearbyPlaces(lat, lng, 'hospital'),
+          getNearbyPlaces(lat, lng, 'grocery_or_supermarket'),
+          getNearbyPlaces(lat, lng, 'police'),
+          getNearbyPlaces(lat, lng, 'fire_station'),
         ])
         await Promise.all(Array.from({ length: 5 }, () => recordExternalUsage('google_maps')))
 
-        const mapPlace = (p: PlaceRaw) => ({
+        const mapPlace = (p: PlaceResult) => ({
           name: p.name, rating: p.rating ?? null, vicinity: p.vicinity ?? null,
-          distanceKm: p.geometry ? haversineKm(lat!, lng!, p.geometry.location.lat, p.geometry.location.lng) : null,
+          distanceKm: p.geometry ? haversineKm(lat, lng, p.geometry.location.lat, p.geometry.location.lng) : null,
         })
-        const pCount = (police.results ?? []).length
-        const fCount = (fire.results ?? []).length
-        const score  = Math.min(10, 5 + Math.min(pCount, 3) + Math.min(fCount, 2))
+        const safetyScore = computeSafetyScore(policeStations.length, fireStations.length)
         neighborhood = {
           available: true, nearingLimit: mapsCheck.nearingLimit, city, state,
-          schools:   (schools.results ?? []).slice(0, 3).map(mapPlace),
-          hospitals: (hospitals.results ?? []).slice(0, 3).map(mapPlace),
-          groceries: (groceries.results ?? []).slice(0, 3).map(mapPlace),
-          safety: { score, policeStations: pCount, fireStations: fCount, label: score >= 8 ? 'High' : score >= 5 ? 'Moderate' : 'Low' },
+          schools:   schools.map(mapPlace),
+          hospitals: hospitals.map(mapPlace),
+          groceries: groceries.map(mapPlace),
+          safety: {
+            score: safetyScore,
+            policeStations: policeStations.length,
+            fireStations:   fireStations.length,
+            label: safetyScore >= 8 ? 'High' : safetyScore >= 5 ? 'Moderate' : 'Low',
+          },
         }
       }
     } catch { /* fall through to GMAPS_UNAVAILABLE */ }
