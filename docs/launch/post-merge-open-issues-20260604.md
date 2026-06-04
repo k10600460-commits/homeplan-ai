@@ -8,6 +8,7 @@
 
 | ID | 課題 | commit |
 |----|------|--------|
+| OI-R25 | legacy `nearbysearch/json` フォールバック削除（DEAD コード除去） | PR#15 `4b7f998` |
 | OI-R24 | 住宅ローン金利 7.0% ハードコード → FRED MORTGAGE30US ライブ取得 | `4add9fb` |
 | OI-R23 | 共有ポータルに近隣・市場データが未表示 → Phase2 実装・DB マイグレーション | `c334fb0` |
 | OI-R22 | 近隣データが全ゼロ件（`REQUEST_DENIED` を空配列に変換していたバグ） | `8585f77` |
@@ -39,17 +40,9 @@ public/concept-styles/default.jpg
 
 ---
 
-### OI-019 GCP 旧 "Places API" の有効化 or legacy フォールバック削除【🟢 任意】
+### ~~OI-019 GCP 旧 "Places API" の有効化 or legacy フォールバック削除~~ **【Resolved 2026-06-04 — PR#15 `4b7f998`】**
 
-**概要**: `GOOGLE_MAPS_API_KEY` には "Places API (New)" のみ有効。`src/lib/neighborhood.ts` の legacy `nearbysearch/json` フォールバック（約10行）は現状 DEAD コード（呼ばれると `REQUEST_DENIED` になる）。
-
-**対応（2択）**:
-- (a) Google Cloud Console → API とサービス → ライブラリ で "Places API"（legacy）を有効化 → 真のフォールバックとして機能する。コード変更不要。
-- (b) `src/lib/neighborhood.ts` の legacy フォールバックブロック（`// Fall back to legacy Places API` 以降）を削除 → コードが簡潔になる。
-
-**推奨**: どちらでも動作に影響なし。(b) のほうが将来の混乱を防げる。
-
-**参照**: `docs/launch/portal-neighborhood-zero-investigation-20260604.md`, `src/lib/neighborhood.ts:125-137`
+option (b) を採用。`GoogleNearbyResponse` インターフェースと legacy `nearbysearch/json` フォールバックブロックを削除（-18行+3行）。`npm run build` ✅。
 
 ---
 
