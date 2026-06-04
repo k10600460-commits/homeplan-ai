@@ -92,7 +92,13 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.json();
     const { lotSize, budget, familySize } = validateGenerateInput(rawBody);
 
+    // Optional MLS zoning — sanitize to plain alphanumeric/spaces/dashes, max 100 chars
+    const rawZoning = typeof rawBody.mlsZoning === "string" ? rawBody.mlsZoning : "";
+    const mlsZoning = rawZoning.replace(/[^a-zA-Z0-9 \-\/]/g, "").slice(0, 100).trim();
+
     const bedroomCount = Math.max(2, Math.ceil(familySize * 0.7));
+
+    const zoningLine = mlsZoning ? `- Zoning: ${mlsZoning} (from MLS — ensure plans comply with this designation)\n` : "";
 
     // ── Claude generation ─────────────────────────────────────
     const genStart = Date.now();
@@ -113,7 +119,7 @@ export async function POST(req: NextRequest) {
 - Lot size: ${lotSize.toLocaleString()} sq ft
 - Total budget: $${budget.toLocaleString()}
 - Family size: ${familySize} person(s) — suggest approximately ${bedroomCount} bedrooms
-
+${zoningLine}
 Ensure all 3 plans are different architectural styles and each fits within the $${budget.toLocaleString()} budget.`,
         },
       ],

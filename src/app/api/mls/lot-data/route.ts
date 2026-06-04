@@ -62,12 +62,10 @@ async function refreshToken(
 
   // Audit refresh
   supabase.from("mls_audit_logs").insert({
-    user_id:        userId,
-    provider:       "trestle",
-    endpoint:       TRESTLE_TOKEN_URL,
-    action_type:    "token_refresh",
-    response_status: 200,
-  }).then(() => {}, console.error);
+    user_id:  userId,
+    action:   "token_refresh",
+    metadata: { provider: "trestle" },
+  }).then(() => {}, (e) => console.error("[MLS audit]", e));
 
   return data.access_token;
 }
@@ -150,14 +148,12 @@ export async function GET(req: NextRequest) {
 
     // Audit log (always, regardless of outcome)
     supabase.from("mls_audit_logs").insert({
-      user_id:        user.id,
-      provider:       "trestle",
-      endpoint:       `${TRESTLE_API_BASE}/Property`,
-      mls_listing_id: listingId,
-      action_type:    "lot_data",
-      response_status: trestleRes.status,
-      ip_hash:        hashIp(getClientIp(req)),
-    }).then(() => {}, console.error);
+      user_id:  user.id,
+      action:   "lot_data",
+      mls_id:   listingId,
+      metadata: { provider: "trestle", response_status: trestleRes.status },
+      ip_hash:  hashIp(getClientIp(req)),
+    }).then(() => {}, (e) => console.error("[MLS audit]", e));
 
     if (!trestleRes.ok) {
       return NextResponse.json(
