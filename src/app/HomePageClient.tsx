@@ -340,7 +340,7 @@ function HeroPreview({ scrollY = 0 }: { scrollY?: number }) {
             </div>
           </div>
           <div className="mb-3 rounded-lg bg-slate-800 p-2.5 flex items-center justify-between">
-            <span className="text-xs text-slate-400">Mortgage (20% down, 30yr, ~6.8%)</span>
+            <span className="text-xs text-slate-400">Mortgage (20% down, 30yr, ~6.5%)</span>
             <span className="text-sm font-extrabold text-white">$1,876<span className="text-slate-400 text-xs font-normal">/mo</span></span>
           </div>
           {/* 3 AI-generated plans — shown after neighborhood context is established */}
@@ -811,7 +811,7 @@ export default function Home() {
                 <div className="rounded-xl p-3 flex items-center justify-between border border-slate-200 bg-white mb-4">
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <span>🏦</span> Mortgage est. <span className="font-semibold text-slate-800">$1,876/mo</span>
-                    <span className="text-xs text-slate-400">(20% down · 30yr · ~6.8%)</span>
+                    <span className="text-xs text-slate-400">(20% down · 30yr · ~6.5%)</span>
                   </div>
                   <span className="text-xs px-2 py-1 rounded-full text-emerald-700 font-semibold" style={{ background: "#ECFDF5", border: "1px solid #A7F3D0" }}>Live</span>
                 </div>
