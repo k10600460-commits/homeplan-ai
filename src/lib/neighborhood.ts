@@ -16,11 +16,6 @@ interface GoogleGeocodeResponse {
   status: string
 }
 
-interface GoogleNearbyResponse {
-  results: PlaceResult[]
-  status: string
-}
-
 interface NewPlaceResult {
   displayName: { text: string }
   rating?: number
@@ -120,20 +115,10 @@ export async function getNearbyPlaces(
       }))
     }
     console.warn(`[neighborhood] nearbysearch (new) type=${type} → ${newData.error?.status ?? newRes.status} @ (${lat},${lng})`)
-  } catch { /* fall through to legacy */ }
-
-  // Fall back to legacy Places API
-  const params = new URLSearchParams({ location: `${lat},${lng}`, radius: String(radius), type, key })
-  const res = await fetch(
-    `https://maps.googleapis.com/maps/api/place/nearbysearch/json?${params}`,
-    { cache: 'no-store' },
-  )
-  const data = await res.json() as GoogleNearbyResponse
-  if (data.status !== 'OK') {
-    console.warn(`[neighborhood] nearbysearch (legacy) type=${type} → ${data.status} @ (${lat},${lng})`)
-    return []
+  } catch (err) {
+    console.warn(`[neighborhood] nearbysearch (new) type=${type} fetch error @ (${lat},${lng}):`, err)
   }
-  return data.results.slice(0, 3)
+  return []
 }
 
 // Baseline = 5 (Moderate). Google Places doesn't reliably index every police/fire station,
