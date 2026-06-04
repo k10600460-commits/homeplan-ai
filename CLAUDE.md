@@ -25,6 +25,10 @@ returns 3 floor-plan proposals as PDFs in ~30 seconds.
 - Next.js (App Router): layout.tsx, page.tsx, sitemap.ts, robots.ts.
 - Claude API — floor-plan generation.
 - Google Maps API (Places API New + Geocoding API) — neighborhood data.
+  Note: **"Places API (New)"** must be enabled in GCP Console. Legacy "Places API" is optional
+  (fallback path exists in `src/lib/neighborhood.ts` but is not required).
+- FRED API (St. Louis Fed) — 30yr fixed mortgage rate (`MORTGAGE30US`, weekly). Key: `FRED_API_KEY`
+  (Production + Preview, Sensitive). Falls back to 6.5% if unset.
 - RentCast API — market data.
 - Trestle — MLS data; depends on the user's own MLS license (Pro/Team only).
 - Supabase — Realtime on `link_events`; `api_usage_external` tracks external API usage.
@@ -95,6 +99,7 @@ src/
     api/
       generate/route.ts          ← Claude API: 3 floor-plan proposals
       generate-pdf/route.ts      ← server-side PDF rendering
+      mortgage-rate/route.ts     ← FRED 30yr fixed rate (via src/lib/mortgage-rate.ts)
       neighborhood/route.ts      ← Google Maps neighborhood data
       checkout/route.ts          ← checkout for Pro + Team (LP / login / dashboard)
       stripe/
@@ -147,6 +152,9 @@ src/
     external-apis.ts             ← Google Maps, RentCast, Trestle wrappers
     usage.ts                     ← Free/Pro/Team generation limit logic
     crypto.ts                    ← share-link slug generation
+    mortgage-rate.ts             ← FRED MORTGAGE30US live rate (24h cache); fallback 6.5%
+    neighborhood.ts              ← geocodeCity / getNearbyPlaces (Places API New) / haversineKm
+    concept-style-image.ts       ← style name → public/concept-styles/*.jpg mapping
     zh-pdf-html.ts               ← PDF HTML template (jspdf path)
     supabase/
       client.ts                  ← browser Supabase client
