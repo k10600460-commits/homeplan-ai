@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const plans = body?.plans
   const generationId = body?.generationId ?? null
+  const location = body?.location ?? null   // { city, state } | null
+  const financials = body?.financials ?? null  // { rate, downPct, termYears, rateAsOf } | null
 
   if (!Array.isArray(plans) || plans.length === 0) {
     return NextResponse.json({ error: 'plans array required' }, { status: 400 })
@@ -55,7 +57,15 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await admin
     .from('shared_links')
-    .insert({ user_id: user.id, generation_id: generationId, slug, plans })
+    .insert({
+      user_id: user.id,
+      generation_id: generationId,
+      slug,
+      plans,
+      city: location?.city ?? null,
+      state: location?.state ?? null,
+      financials: financials ?? null,
+    })
     .select('id, slug')
     .single()
 
