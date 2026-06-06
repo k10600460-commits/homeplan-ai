@@ -83,33 +83,32 @@ spike-output/
 
 ---
 
-## Phase 2 実測結果（Phase 2 完了後に記入）
+## Phase 2 実測結果（2026-06-06 CC試写スパイク）
 
-### OpenAI gpt-image-1-mini (low quality)
+スクリプト: `scripts/spike-phase2.ts` / ブランチ: `spike/ai-image-generation-20260604`
 
-| スタイル | ok | cost_usd | latency_ms | 品質メモ |
-|---------|-----|---------|-----------|---------|
-| Craftsman | — | — | — | — |
-| Modern Farmhouse | — | — | — | — |
-| Contemporary Modern | — | — | — | — |
-| Traditional Colonial | — | — | — | — |
-| Transitional | — | — | — | — |
-| Hill Country Traditional | — | — | — | — |
-| Prairie Modern | — | — | — | — |
-| **合計/平均** | — | — | — | — |
+### Stage 1 — gpt-image-1-mini / low / 1536×1024（当たり付け、6スタイル）
 
-### Replicate Flux.1 Schnell
+| スタイル | ok | cost_usd (est) | latency_ms | 品質メモ |
+|---------|-----|---------------|-----------|---------|
+| Modern Farmhouse | ✅ | $0.030 | 13,190 | 完璧。白ボード&バッテン・黒屋根・ポーチ |
+| Craftsman | ✅ | $0.030 | 11,919 | 傑出。木目サイディング・石台基・深い庇 |
+| Transitional | ✅ | $0.030 | 13,089 | 良好。石+グレー、対称エントリー |
+| Ranch | ✅ | $0.030 | 13,379 | 可。単層・石煉瓦・ガレージ。やや平坦 |
+| Contemporary Modern | ✅ | $0.030 | 13,943 | 鮮明。フラット屋根・大開口・木材パネル |
+| Colonial | ✅ | $0.030 | 15,663 | 可。赤レンガ・ドーマー・対称構成 |
+| **合計/平均** | **6/6** | **$0.180** | **13,530** | |
 
-| スタイル | ok | cost_usd | latency_ms | 品質メモ |
-|---------|-----|---------|-----------|---------|
-| Craftsman | — | — | — | — |
-| Modern Farmhouse | — | — | — | — |
-| Contemporary Modern | — | — | — | — |
-| Traditional Colonial | — | — | — | — |
-| Transitional | — | — | — | — |
-| Hill Country Traditional | — | — | — | — |
-| Prairie Modern | — | — | — | — |
-| **合計/平均** | — | — | — | — |
+### Stage 2 — gpt-image-2 / medium / 1536×1024（本番3スタイル品質判定）
+
+| スタイル | ok | cost_usd (est) | latency_ms | 品質メモ |
+|---------|-----|---------------|-----------|---------|
+| Modern Farmhouse | ✅ | $0.100 | 66,947 | **A+** Zillow リスティング写真レベル |
+| Craftsman | ✅ | $0.100 | 47,671 | **A+** 石台基・木材ドア・庇の影まで写実的 |
+| Transitional | ✅ | $0.100 | 46,370 | **A** 石+グレーサイディング・整った郊外住宅 |
+| **合計/平均** | **3/3** | **$0.300** | **53,663** | |
+
+**スパイク総コスト: $0.48（予算 $5 に対して余裕あり）**
 
 ---
 
@@ -152,11 +151,12 @@ No people, no cars in foreground, no text, no watermarks.
 
 ---
 
-## 推奨アーキテクチャ（Phase 2 実測後に確定）
+## 推奨アーキテクチャ（確定: 2026-06-06）
 
-### 採用モデル候補
-- **第一候補**: Replicate Flux.1 Schnell — $0.003/枚・高速・商用OK・Vercel serverless から呼びやすい
-- **第二候補**: gpt-image-1-mini (low) — $0.005/枚・安定品質・OpenAI SDK が既存スタック (Anthropic) と並べやすい
+### 採用モデル（確定）
+- **採用**: `gpt-image-2` / medium — 品質テスト合格・OpenAI API（既存スタックと統一）
+- ~~第一候補: Replicate Flux.1 Schnell~~ — 品質未検証、今回スパイクでは実施せず
+- ~~第二候補: gpt-image-1-mini (low)~~ — Stage 1 で品質確認済だが gpt-image-2 が圧勝
 
 ### 同期 vs 非同期
 - **推奨: 非同期（テキスト先行・画像後追い）**
@@ -181,15 +181,27 @@ No people, no cars in foreground, no text, no watermarks.
 
 ---
 
-## go/no-go 判定（Phase 2 実測後に記入）
+## go/no-go 判定（2026-06-06 確定）
 
-### Path A（雰囲気画像）go/no-go
-- [ ] コスト：Replicate $0.009/案 → Free プランでも許容か？
-- [ ] レイテンシ：非同期設計で UX 影響なし？
-- [ ] 品質：6スタイル全て破綻なし？テキスト混入なし？
-- [ ] 商用ライセンス：OK（Apache 2.0 / OpenAI ToS）
+### ✅ GO — gpt-image-2 / medium を本番採用
 
-**判定:** _Phase 2 実測後に記入_
+| 判定基準 | 結果 |
+|---------|------|
+| 写実・買い手向け提案レベル | ✅ Zillow/Realtor.com リスティング写真と区別不能 |
+| 建築的破綻なし（歪み・溶け・非現実構造） | ✅ 壁直線・パース正常・欠陥なし |
+| 様式制御できる（追従する） | ✅ Farmhouse/Craftsman/Transitional が明確に別物 |
+| 3案がひと揃いに見える | ✅ 同昼間・郊外・同品質感で統一感あり |
+| バナークロップ耐性（2.87:1 = 1536×535px） | ✅ 中央クロップで家が完全に収まる。空と芝が適切な余白 |
+| 商用ライセンス | ✅ OpenAI API ToS で商用利用可 |
+
+**採用スペック:**
+- **モデル**: `gpt-image-2`
+- **クオリティ**: `medium`
+- **サイズ**: `1536x1024`
+- **プロンプト**: `scripts/spike-phase2.ts` の `buildPrompt()` 参照
+- **コスト**: ~$0.10/枚 × 3枚 = **$0.30/セッション**（テキスト生成 $0.03 の約10倍）
+- **レイテンシ**: 平均 ~54s/枚 → **非同期設計が必須**
+  - テキスト生成を先にユーザーに表示 → 画像はバックグラウンドで生成 → `imageUrl` 完了後に差し替え
 
 ### Path B（間取り忠実な画像）必要か？
 - 「契約前の買い手に見せる外観ヒーロー画像」の用途なら雰囲気画像（Path A）で十分
@@ -202,8 +214,9 @@ No people, no cars in foreground, no text, no watermarks.
 
 | ファイル | 内容 |
 |---------|------|
-| `scripts/spike-image-gen.ts` | スパイク実行スクリプト（Phase 2 で実行） |
-| `spike-output/summary.json` | Phase 2 の実測結果 JSON（ローカルのみ） |
-| `spike-output/*.jpg` | Phase 2 の生成サンプル画像（ローカルのみ） |
+| `scripts/spike-image-gen.ts` | Phase 1 スパイクスクリプト（比較調査・ドキュメント用） |
+| `scripts/spike-phase2.ts` | Phase 2 CC試写スクリプト（2段階・go/no-go 判定用） |
+| `/tmp/spike-out/summary.json` | Phase 2 実測結果 JSON（ローカルのみ・コミットしない） |
+| `/tmp/spike-out/*.png` | Phase 2 生成サンプル画像 6+3+1枚（ローカルのみ） |
 | `src/lib/concept-style-image.ts` | imageUrl 優先ロジック |
 | `src/app/s/[slug]/SharePortalClient.tsx:303` | ConceptImage コンポーネント |
