@@ -3,6 +3,8 @@ import SharePortalClient from './SharePortalClient'
 import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
 import { geocodeCity, getNearbyPlaces, haversineKm, computeSafetyScore, PlaceResult } from '@/lib/neighborhood'
 
+export const dynamic = 'force-dynamic'
+
 // Toggle: 'live' = refresh area data per 24h TTL | 'snapshot' = use share-time fixed data only
 const PORTAL_AREA_MODE: 'live' | 'snapshot' = 'live'
 const AREA_TTL_MS = 24 * 60 * 60 * 1000
@@ -104,12 +106,24 @@ export default async function SharePage({ params }: Props) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
-  const { data: link } = await admin
-    .from('shared_links')
-    .select('id, slug, plans, client_name, is_active, expires_at, view_count, user_id, city, state, financials, neighborhood_snapshot, market_snapshot, area_refreshed_at, builder_name, builder_logo_url, plans_updated_at')
-    .eq('slug', slug)
-    .single()
+  const SELECT = 'id, slug, plans, client_name, is_active, expires_at, view_count, user_id, city, state, financials, neighborhood_snapshot, market_snapshot, area_refreshed_at, builder_name, builder_logo_url, plans_updated_at'
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let link: any = null
+  let linkErr: { message?: string } | null = null
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await admin.from('shared_links').select(SELECT).eq('slug', slug).maybeSingle()
+    link = res.data
+    linkErr = res.error ?? null
+    if (!linkErr) break
+    if (attempt === 0) await new Promise(r => setTimeout(r, 150))
+  }
+
+  // Transient/infra error — do NOT show "inactive"; surface retryable error boundary instead.
+  if (linkErr) {
+    throw new Error(`Portal fetch failed for "${slug}": ${linkErr.message ?? 'unknown error'}`)
+  }
+  // Genuinely missing slug or deactivated link.
   if (!link || !link.is_active) {
     return <InvalidLinkPage />
   }
