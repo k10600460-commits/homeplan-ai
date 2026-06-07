@@ -786,11 +786,11 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
           {/* Generate card */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
-              Floor Plan Generator
+              Proposal Generator
             </h2>
 
             <p className="text-sm text-gray-600 mb-6 flex-1">
-              Enter your lot details and get 3 AI-generated floor plan proposals in seconds. Export as branded PDF.
+              Enter your lot details and get 3 AI-generated home concept proposals in seconds. Export as branded PDF.
             </p>
 
             <a
@@ -1210,7 +1210,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                   <h2 className="text-sm font-bold text-gray-800">Upgrade to Pro</h2>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-600 text-white font-semibold">Most popular</span>
                 </div>
-                <p className="text-xs text-gray-500">100 floor plans/month · Branded PDF · MLS access · $49/mo</p>
+                <p className="text-xs text-gray-500">100 proposals/month · Branded PDF · MLS access · $49/mo</p>
               </div>
               <button
                 onClick={handleSubscribe}
@@ -1449,7 +1449,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
               {nurtureDrafts.map(draft => {
                 const triggerLabel: Record<string, string> = {
                   rate_drop:     "📉 Rate Drop",
-                  new_concept:   "🏠 New Floor Plan",
+                  new_concept:   "🏠 New Home Concept",
                   re_engagement: "👋 Check-in",
                 };
                 const clientLabel = draft.recipient_name
