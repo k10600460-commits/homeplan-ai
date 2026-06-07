@@ -3,7 +3,7 @@
  * Run with: npx tsx src/lib/concept-style-image.test.ts
  * (Add vitest/jest when a test runner is configured.)
  */
-import { styleToImageKey, conceptImageSrc } from "./concept-style-image";
+import { styleToImageKey, conceptImageSrc, styleImageUrl } from "./concept-style-image";
 import assert from "node:assert/strict";
 
 const cases: Array<[string, string]> = [
@@ -40,9 +40,10 @@ for (const [input, expected] of cases) {
 
 // conceptImageSrc: imageUrl override takes priority
 assert.equal(conceptImageSrc("modern farmhouse", "https://example.com/custom.jpg"), "https://example.com/custom.jpg");
-assert.equal(conceptImageSrc("modern farmhouse", null), "/concept-styles/farmhouse.jpg");
-assert.equal(conceptImageSrc("modern farmhouse"), "/concept-styles/farmhouse.jpg");
-assert.equal(conceptImageSrc("coastal"), "/concept-styles/default.jpg");
+// When no imageUrl, returns the Storage URL for the matched style key
+assert.equal(conceptImageSrc("modern farmhouse", null), styleImageUrl("modern farmhouse"));
+assert.equal(conceptImageSrc("modern farmhouse"), styleImageUrl("modern farmhouse"));
+assert.equal(conceptImageSrc("coastal"), styleImageUrl("coastal"));
 passed += 4;
 
 console.log(`✓ ${passed} assertions passed`);
