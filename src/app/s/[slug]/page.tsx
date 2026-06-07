@@ -173,6 +173,21 @@ export default async function SharePage({ params }: Props) {
     }
   }
 
+  // Fetch builder's prequal CTA settings from profiles
+  let prequalUrl: string | null = null
+  let prequalLabel: string | null = null
+  if (link.user_id) {
+    try {
+      const { data: prof } = await admin
+        .from('profiles')
+        .select('prequal_url, prequal_label')
+        .eq('id', link.user_id)
+        .single()
+      prequalUrl   = (prof?.prequal_url   as string | null)?.trim() || null
+      prequalLabel = (prof?.prequal_label as string | null)?.trim() || null
+    } catch { /* non-fatal */ }
+  }
+
   // Fetch builder's branding if they have a paid plan
   let branding = await fetchBranding(admin, link.user_id)
 
@@ -209,6 +224,8 @@ export default async function SharePage({ params }: Props) {
       savedConfigs={savedConfigs as any}
       previousVisitedAt={previousVisitedAt}
       plansUpdatedAt={(link.plans_updated_at as string | null) ?? null}
+      prequalUrl={prequalUrl}
+      prequalLabel={prequalLabel}
     />
   )
 }

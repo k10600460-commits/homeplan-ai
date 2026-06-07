@@ -12,6 +12,7 @@ export interface IntentSignal {
   views: number
   plan_selects: number
   pdf_downloads: number
+  prequal_clicks: number
   selected_concepts: string[]
   first_seen: string | null
   last_seen: string | null
@@ -27,10 +28,11 @@ interface BuyerEnrichment {
 }
 
 function classifyHeat(
-  s: Pick<IntentSignal, 'plan_selects' | 'pdf_downloads' | 'events_7d'>,
+  s: Pick<IntentSignal, 'plan_selects' | 'pdf_downloads' | 'prequal_clicks' | 'events_7d'>,
   buyer?: BuyerEnrichment,
 ): IntentSignal['heat'] {
   if (
+    s.prequal_clicks >= 1 ||
     s.plan_selects >= 1 || s.pdf_downloads >= 1 || s.events_7d >= 3 ||
     (buyer?.favorites.length ?? 0) >= 1
   ) return 'HOT'
@@ -39,10 +41,11 @@ function classifyHeat(
 }
 
 function computeNextAction(
-  s: Pick<IntentSignal, 'plan_selects' | 'pdf_downloads' | 'views' | 'events_7d' | 'selected_concepts'>,
+  s: Pick<IntentSignal, 'plan_selects' | 'pdf_downloads' | 'prequal_clicks' | 'views' | 'events_7d' | 'selected_concepts'>,
   buyer?: BuyerEnrichment,
   plans?: Array<{ id?: unknown; name?: string }> | null,
 ): string {
+  if (s.prequal_clicks >= 1) return 'Buyer started pre-qualification — call now.'
   if (s.plan_selects >= 1) {
     const c = s.selected_concepts.filter(Boolean).join(', ') || 'a concept'
     return `Buyer selected ${c}. Call today.`
@@ -107,7 +110,7 @@ export async function GET() {
   const linkMap = new Map<string, any>(links.map(l => [l.id as string, l]))
 
   type Agg = {
-    views: number; plan_selects: number; pdf_downloads: number
+    views: number; plan_selects: number; pdf_downloads: number; prequal_clicks: number
     selected_concepts: Set<string>; first_seen: string | null; last_seen: string | null
     events_7d: number
   }
@@ -116,7 +119,7 @@ export async function GET() {
   for (const e of events ?? []) {
     const lid = e.link_id as string
     if (!agg.has(lid)) {
-      agg.set(lid, { views: 0, plan_selects: 0, pdf_downloads: 0, selected_concepts: new Set(), first_seen: null, last_seen: null, events_7d: 0 })
+      agg.set(lid, { views: 0, plan_selects: 0, pdf_downloads: 0, prequal_clicks: 0, selected_concepts: new Set(), first_seen: null, last_seen: null, events_7d: 0 })
     }
     const a = agg.get(lid)!
     const etype = e.event_type as string
@@ -134,6 +137,7 @@ export async function GET() {
       }
     }
     if (etype === 'pdf_download') a.pdf_downloads++
+    if (etype === 'prequal_click') a.prequal_clicks++
     if (!a.first_seen || ts < a.first_seen) a.first_seen = ts
     if (!a.last_seen || ts > a.last_seen) a.last_seen = ts
     if (ts >= cutoff7d) a.events_7d++
@@ -144,7 +148,7 @@ export async function GET() {
     if (agg.has(link_id)) continue // already covered by events loop
     if (buyer.favorites.length === 0 && Object.keys(buyer.savedConfigs).length === 0) continue
     agg.set(link_id, {
-      views: 0, plan_selects: 0, pdf_downloads: 0,
+      views: 0, plan_selects: 0, pdf_downloads: 0, prequal_clicks: 0,
       selected_concepts: new Set(), first_seen: null,
       last_seen: buyer.lastVisitedAt, events_7d: 0,
     })
@@ -170,6 +174,7 @@ export async function GET() {
       views: a.views,
       plan_selects: a.plan_selects,
       pdf_downloads: a.pdf_downloads,
+      prequal_clicks: a.prequal_clicks,
       selected_concepts,
       first_seen: a.first_seen,
       last_seen: effectiveLastSeen,
