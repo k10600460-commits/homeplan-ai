@@ -173,6 +173,14 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [savingContact, setSavingContact] = useState(false);
   const isPro = subscription?.isActive ?? false;
 
+  // List expansion + Client Activity filter state
+  const [showAllLinks, setShowAllLinks] = useState(false);
+  const [showAllLeads, setShowAllLeads] = useState(false);
+  const [showAllFollowups, setShowAllFollowups] = useState(false);
+  const [linkSearch, setLinkSearch] = useState("");
+  const [linkSort, setLinkSort] = useState<"recent" | "views">("recent");
+  const [linkActiveOnly, setLinkActiveOnly] = useState(false);
+
   const supabase = createClient();
   // Ref so the Realtime callback always sees the latest links (avoids stale closure)
   const sharedLinksRef = useRef<SharedLink[]>([]);
@@ -613,6 +621,32 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
 
   const statusInfo = STATUS_LABELS[subscription?.status ?? "inactive"] ?? STATUS_LABELS.inactive;
 
+  // KPI values — computed from already-fetched data (no extra API calls)
+  const kpiActiveProposals = sharedLinks.filter(l => l.is_active).length;
+  const kpiTotalViews = sharedLinks.reduce((s, l) => s + l.view_count, 0);
+  const kpiHotLeads = intentSignals.filter(s => s.heat === "HOT").length;
+  const kpiFollowups = nurtureDrafts.length;
+
+  const filteredLinks = sharedLinks
+    .filter(l => {
+      if (linkActiveOnly && !l.is_active) return false;
+      if (linkSearch) {
+        const q = linkSearch.toLowerCase();
+        return l.slug.toLowerCase().includes(q) || (l.client_name?.toLowerCase() ?? "").includes(q);
+      }
+      return true;
+    })
+    .sort((a, b) =>
+      linkSort === "views"
+        ? b.view_count - a.view_count
+        : new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+
+  const visibleLinks = showAllLinks ? filteredLinks : filteredLinks.slice(0, 5);
+  const activeLeads = intentSignals.filter(s => s.heat !== "COLD");
+  const visibleLeads = showAllLeads ? activeLeads : activeLeads.slice(0, 5);
+  const visibleFollowups = showAllFollowups ? nurtureDrafts : nurtureDrafts.slice(0, 5);
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -754,28 +788,386 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-6 py-12">
-        <h1 className="text-3xl font-extrabold text-gray-900 mb-8">Dashboard</h1>
+      <div className="max-w-5xl mx-auto px-6 py-8">
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Subscription card */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
-              Subscription
-            </h2>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-extrabold text-gray-900">Dashboard</h1>
+          <a
+            href="/generate"
+            className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+          >
+            New proposal →
+          </a>
+        </div>
 
-            <div className="flex items-center gap-3 mb-4">
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${statusInfo.color}`}>
-                {statusInfo.label}
-              </span>
-              {subscription?.isActive && (
-                <span className="text-sm text-gray-500">
-                  {subscription.plan === "team" ? "$149/month" : "$49/month"}
-                </span>
+        {/* KPI Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {([
+            { label: "Active Portals",  value: kpiActiveProposals, sub: "shared proposals",   accent: false },
+            { label: "Total Views",     value: kpiTotalViews,      sub: "all time",            accent: false },
+            { label: "Hot Leads",       value: kpiHotLeads,        sub: "need action",         accent: kpiHotLeads > 0 },
+            { label: "Follow-ups",      value: kpiFollowups,       sub: "drafts pending",      accent: kpiFollowups > 0 },
+          ] as { label: string; value: number; sub: string; accent: boolean }[]).map(k => (
+            <div key={k.label} className={`bg-white rounded-2xl border shadow-sm px-4 py-3 ${k.accent ? "border-red-200 bg-red-50" : "border-gray-200"}`}>
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">{k.label}</p>
+              <p className={`text-2xl font-extrabold leading-none ${k.accent ? "text-red-600" : "text-gray-900"}`}>{k.value}</p>
+              <p className="text-[11px] text-gray-400 mt-1">{k.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Needs Attention */}
+        {(nurtureDrafts.length > 0 || kpiHotLeads > 0) && (
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Follow-ups top5 */}
+            <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-4">
+              <h2 className="text-[11px] font-bold uppercase tracking-widest text-amber-600 mb-3">
+                Follow-ups to send
+              </h2>
+              {nurtureLoading ? (
+                <div className="space-y-2">
+                  {[0,1].map(i => <div key={i} className="h-10 rounded-lg bg-gray-100 animate-pulse" />)}
+                </div>
+              ) : nurtureDrafts.length === 0 ? (
+                <p className="text-sm text-gray-400 py-2">No pending follow-ups.</p>
+              ) : (
+                <div className="space-y-2">
+                  {nurtureDrafts.slice(0, 5).map(draft => {
+                    const clientLabel = draft.recipient_name || draft.shared_links?.client_name || draft.recipient_email || "Buyer";
+                    const triggerIcon: Record<string, string> = { rate_drop: "📉", new_concept: "🏠", re_engagement: "👋" };
+                    const isSending   = nurtureSendingId   === draft.id;
+                    const isDismissing = nurtureDismissingId === draft.id;
+                    return (
+                      <div key={draft.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-100">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            <span className="mr-1">{triggerIcon[draft.trigger_type] ?? "📧"}</span>{clientLabel}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">{draft.subject}</p>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <button
+                            onClick={() => handleNurtureSend(draft.id)}
+                            disabled={isSending || isDismissing || !draft.recipient_email}
+                            className="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {isSending ? "…" : "Send"}
+                          </button>
+                          <button
+                            onClick={() => handleNurtureDismiss(draft.id)}
+                            disabled={isSending || isDismissing}
+                            className="px-2 py-1 rounded-lg border border-gray-200 text-gray-400 text-xs hover:bg-gray-100 disabled:opacity-50"
+                          >
+                            {isDismissing ? "…" : "✕"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {nurtureDrafts.length > 5 && (
+                    <p className="text-xs text-gray-400 text-center">+{nurtureDrafts.length - 5} more below ↓</p>
+                  )}
+                </div>
               )}
             </div>
 
-            {/* Cancel-at-period-end banner */}
+            {/* Hot leads top5 */}
+            <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-4">
+              <h2 className="text-[11px] font-bold uppercase tracking-widest text-red-600 mb-3">
+                Hot leads
+              </h2>
+              {intentLoading ? (
+                <div className="space-y-2">
+                  {[0,1].map(i => <div key={i} className="h-10 rounded-lg bg-gray-100 animate-pulse" />)}
+                </div>
+              ) : kpiHotLeads === 0 ? (
+                <p className="text-sm text-gray-400 py-2">No hot leads yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {intentSignals.filter(s => s.heat === "HOT").slice(0, 5).map(s => (
+                    <div key={s.link_id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-100">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                          <p className="text-sm font-semibold text-gray-900 truncate">{s.label}</p>
+                        </div>
+                        <p className="text-xs text-blue-700 font-medium truncate">{s.next_action}</p>
+                      </div>
+                      <a href={`/s/${s.slug}`} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-blue-500 hover:text-blue-700 shrink-0 font-medium">View →</a>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Client Activity table */}
+        <div className="mb-6 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mr-auto">
+              Client Activity
+            </h2>
+            <div className="relative">
+              <input
+                type="text"
+                value={linkSearch}
+                onChange={e => { setLinkSearch(e.target.value); setShowAllLinks(false); }}
+                placeholder="Search…"
+                className="pl-7 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 focus:outline-none focus:border-blue-400 w-32"
+              />
+              <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <select
+              value={linkSort}
+              onChange={e => setLinkSort(e.target.value as "recent" | "views")}
+              className="text-xs rounded-lg border border-gray-200 px-2 py-1.5 focus:outline-none focus:border-blue-400 text-gray-600 bg-white"
+            >
+              <option value="recent">Recent</option>
+              <option value="views">Most views</option>
+            </select>
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={linkActiveOnly}
+                onChange={e => { setLinkActiveOnly(e.target.checked); setShowAllLinks(false); }}
+                className="accent-blue-600"
+              />
+              Active only
+            </label>
+          </div>
+
+          {newViewAlert && (
+            <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs animate-pulse">
+              <svg className="w-3.5 h-3.5 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+              </svg>
+              Link viewed — <span className="font-mono font-medium">/s/{newViewAlert}</span>
+            </div>
+          )}
+
+          {filteredLinks.length === 0 ? (
+            <div className="px-6 py-8 text-center">
+              {sharedLinks.length === 0 ? (
+                <>
+                  <p className="text-sm text-gray-400 mb-3">No shared portals yet.</p>
+                  <a href="/generate" className="inline-block px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
+                    Generate your first proposal →
+                  </a>
+                </>
+              ) : (
+                <p className="text-sm text-gray-400">No results match your filter.</p>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                {visibleLinks.map(link => (
+                  <div key={link.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono text-gray-700">/s/{link.slug}</span>
+                        {link.client_name && <span className="text-xs text-gray-400 truncate">· {link.client_name}</span>}
+                        {!link.is_active && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 font-semibold">inactive</span>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-xs text-gray-500">{link.view_count} view{link.view_count !== 1 ? "s" : ""}</span>
+                        <span className="text-xs text-gray-400">
+                          {link.view_count > 0 ? timeAgo(link.updated_at) : `created ${timeAgo(link.created_at)}`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => openAddConcept(link.slug)}
+                        className="px-2.5 py-1.5 rounded-lg border border-indigo-200 text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition-colors">
+                        + Concept
+                      </button>
+                      <button onClick={() => handleCopyLink(link.slug)}
+                        className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
+                        {copiedSlug === link.slug ? "✓ Copied" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {filteredLinks.length > 5 && (
+                <div className="px-4 py-2.5 border-t border-gray-100 text-center">
+                  <button
+                    onClick={() => setShowAllLinks(v => !v)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+                  >
+                    {showAllLinks ? "Show less ↑" : `View all ${filteredLinks.length} portals ↓`}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Buyer Activity */}
+        <div className="mb-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Buyer Activity</h2>
+            {!intentLoading && intentSignals.length > 0 && (
+              <span className="text-xs text-gray-400">
+                {kpiHotLeads} hot · {intentSignals.filter(s => s.heat === "WARM").length} warm
+              </span>
+            )}
+          </div>
+          {intentLoading ? (
+            <div className="space-y-2">
+              {[0,1,2].map(i => <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />)}
+            </div>
+          ) : activeLeads.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">No buyer activity yet. Share proposals to start tracking.</p>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {visibleLeads.map(s => {
+                  const heatCfg = {
+                    HOT:  { bg: "bg-red-50",   border: "border-red-200",   badge: "bg-red-100 text-red-700",     dot: "bg-red-500"   },
+                    WARM: { bg: "bg-amber-50", border: "border-amber-200", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-400" },
+                    COLD: { bg: "bg-gray-50",  border: "border-gray-100",  badge: "bg-gray-100 text-gray-500",   dot: "bg-gray-300"  },
+                  }[s.heat];
+                  return (
+                    <div key={s.link_id} className={`px-4 py-3 rounded-xl border ${heatCfg.bg} ${heatCfg.border}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold ${heatCfg.badge}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${heatCfg.dot}`} />
+                              {s.heat}
+                            </span>
+                            <span className="text-sm font-semibold text-gray-900 truncate">{s.label}</span>
+                            {(s.city || s.state) && (
+                              <span className="text-xs text-gray-400 shrink-0">{[s.city, s.state].filter(Boolean).join(", ")}</span>
+                            )}
+                          </div>
+                          <p className="text-xs font-medium text-blue-700">{s.next_action}</p>
+                          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                            {s.views > 0 && <span className="text-xs text-gray-500">{s.views} view{s.views !== 1 ? "s" : ""}</span>}
+                            {s.prequal_clicks > 0 && <span className="text-xs text-emerald-700 font-bold">⚡ Pre-qual</span>}
+                            {s.plan_selects > 0 && <span className="text-xs text-emerald-600 font-semibold">✓ {s.plan_selects} selected</span>}
+                            {s.pdf_downloads > 0 && <span className="text-xs text-purple-600 font-semibold">↓ PDF</span>}
+                            <span className="text-xs text-gray-400 ml-auto shrink-0">{s.last_seen ? timeAgo(s.last_seen) : ""}</span>
+                          </div>
+                        </div>
+                        <a href={`/s/${s.slug}`} target="_blank" rel="noopener noreferrer"
+                          className="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium pt-0.5">View →</a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {activeLeads.length > 5 && (
+                <button onClick={() => setShowAllLeads(v => !v)}
+                  className="mt-3 w-full text-xs text-blue-600 hover:text-blue-800 font-semibold py-1.5 transition-colors">
+                  {showAllLeads ? "Show less ↑" : `View all ${activeLeads.length} active leads ↓`}
+                </button>
+              )}
+              {intentSignals.filter(s => s.heat === "COLD").length > 0 && (
+                <p className="text-xs text-gray-400 text-center mt-2">
+                  + {intentSignals.filter(s => s.heat === "COLD").length} cold (no recent activity)
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Follow-ups full panel */}
+        <div className="mb-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Follow-ups</h2>
+            {!nurtureLoading && nurtureDrafts.length > 0 && (
+              <span className="text-xs text-gray-400">{nurtureDrafts.length} draft{nurtureDrafts.length !== 1 ? "s" : ""} pending</span>
+            )}
+          </div>
+          {nurtureLoading ? (
+            <div className="space-y-2">
+              {[0,1].map(i => <div key={i} className="h-20 rounded-xl bg-gray-100 animate-pulse" />)}
+            </div>
+          ) : nurtureDrafts.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">
+              No follow-up drafts. When rate drops or buyers engage, AI-drafted emails appear here for your review.
+            </p>
+          ) : (
+            <>
+              <div className="space-y-4">
+                {visibleFollowups.map(draft => {
+                  const triggerLabel: Record<string, string> = {
+                    rate_drop: "📉 Rate Drop", new_concept: "🏠 New Home Concept", re_engagement: "👋 Check-in",
+                  };
+                  const clientLabel = draft.recipient_name || draft.shared_links?.client_name || draft.recipient_email || "Buyer";
+                  const isSending   = nurtureSendingId   === draft.id;
+                  const isDismissing = nurtureDismissingId === draft.id;
+                  const msg = nurtureMsg?.id === draft.id ? nurtureMsg : null;
+                  return (
+                    <div key={draft.id} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                              {triggerLabel[draft.trigger_type] ?? draft.trigger_type}
+                            </span>
+                            <span className="text-sm font-semibold text-gray-900 truncate">{clientLabel}</span>
+                            {draft.shared_links?.slug && (
+                              <a href={`/s/${draft.shared_links.slug}`} target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-blue-500 hover:text-blue-700 shrink-0">View portal →</a>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 font-medium">
+                            To: {draft.recipient_email ?? <span className="text-amber-600">No email — add buyer email in portal</span>}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-lg border border-gray-100 p-3 mb-3">
+                        <p className="text-xs font-semibold text-gray-700 mb-1">Subject: {draft.subject}</p>
+                        <p className="text-xs text-gray-600 whitespace-pre-line line-clamp-4">{draft.body}</p>
+                      </div>
+                      {msg && <p className={`text-xs mb-2 font-medium ${msg.ok ? "text-emerald-600" : "text-red-600"}`}>{msg.text}</p>}
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleNurtureSend(draft.id)}
+                          disabled={isSending || isDismissing || !draft.recipient_email}
+                          className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold py-2 px-3 transition-colors">
+                          {isSending ? "Sending…" : "Send"}
+                        </button>
+                        <button onClick={() => handleNurtureDismiss(draft.id)}
+                          disabled={isSending || isDismissing}
+                          className="rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-500 text-xs font-medium py-2 px-3 transition-colors">
+                          {isDismissing ? "…" : "Dismiss"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {nurtureDrafts.length > 5 && (
+                <button onClick={() => setShowAllFollowups(v => !v)}
+                  className="mt-3 w-full text-xs text-blue-600 hover:text-blue-800 font-semibold py-1.5 transition-colors">
+                  {showAllFollowups ? "Show less ↑" : `View all ${nurtureDrafts.length} drafts ↓`}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ── Settings panels ──────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Subscription */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Subscription</h2>
+            <div className="flex items-center gap-3 mb-4">
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
+              {subscription?.isActive && (
+                <span className="text-sm text-gray-500">{subscription.plan === "team" ? "$149/month" : "$49/month"}</span>
+              )}
+            </div>
             {subscription?.cancelAtPeriodEnd && subscription.periodEnd && (
               <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 mb-4">
                 <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -786,7 +1178,6 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                 </p>
               </div>
             )}
-
             {subscription ? (
               <div className="space-y-2 text-sm text-gray-600 mb-6">
                 {subscription.status === "trialing" && subscription.trialEnd && (
@@ -798,69 +1189,33 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                 {subscription.status === "past_due" && (
                   <p className="text-amber-700">Your payment failed. Please update your billing info.</p>
                 )}
-                {subscription.status === "canceled" && (
-                  <p>Your subscription has been canceled.</p>
-                )}
+                {subscription.status === "canceled" && <p>Your subscription has been canceled.</p>}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 mb-6">
-                No active subscription. Start your 14-day free trial.
-              </p>
+              <p className="text-sm text-gray-500 mb-6">No active subscription. Start your 14-day free trial.</p>
             )}
-
             {subscription?.isActive && subscription.customerId ? (
-              <button
-                onClick={handleManageBilling}
-                disabled={portalLoading}
-                className="w-full py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 text-sm font-semibold hover:border-gray-300 hover:bg-gray-50 transition-all disabled:opacity-50"
-              >
+              <button onClick={handleManageBilling} disabled={portalLoading}
+                className="w-full py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 text-sm font-semibold hover:border-gray-300 hover:bg-gray-50 transition-all disabled:opacity-50">
                 {portalLoading ? "Loading…" : "Manage Billing & Cancel"}
               </button>
             ) : (
-              <button
-                onClick={handleSubscribe}
-                disabled={checkoutLoading}
-                className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
+              <button onClick={handleSubscribe} disabled={checkoutLoading}
+                className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50">
                 {checkoutLoading ? "Loading…" : "Start Free Trial →"}
               </button>
             )}
           </div>
 
-          {/* Generate card */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
-              Proposal Generator
-            </h2>
-
-            <p className="text-sm text-gray-600 mb-6 flex-1">
-              Enter your lot details and get 3 AI-generated home concept proposals in seconds. Export as branded PDF.
-            </p>
-
-            <a
-              href="/generate"
-              className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors text-center block"
-            >
-              Generate Plans →
-            </a>
-            {!subscription?.isActive && (
-              <p className="text-xs text-center text-gray-400 mt-2">
-                Free plan: up to 3 generations/month
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Account info */}
-        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
-            Account
-          </h2>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-900">{user.email}</p>
-              <p className="text-xs text-gray-400 mt-0.5">User ID: {user.id.slice(0, 8)}…</p>
-            </div>
+          {/* Account */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Account</h2>
+            <p className="text-sm font-medium text-gray-900">{user.email}</p>
+            <p className="text-xs text-gray-400 mt-0.5">User ID: {user.id.slice(0, 8)}…</p>
+            <button onClick={handleSignOut} disabled={signOutLoading}
+              className="mt-4 text-sm text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-50">
+              Sign out
+            </button>
           </div>
         </div>
 
@@ -1344,279 +1699,6 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
           </div>
         )}
 
-        {/* Shared Links panel */}
-        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
-              Client Activity
-            </h2>
-            {sharedLinks.length > 0 && (
-              <div className="flex items-center gap-3 text-xs text-gray-400">
-                <span>{sharedLinks.length} link{sharedLinks.length !== 1 ? "s" : ""}</span>
-                <span className="font-semibold text-blue-600">
-                  {sharedLinks.reduce((s, l) => s + l.view_count, 0)} total views
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* New view alert */}
-          {newViewAlert && (
-            <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm animate-pulse">
-              <svg className="w-4 h-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-              </svg>
-              あなたのリンクが閲覧されました — <span className="font-mono font-medium">/s/{newViewAlert}</span>
-            </div>
-          )}
-
-          {sharedLinks.length === 0 ? (
-            <p className="text-sm text-gray-400 py-4 text-center">
-              No shared links yet. Generate plans and share them with clients!
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {sharedLinks.map((link) => (
-                <div
-                  key={link.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-gray-50 border border-gray-100"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono text-gray-700 font-medium">/s/{link.slug}</span>
-                      {link.client_name && (
-                        <span className="text-xs text-gray-400">· {link.client_name}</span>
-                      )}
-                      {!link.is_active && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-500">inactive</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="flex items-center gap-1 text-xs text-gray-500">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.522 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.478 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        {link.view_count} view{link.view_count !== 1 ? "s" : ""}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {link.view_count > 0 ? `Last: ${timeAgo(link.updated_at)}` : `Created ${timeAgo(link.created_at)}`}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="shrink-0 flex items-center gap-2">
-                    <button
-                      onClick={() => openAddConcept(link.slug)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Add concept
-                    </button>
-                    <button
-                      onClick={() => handleCopyLink(link.slug)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
-                    >
-                      {copiedSlug === link.slug ? (
-                        <>
-                          <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                          </svg>
-                          Copy Link
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Buyer Activity / Hot Leads */}
-        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
-              Buyer Activity
-            </h2>
-            {!intentLoading && intentSignals.length > 0 && (
-              <span className="text-xs text-gray-400">
-                {intentSignals.filter(s => s.heat === "HOT").length} hot
-                {" · "}
-                {intentSignals.filter(s => s.heat === "WARM").length} warm
-              </span>
-            )}
-          </div>
-
-          {intentLoading ? (
-            <p className="text-sm text-gray-400 text-center py-4">Loading…</p>
-          ) : intentSignals.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">
-              No buyer activity yet. Share proposals to start tracking engagement.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {intentSignals
-                .filter(s => s.heat !== "COLD")
-                .slice(0, 10)
-                .map(s => {
-                  const heatCfg = {
-                    HOT:  { bg: "bg-red-50",    border: "border-red-200",    badge: "bg-red-100 text-red-700",     dot: "bg-red-500"   },
-                    WARM: { bg: "bg-amber-50",  border: "border-amber-200",  badge: "bg-amber-100 text-amber-700", dot: "bg-amber-400" },
-                    COLD: { bg: "bg-gray-50",   border: "border-gray-100",   badge: "bg-gray-100 text-gray-500",   dot: "bg-gray-300"  },
-                  }[s.heat];
-                  return (
-                    <div key={s.link_id} className={`px-4 py-3 rounded-xl border ${heatCfg.bg} ${heatCfg.border}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold ${heatCfg.badge}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${heatCfg.dot}`} />
-                              {s.heat}
-                            </span>
-                            <span className="text-sm font-semibold text-gray-900 truncate">{s.label}</span>
-                            {(s.city || s.state) && (
-                              <span className="text-xs text-gray-400 shrink-0">{[s.city, s.state].filter(Boolean).join(", ")}</span>
-                            )}
-                          </div>
-                          <p className="text-xs font-medium text-blue-700">{s.next_action}</p>
-                          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                            {s.views > 0 && (
-                              <span className="text-xs text-gray-500">{s.views} view{s.views !== 1 ? "s" : ""}</span>
-                            )}
-                            {s.prequal_clicks > 0 && (
-                              <span className="text-xs text-emerald-700 font-bold">⚡ Pre-qual</span>
-                            )}
-                            {s.plan_selects > 0 && (
-                              <span className="text-xs text-emerald-600 font-semibold">✓ {s.plan_selects} plan selected</span>
-                            )}
-                            {s.pdf_downloads > 0 && (
-                              <span className="text-xs text-purple-600 font-semibold">↓ PDF</span>
-                            )}
-                            <span className="text-xs text-gray-400 ml-auto shrink-0">
-                              {s.last_seen ? timeAgo(s.last_seen) : ""}
-                            </span>
-                          </div>
-                        </div>
-                        <a
-                          href={`/s/${s.slug}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors pt-0.5"
-                        >
-                          View →
-                        </a>
-                      </div>
-                    </div>
-                  );
-                })}
-              {intentSignals.filter(s => s.heat === "COLD").length > 0 && (
-                <p className="text-xs text-gray-400 text-center pt-1">
-                  + {intentSignals.filter(s => s.heat === "COLD").length} cold lead{intentSignals.filter(s => s.heat === "COLD").length !== 1 ? "s" : ""} (no recent activity)
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Follow-ups (nurture drafts) */}
-        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
-              Follow-ups
-            </h2>
-            {!nurtureLoading && nurtureDrafts.length > 0 && (
-              <span className="text-xs text-gray-400">{nurtureDrafts.length} draft{nurtureDrafts.length !== 1 ? "s" : ""} pending</span>
-            )}
-          </div>
-
-          {nurtureLoading ? (
-            <p className="text-sm text-gray-400 text-center py-4">Loading…</p>
-          ) : nurtureDrafts.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">
-              No follow-up drafts. When rate drops or buyers engage, AI-drafted emails appear here for your review.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {nurtureDrafts.map(draft => {
-                const triggerLabel: Record<string, string> = {
-                  rate_drop:     "📉 Rate Drop",
-                  new_concept:   "🏠 New Home Concept",
-                  re_engagement: "👋 Check-in",
-                };
-                const clientLabel = draft.recipient_name
-                  || draft.shared_links?.client_name
-                  || draft.recipient_email
-                  || "Buyer";
-                const isSending   = nurtureSendingId   === draft.id;
-                const isDismissing = nurtureDismissingId === draft.id;
-                const msg = nurtureMsg?.id === draft.id ? nurtureMsg : null;
-
-                return (
-                  <div key={draft.id} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-                            {triggerLabel[draft.trigger_type] ?? draft.trigger_type}
-                          </span>
-                          <span className="text-sm font-semibold text-gray-900 truncate">{clientLabel}</span>
-                          {draft.shared_links?.slug && (
-                            <a
-                              href={`/s/${draft.shared_links.slug}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-500 hover:text-blue-700 shrink-0"
-                            >
-                              View portal →
-                            </a>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 font-medium">To: {draft.recipient_email ?? <span className="text-amber-600">No email — add buyer email in portal</span>}</p>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg border border-gray-100 p-3 mb-3">
-                      <p className="text-xs font-semibold text-gray-700 mb-1">Subject: {draft.subject}</p>
-                      <p className="text-xs text-gray-600 whitespace-pre-line line-clamp-4">{draft.body}</p>
-                    </div>
-
-                    {msg && (
-                      <p className={`text-xs mb-2 font-medium ${msg.ok ? "text-emerald-600" : "text-red-600"}`}>{msg.text}</p>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleNurtureSend(draft.id)}
-                        disabled={isSending || isDismissing || !draft.recipient_email}
-                        className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold py-2 px-3 transition-colors"
-                      >
-                        {isSending ? "Sending…" : "Send"}
-                      </button>
-                      <button
-                        onClick={() => handleNurtureDismiss(draft.id)}
-                        disabled={isSending || isDismissing}
-                        className="rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-500 text-xs font-medium py-2 px-3 transition-colors"
-                      >
-                        {isDismissing ? "…" : "Dismiss"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
