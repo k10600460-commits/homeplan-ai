@@ -103,6 +103,7 @@ export async function GET(req: NextRequest) {
     const unsubUrl   = `${APP_URL}/api/portal/${link.slug}/unsubscribe`
 
     const existing = draftsByLink.get(link.id) ?? []
+    let draftCreated = false
 
     // ── 1. rate_drop ─────────────────────────────────────────────────────────
     if (sharedRate !== null && currentRate <= sharedRate - 0.25) {
@@ -182,11 +183,13 @@ BODY:
             status: 'pending',
           })
           drafted++
+          draftCreated = true
         } catch (err) {
           errors.push(`rate_drop ${link.slug}: ${String(err)}`)
         }
       }
     }
+    if (draftCreated) continue
 
     // ── 2. new_concept ────────────────────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -205,13 +208,13 @@ BODY:
           max_tokens: 600,
           messages: [{
             role: 'user',
-            content: `Write a warm email from "${builderName}" to "${recipientName ?? 'a buyer'}" announcing a new floor plan added to their proposal.
+            content: `Write a warm email from "${builderName}" to "${recipientName ?? 'a buyer'}" announcing a new home design concept added to their custom home proposal.
 
-New plan: "${plan.name}" — ${plan.style}, ${(plan.squareFootage as number)?.toLocaleString()} sqft, ${plan.bedrooms}bd/${plan.bathrooms}ba, ~$${Math.round((plan.estimatedCost as number) / 1000)}K
+New concept: "${plan.name}" — ${plan.style}, ${(plan.squareFootage as number)?.toLocaleString()} sqft, ${plan.bedrooms}bd/${plan.bathrooms}ba, ~$${Math.round((plan.estimatedCost as number) / 1000)}K
 Portal link: ${portalUrl}
 Unsubscribe link: ${unsubUrl}
 
-2-3 short paragraphs. Enthusiastic but not pushy. End with unsubscribe line. Sign as "${builderName}".
+2-3 short paragraphs. Enthusiastic but not pushy. Do not use the phrase "floor plan" — say "home concept" or "design" instead. End with the unsubscribe line. Sign as "${builderName}".
 
 Format exactly:
 SUBJECT: [subject line]
@@ -222,7 +225,7 @@ BODY:
         const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
         const subjectMatch = text.match(/SUBJECT:\s*(.+)/i)
         const bodyMatch    = text.match(/BODY:\s*([\s\S]+)/i)
-        const subject = subjectMatch?.[1]?.trim() ?? `New floor plan added to your proposal: ${plan.name}`
+        const subject = subjectMatch?.[1]?.trim() ?? `A new home concept was added to your proposal: ${plan.name}`
         const body    = bodyMatch?.[1]?.trim() ?? text
 
         await admin.from('nurture_drafts').insert({
@@ -236,10 +239,13 @@ BODY:
           status: 'pending',
         })
         drafted++
+        draftCreated = true
       } catch (err) {
         errors.push(`new_concept ${link.slug}/${planId}: ${String(err)}`)
       }
+      if (draftCreated) break
     }
+    if (draftCreated) continue
 
     // ── 3. re_engagement ──────────────────────────────────────────────────────
     const favorites    = (bs?.favorites as string[] | null) ?? []
@@ -267,11 +273,11 @@ BODY:
 Context:
 - Buyer reviewed: "${engagedPlan.name}"
 ${favorites.length > 0 ? `- Buyer favorited this plan` : ''}
-${Object.keys(savedConfigs).length > 0 ? `- Buyer customized floor plan options` : ''}
+${Object.keys(savedConfigs).length > 0 ? `- Buyer customized their home design options` : ''}
 - Portal: ${portalUrl}
 - Unsubscribe: ${unsubUrl}
 
-2-3 short paragraphs, conversational and helpful. Offer to answer questions. End with unsubscribe line. Sign as "${builderName}".
+2-3 short paragraphs, conversational and helpful. Say "home concept" or "proposal" — not "floor plan". Offer to answer questions. End with unsubscribe line. Sign as "${builderName}".
 
 Format exactly:
 SUBJECT: [subject line]
