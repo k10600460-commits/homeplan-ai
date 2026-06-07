@@ -4,14 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
 import type { PortalBranding } from "./page";
 import { conceptImageSrc } from "@/lib/concept-style-image";
-
-function calcMonthly(homePrice: number, downPct: number, ratePct: number, termYears: number): number {
-  const principal = homePrice * (1 - downPct / 100);
-  const r = ratePct / 100 / 12;
-  const n = termYears * 12;
-  if (r === 0) return Math.round(principal / n);
-  return Math.round((principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1));
-}
+import {
+  computeConfigPrice, calcMonthly, getStylePremium,
+  type ConfigState,
+} from "@/lib/price-calculator";
 
 interface FinancialsSnapshot {
   rate: number;
@@ -115,33 +111,10 @@ const STYLE_COLORS = [
 ];
 
 // ── Configurator pricing model ──────────────────────────────────────────────
-const STYLE_PREMIUM: Record<string, number> = {
-  Contemporary: 12000, ModernFarmhouse: 8000,
-  Transitional: 4000,  Craftsman: 4000,
-  Colonial: 0,         Ranch: 0,
-}
-const MARGINAL_PER_SQFT = 200
-const BATH_PER_BATH     = 15000
-const BEDROOM_COST      = 10000
 const STYLES = ['Contemporary', 'Modern Farmhouse', 'Transitional', 'Craftsman', 'Colonial', 'Ranch']
-
-function getStylePremium(style: string): number {
-  return STYLE_PREMIUM[style.replace(/\s+/g, '')] ?? 0
-}
 
 function displayStyle(style: string): string {
   return style.replace(/([a-z])([A-Z])/g, '$1 $2')
-}
-
-interface ConfigState { sqft: number; beds: number; baths: number; style: string }
-
-function computeConfigPrice(plan: FloorPlan, cfg: ConfigState): number {
-  const raw = plan.estimatedCost
-    + (cfg.sqft  - plan.squareFootage) * MARGINAL_PER_SQFT
-    + (cfg.baths - plan.bathrooms)     * BATH_PER_BATH
-    + (cfg.beds  - plan.bedrooms)      * BEDROOM_COST
-    + (getStylePremium(cfg.style) - getStylePremium(plan.style))
-  return Math.max(150000, Math.round(raw / 500) * 500)
 }
 
 function buildBreakdown(plan: FloorPlan, cfg: ConfigState, baseStyle: string): string {
@@ -1022,6 +995,27 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
   const [inquirySubmitting, setInquirySubmitting] = useState(false);
   const [inquirySuccess, setInquirySuccess] = useState(false);
 
+  // Notification opt-in
+  const [optInEmail, setOptInEmail] = useState("");
+  const [optInStatus, setOptInStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+
+  async function handleOptIn(e: React.FormEvent) {
+    e.preventDefault();
+    const email = optInEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    setOptInStatus("sending");
+    try {
+      const res = await fetch(`/api/portal/${slug}/opt-in`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      setOptInStatus(res.ok ? "done" : "error");
+    } catch {
+      setOptInStatus("error");
+    }
+  }
+
   const t = T[lang];
 
   function openInquiry(planIndex: number, e: React.MouseEvent) {
@@ -1658,6 +1652,40 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
               </div>
             );
           })}
+        </div>
+
+        {/* Notification opt-in */}
+        <div className="mt-10 rounded-2xl border border-blue-100 bg-blue-50 px-6 py-5 text-center">
+          {optInStatus === "done" ? (
+            <p className="text-sm font-semibold text-emerald-700">
+              ✓ You&apos;re subscribed. We&apos;ll notify you when rates drop or new plans are added.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-gray-800 mb-1">Get notified about updates</p>
+              <p className="text-xs text-gray-500 mb-3">Enter your email to receive alerts when mortgage rates drop or new floor plans are added to your proposal.</p>
+              <form onSubmit={handleOptIn} className="flex items-center gap-2 max-w-sm mx-auto">
+                <input
+                  type="email"
+                  value={optInEmail}
+                  onChange={e => setOptInEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  required
+                  className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <button
+                  type="submit"
+                  disabled={optInStatus === "sending"}
+                  className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 transition-colors disabled:opacity-60"
+                >
+                  {optInStatus === "sending" ? "…" : "Notify me"}
+                </button>
+              </form>
+              {optInStatus === "error" && (
+                <p className="text-xs text-red-600 mt-2">Something went wrong. Please try again.</p>
+              )}
+            </>
+          )}
         </div>
 
         {/* Footer */}

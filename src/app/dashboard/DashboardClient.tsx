@@ -57,6 +57,20 @@ interface IntentSignal {
   next_action: string;
 }
 
+interface NurtureDraft {
+  id: string;
+  link_id: string;
+  trigger_type: 'rate_drop' | 'new_concept' | 're_engagement';
+  trigger_context: Record<string, unknown>;
+  recipient_email: string | null;
+  recipient_name: string | null;
+  subject: string;
+  body: string;
+  status: string;
+  created_at: string;
+  shared_links: { slug: string; client_name: string | null } | null;
+}
+
 interface Props {
   user: User;
   subscription: Subscription | null;
@@ -120,6 +134,13 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   // Intent signals (buyer activity)
   const [intentSignals, setIntentSignals] = useState<IntentSignal[]>([]);
   const [intentLoading, setIntentLoading] = useState(true);
+
+  // Nurture drafts (Follow-ups)
+  const [nurtureDrafts, setNurtureDrafts] = useState<NurtureDraft[]>([]);
+  const [nurtureLoading, setNurtureLoading] = useState(true);
+  const [nurtureSendingId, setNurtureSendingId] = useState<string | null>(null);
+  const [nurtureDismissingId, setNurtureDismissingId] = useState<string | null>(null);
+  const [nurtureMsg, setNurtureMsg] = useState<{ id: string; ok: boolean; text: string } | null>(null);
 
   // Add-concept modal
   const [addConceptSlug, setAddConceptSlug] = useState<string | null>(null);
@@ -301,6 +322,44 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
       })
       .catch(() => setIntentLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetch("/api/nurture/drafts")
+      .then(r => r.json())
+      .then((d: { drafts?: NurtureDraft[] }) => {
+        setNurtureDrafts(d.drafts ?? []);
+        setNurtureLoading(false);
+      })
+      .catch(() => setNurtureLoading(false));
+  }, []);
+
+  async function handleNurtureSend(draftId: string) {
+    setNurtureSendingId(draftId);
+    setNurtureMsg(null);
+    try {
+      const res = await fetch(`/api/nurture/${draftId}/send`, { method: "POST" });
+      if (res.ok) {
+        setNurtureDrafts(prev => prev.filter(d => d.id !== draftId));
+        setNurtureMsg({ id: draftId, ok: true, text: "Email sent." });
+      } else {
+        const body = await res.json() as { error?: string };
+        setNurtureMsg({ id: draftId, ok: false, text: body.error ?? "Send failed." });
+      }
+    } catch {
+      setNurtureMsg({ id: draftId, ok: false, text: "Network error." });
+    } finally {
+      setNurtureSendingId(null);
+    }
+  }
+
+  async function handleNurtureDismiss(draftId: string) {
+    setNurtureDismissingId(draftId);
+    try {
+      const res = await fetch(`/api/nurture/${draftId}/dismiss`, { method: "POST" });
+      if (res.ok) setNurtureDrafts(prev => prev.filter(d => d.id !== draftId));
+    } catch { /* ignore */ }
+    finally { setNurtureDismissingId(null); }
+  }
 
   // Check MLS connection status on mount
   useEffect(() => {
@@ -1364,6 +1423,95 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                   + {intentSignals.filter(s => s.heat === "COLD").length} cold lead{intentSignals.filter(s => s.heat === "COLD").length !== 1 ? "s" : ""} (no recent activity)
                 </p>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Follow-ups (nurture drafts) */}
+        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
+              Follow-ups
+            </h2>
+            {!nurtureLoading && nurtureDrafts.length > 0 && (
+              <span className="text-xs text-gray-400">{nurtureDrafts.length} draft{nurtureDrafts.length !== 1 ? "s" : ""} pending</span>
+            )}
+          </div>
+
+          {nurtureLoading ? (
+            <p className="text-sm text-gray-400 text-center py-4">Loading…</p>
+          ) : nurtureDrafts.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">
+              No follow-up drafts. When rate drops or buyers engage, AI-drafted emails appear here for your review.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {nurtureDrafts.map(draft => {
+                const triggerLabel: Record<string, string> = {
+                  rate_drop:     "📉 Rate Drop",
+                  new_concept:   "🏠 New Floor Plan",
+                  re_engagement: "👋 Check-in",
+                };
+                const clientLabel = draft.recipient_name
+                  || draft.shared_links?.client_name
+                  || draft.recipient_email
+                  || "Buyer";
+                const isSending   = nurtureSendingId   === draft.id;
+                const isDismissing = nurtureDismissingId === draft.id;
+                const msg = nurtureMsg?.id === draft.id ? nurtureMsg : null;
+
+                return (
+                  <div key={draft.id} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                            {triggerLabel[draft.trigger_type] ?? draft.trigger_type}
+                          </span>
+                          <span className="text-sm font-semibold text-gray-900 truncate">{clientLabel}</span>
+                          {draft.shared_links?.slug && (
+                            <a
+                              href={`/s/${draft.shared_links.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-500 hover:text-blue-700 shrink-0"
+                            >
+                              View portal →
+                            </a>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 font-medium">To: {draft.recipient_email ?? <span className="text-amber-600">No email — add buyer email in portal</span>}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg border border-gray-100 p-3 mb-3">
+                      <p className="text-xs font-semibold text-gray-700 mb-1">Subject: {draft.subject}</p>
+                      <p className="text-xs text-gray-600 whitespace-pre-line line-clamp-4">{draft.body}</p>
+                    </div>
+
+                    {msg && (
+                      <p className={`text-xs mb-2 font-medium ${msg.ok ? "text-emerald-600" : "text-red-600"}`}>{msg.text}</p>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleNurtureSend(draft.id)}
+                        disabled={isSending || isDismissing || !draft.recipient_email}
+                        className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold py-2 px-3 transition-colors"
+                      >
+                        {isSending ? "Sending…" : "Send"}
+                      </button>
+                      <button
+                        onClick={() => handleNurtureDismiss(draft.id)}
+                        disabled={isSending || isDismissing}
+                        className="rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-500 text-xs font-medium py-2 px-3 transition-colors"
+                      >
+                        {isDismissing ? "…" : "Dismiss"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
