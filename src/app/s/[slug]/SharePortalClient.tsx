@@ -1730,7 +1730,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
 
                 {/* Expanded detail */}
                 {isSelected && (
-                  <div className={`border-t ${colors.border} ${colors.bg} px-6 py-5`}>
+                  <div className={`border-t ${colors.border} ${colors.bg} px-6 py-5`} onClick={(e) => e.stopPropagation()}>
                     <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">{t.features}</h3>
                     <div className="flex flex-wrap gap-2 mb-5">
                       {plan.features.map((f, j) => (
