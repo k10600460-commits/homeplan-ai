@@ -115,6 +115,7 @@ interface HotLead {
   events_7d: number;
   plan_selects: number;
   pdf_downloads: number;
+  prequal_clicks: number;
   last_seen: string;
   next_action: string;
 }
@@ -129,18 +130,19 @@ async function fetchHotLeads(supabase: any): Promise<HotLead[]> {
 
   if (!events?.length) return [];
 
-  const agg = new Map<string, { events_7d: number; plan_selects: number; pdf_downloads: number; last_seen: string }>();
+  const agg = new Map<string, { events_7d: number; plan_selects: number; pdf_downloads: number; prequal_clicks: number; last_seen: string }>();
   for (const e of events as Array<{ link_id: string; event_type: string; created_at: string }>) {
-    if (!agg.has(e.link_id)) agg.set(e.link_id, { events_7d: 0, plan_selects: 0, pdf_downloads: 0, last_seen: e.created_at });
+    if (!agg.has(e.link_id)) agg.set(e.link_id, { events_7d: 0, plan_selects: 0, pdf_downloads: 0, prequal_clicks: 0, last_seen: e.created_at });
     const a = agg.get(e.link_id)!;
     a.events_7d++;
     if (e.event_type === "plan_selected") a.plan_selects++;
     if (e.event_type === "pdf_download") a.pdf_downloads++;
+    if (e.event_type === "prequal_click") a.prequal_clicks++;
     if (e.created_at > a.last_seen) a.last_seen = e.created_at;
   }
 
   const hotEntries = Array.from(agg.entries())
-    .filter(([, a]) => a.plan_selects >= 1 || a.pdf_downloads >= 1 || a.events_7d >= 3)
+    .filter(([, a]) => a.prequal_clicks >= 1 || a.plan_selects >= 1 || a.pdf_downloads >= 1 || a.events_7d >= 3)
     .sort((a, b) => b[1].last_seen.localeCompare(a[1].last_seen))
     .slice(0, 5);
 
@@ -157,7 +159,8 @@ async function fetchHotLeads(supabase: any): Promise<HotLead[]> {
       const l = (links as Array<{ id: string; slug: string; client_name: string | null; builder_name: string | null; city: string | null; state: string | null }> | null)?.find(x => x.id === link_id);
       if (!l) return null;
       const label = l.client_name?.trim() || l.builder_name?.trim() || l.slug;
-      const next_action = a.plan_selects >= 1 ? "Buyer selected a concept. Call today."
+      const next_action = a.prequal_clicks >= 1 ? "Buyer started pre-qualification — call now."
+        : a.plan_selects >= 1 ? "Buyer selected a concept. Call today."
         : a.pdf_downloads >= 1 ? "Buyer downloaded the proposal. Follow up."
         : `Active ${a.events_7d}× this week — reach out.`;
       return { label, slug: l.slug, city: l.city ?? null, state: l.state ?? null, ...a, next_action };
@@ -591,6 +594,7 @@ function buildHotLeadsHtml(hotLeads: HotLead[]): string {
   return hotLeads.map(l => {
     const loc = [l.city, l.state].filter(Boolean).join(", ");
     const badges: string[] = [];
+    if (l.prequal_clicks >= 1) badges.push(`<span style="background:#d1fae5;color:#065f46;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">⚡ Pre-qual started</span>`);
     if (l.plan_selects >= 1) badges.push(`<span style="background:#d1fae5;color:#065f46;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">✓ Plan selected</span>`);
     if (l.pdf_downloads >= 1) badges.push(`<span style="background:#ede9fe;color:#5b21b6;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">↓ PDF</span>`);
     return `

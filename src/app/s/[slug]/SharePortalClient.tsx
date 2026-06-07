@@ -944,6 +944,8 @@ interface Props {
   savedConfigs: Record<string, ConfigState>;
   previousVisitedAt: string | null;
   plansUpdatedAt: string | null;
+  prequalUrl: string | null;
+  prequalLabel: string | null;
 }
 
 interface InquiryForm {
@@ -953,7 +955,7 @@ interface InquiryForm {
   message: string;
 }
 
-export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding, financials, neighborhood, market, areaAsOf, favorites: initialFavorites, savedConfigs, previousVisitedAt, plansUpdatedAt }: Props) {
+export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding, financials, neighborhood, market, areaAsOf, favorites: initialFavorites, savedConfigs, previousVisitedAt, plansUpdatedAt, prequalUrl, prequalLabel }: Props) {
   const isTeam = branding.plan === "team";
   const isPro  = branding.plan === "pro";
   const isBranded = isTeam || isPro;
@@ -1618,6 +1620,28 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                       interestRateLabel={t.interestRate}
                       initialFinancials={financials}
                     />
+
+                    {prequalUrl && (
+                      <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                        <p className="text-xs text-emerald-600 mb-2">
+                          Estimate only. See what you qualify for with our preferred lender.
+                        </p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fetch(`/api/portal/${slug}/prequal-click`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ planIndex: plan.id - 1 }),
+                            }).catch(() => {});
+                            window.open(prequalUrl!, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="w-full py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors"
+                        >
+                          {prequalLabel || 'Get pre-qualified'}
+                        </button>
+                      </div>
+                    )}
 
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDownloadOne(plan); }}

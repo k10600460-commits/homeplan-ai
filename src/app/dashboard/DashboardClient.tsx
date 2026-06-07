@@ -49,6 +49,7 @@ interface IntentSignal {
   views: number;
   plan_selects: number;
   pdf_downloads: number;
+  prequal_clicks: number;
   selected_concepts: string[];
   first_seen: string | null;
   last_seen: string | null;
@@ -141,6 +142,13 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [nurtureSendingId, setNurtureSendingId] = useState<string | null>(null);
   const [nurtureDismissingId, setNurtureDismissingId] = useState<string | null>(null);
   const [nurtureMsg, setNurtureMsg] = useState<{ id: string; ok: boolean; text: string } | null>(null);
+
+  // Pre-qualification CTA settings
+  const [prequalUrl, setPrequalUrl] = useState("");
+  const [prequalLabel, setPrequalLabel] = useState("");
+  const [prequalSaved, setPrequalSaved] = useState<{ url: string; label: string } | null>(null);
+  const [savingPrequal, setSavingPrequal] = useState(false);
+  const [prequalMsg, setPrequalMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Add-concept modal
   const [addConceptSlug, setAddConceptSlug] = useState<string | null>(null);
@@ -332,6 +340,42 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
       })
       .catch(() => setNurtureLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetch("/api/profile/prequal")
+      .then(r => r.json())
+      .then((d: { prequalUrl?: string | null; prequalLabel?: string | null }) => {
+        const url   = d.prequalUrl   ?? "";
+        const label = d.prequalLabel ?? "";
+        setPrequalUrl(url);
+        setPrequalLabel(label);
+        setPrequalSaved({ url, label });
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleSavePrequal() {
+    setSavingPrequal(true);
+    setPrequalMsg(null);
+    try {
+      const res = await fetch("/api/profile/prequal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: prequalUrl, label: prequalLabel }),
+      });
+      if (res.ok) {
+        setPrequalSaved({ url: prequalUrl, label: prequalLabel });
+        setPrequalMsg({ ok: true, text: "Saved." });
+      } else {
+        const body = await res.json() as { error?: string };
+        setPrequalMsg({ ok: false, text: body.error ?? "Save failed." });
+      }
+    } catch {
+      setPrequalMsg({ ok: false, text: "Network error." });
+    } finally {
+      setSavingPrequal(false);
+    }
+  }
 
   async function handleNurtureSend(draftId: string) {
     setNurtureSendingId(draftId);
@@ -992,6 +1036,61 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
           </div>
         </div>
 
+        {/* ── Buyer Financing / Pre-Qualification CTA ── */}
+        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">
+            Buyer Financing / Pre-Qualification
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Add your preferred lender&apos;s pre-qualification link. Buyers see a &ldquo;Get pre-qualified&rdquo; button on your portals, and clicks show up as hot leads in Buyer Activity.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1">Lender URL <span className="font-normal text-gray-400">(must start with https://)</span></label>
+              <input
+                type="url"
+                value={prequalUrl}
+                onChange={e => setPrequalUrl(e.target.value)}
+                placeholder="https://lender.com/apply"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1">Button label <span className="font-normal text-gray-400">(optional — default: &ldquo;Get pre-qualified&rdquo;)</span></label>
+              <input
+                type="text"
+                value={prequalLabel}
+                onChange={e => setPrequalLabel(e.target.value)}
+                placeholder="Get pre-qualified"
+                maxLength={60}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSavePrequal}
+                disabled={
+                  savingPrequal ||
+                  (prequalUrl === (prequalSaved?.url ?? "") && prequalLabel === (prequalSaved?.label ?? ""))
+                }
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors disabled:opacity-40"
+              >
+                {savingPrequal ? "Saving…" : "Save"}
+              </button>
+              {prequalMsg && (
+                <span className={`text-xs font-semibold ${prequalMsg.ok ? "text-emerald-600" : "text-red-600"}`}>
+                  {prequalMsg.text}
+                </span>
+              )}
+            </div>
+            {prequalSaved?.url && (
+              <p className="text-xs text-emerald-600">
+                Active on all your portals · <a href={prequalSaved.url} target="_blank" rel="noopener noreferrer" className="underline">Preview link</a>
+              </p>
+            )}
+          </div>
+        </div>
+
         {/* ── Branding Settings (Pro + Team) ── */}
         {(userPlan === "pro" || userPlan === "team") && (
           <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -1394,6 +1493,9 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                             {s.views > 0 && (
                               <span className="text-xs text-gray-500">{s.views} view{s.views !== 1 ? "s" : ""}</span>
+                            )}
+                            {s.prequal_clicks > 0 && (
+                              <span className="text-xs text-emerald-700 font-bold">⚡ Pre-qual</span>
                             )}
                             {s.plan_selects > 0 && (
                               <span className="text-xs text-emerald-600 font-semibold">✓ {s.plan_selects} plan selected</span>
