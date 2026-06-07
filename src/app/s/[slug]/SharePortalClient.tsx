@@ -1225,7 +1225,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
     fetch("/api/share/event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, eventType: "pdf_download", planIndex: plan.id - 1 }),
+      body: JSON.stringify({ slug, eventType: "pdf_download", planIndex: plans.findIndex(p => p.id === plan.id) }),
     }).catch(() => {});
   }
 
@@ -1235,7 +1235,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
       fetch("/api/share/event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, eventType: "plan_selected", planIndex: planId - 1 }),
+        body: JSON.stringify({ slug, eventType: "plan_selected", planIndex: plans.findIndex(p => p.id === planId) }),
       }).catch(() => {});
     }
   }
@@ -1605,6 +1605,8 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
             const colors = STYLE_COLORS[i % STYLE_COLORS.length];
             const isSelected = selectedPlan === plan.id;
             const planKey = String(plan.id);
+            const planIndex = i;
+            const accentRGB = PLAN_COLORS[i % PLAN_COLORS.length];
             const isFav = favSet.has(planKey);
             const isNew = Boolean(
               plan.addedAt && previousVisitedAt !== null && plan.addedAt > previousVisitedAt,
@@ -1726,7 +1728,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
 
                     <ConceptLayoutSchematic
                       plan={plan}
-                      accentRGB={PLAN_COLORS[(plan.id - 1) % PLAN_COLORS.length]}
+                      accentRGB={accentRGB}
                     />
 
                     <MortgageWidget
@@ -1749,7 +1751,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                             fetch(`/api/portal/${slug}/prequal-click`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ planIndex: plan.id - 1 }),
+                              body: JSON.stringify({ planIndex }),
                             }).catch(() => {});
                             window.open(prequalUrl!, '_blank', 'noopener,noreferrer');
                           }}
@@ -1770,9 +1772,9 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                       {t.download}
                     </button>
                     <button
-                      onClick={(e) => openInquiry(plan.id - 1, e)}
+                      onClick={(e) => openInquiry(planIndex, e)}
                       className="w-full mt-2 py-3 rounded-xl border-2 border-current text-sm font-semibold hover:bg-white/60 transition-colors flex items-center justify-center gap-2"
-                      style={{ color: `rgb(${PLAN_COLORS[(plan.id - 1) % PLAN_COLORS.length].join(",")})` }}
+                      style={{ color: `rgb(${accentRGB.join(",")})` }}
                     >
                       {t.interested}
                     </button>
@@ -1791,7 +1793,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                 {!isSelected && (
                   <div className="px-6 pb-5 space-y-2">
                     <button
-                      onClick={(e) => openInquiry(plan.id - 1, e)}
+                      onClick={(e) => openInquiry(planIndex, e)}
                       className={`w-full py-2.5 rounded-xl text-sm font-semibold text-white ${colors.badge} hover:opacity-90 transition-opacity`}
                     >
                       {t.interested}
