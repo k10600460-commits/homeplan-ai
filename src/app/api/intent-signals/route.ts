@@ -20,18 +20,44 @@ export interface IntentSignal {
   next_action: string
 }
 
-function classifyHeat(s: Pick<IntentSignal, 'plan_selects' | 'pdf_downloads' | 'events_7d'>): IntentSignal['heat'] {
-  if (s.plan_selects >= 1 || s.pdf_downloads >= 1 || s.events_7d >= 3) return 'HOT'
-  if (s.events_7d >= 1) return 'WARM'
+interface BuyerEnrichment {
+  favorites: string[]
+  savedConfigs: Record<string, unknown>
+  lastVisitedAt: string | null
+}
+
+function classifyHeat(
+  s: Pick<IntentSignal, 'plan_selects' | 'pdf_downloads' | 'events_7d'>,
+  buyer?: BuyerEnrichment,
+): IntentSignal['heat'] {
+  if (
+    s.plan_selects >= 1 || s.pdf_downloads >= 1 || s.events_7d >= 3 ||
+    (buyer?.favorites.length ?? 0) >= 1
+  ) return 'HOT'
+  if (s.events_7d >= 1 || Object.keys(buyer?.savedConfigs ?? {}).length > 0) return 'WARM'
   return 'COLD'
 }
 
-function computeNextAction(s: Pick<IntentSignal, 'plan_selects' | 'pdf_downloads' | 'views' | 'events_7d' | 'selected_concepts'>): string {
+function computeNextAction(
+  s: Pick<IntentSignal, 'plan_selects' | 'pdf_downloads' | 'views' | 'events_7d' | 'selected_concepts'>,
+  buyer?: BuyerEnrichment,
+  plans?: Array<{ id?: unknown; name?: string }> | null,
+): string {
   if (s.plan_selects >= 1) {
     const c = s.selected_concepts.filter(Boolean).join(', ') || 'a concept'
     return `Buyer selected ${c}. Call today.`
   }
+  if ((buyer?.favorites.length ?? 0) >= 1) {
+    const favNames = (buyer?.favorites ?? []).map(pid => {
+      return plans?.find(p => String(p.id) === pid)?.name ?? null
+    }).filter(Boolean).join(', ') || 'a concept'
+    return `Buyer favorited ${favNames}. Follow up.`
+  }
   if (s.pdf_downloads >= 1) return 'Buyer downloaded the proposal. Follow up.'
+  if (Object.keys(buyer?.savedConfigs ?? {}).length > 0) {
+    const cfg = Object.values(buyer!.savedConfigs)[0] as Record<string, unknown>
+    return `Buyer configured ${cfg?.beds ?? '?'}bd / ${cfg?.sqft?.toLocaleString?.() ?? '?'} sqft / ${cfg?.style ?? '?'}. Reach out.`
+  }
   if (s.views >= 3) return `Buyer reopened ${s.views}×. Reach out.`
   if (s.events_7d >= 1) return 'Recent activity — keep warm.'
   return 'No recent activity.'
@@ -59,6 +85,23 @@ export async function GET() {
     .in('link_id', linkIds)
 
   if (eventsErr) return NextResponse.json({ error: eventsErr.message }, { status: 500 })
+
+  // Fetch buyer state for all links (builder's own RLS applies)
+  const { data: buyerStates } = await supabase
+    .from('portal_buyer_state')
+    .select('link_id, favorites, saved_configs, last_visited_at')
+    .in('link_id', linkIds)
+
+  const buyerStateMap = new Map<string, BuyerEnrichment>(
+    (buyerStates ?? []).map(b => [
+      b.link_id as string,
+      {
+        favorites: (b.favorites as string[] | null) ?? [],
+        savedConfigs: (b.saved_configs as Record<string, unknown> | null) ?? {},
+        lastVisitedAt: (b.last_visited_at as string | null) ?? null,
+      },
+    ]),
+  )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const linkMap = new Map<string, any>(links.map(l => [l.id as string, l]))
@@ -96,11 +139,28 @@ export async function GET() {
     if (ts >= cutoff7d) a.events_7d++
   }
 
+  // Also surface links that have buyer state (favorites/config) but no events yet
+  for (const [link_id, buyer] of buyerStateMap) {
+    if (agg.has(link_id)) continue // already covered by events loop
+    if (buyer.favorites.length === 0 && Object.keys(buyer.savedConfigs).length === 0) continue
+    agg.set(link_id, {
+      views: 0, plan_selects: 0, pdf_downloads: 0,
+      selected_concepts: new Set(), first_seen: null,
+      last_seen: buyer.lastVisitedAt, events_7d: 0,
+    })
+  }
+
   const signals: IntentSignal[] = []
   for (const [link_id, a] of agg) {
     const link = linkMap.get(link_id)
     if (!link) continue
     const selected_concepts = Array.from(a.selected_concepts)
+    const buyer = buyerStateMap.get(link_id)
+
+    // Merge last_visited_at from buyer state into last_seen recency
+    const bsLastSeen = buyer?.lastVisitedAt ?? null
+    const effectiveLastSeen = [a.last_seen, bsLastSeen].filter(Boolean).sort().pop() ?? a.last_seen
+
     const partial = {
       link_id,
       slug: link.slug as string,
@@ -112,11 +172,12 @@ export async function GET() {
       pdf_downloads: a.pdf_downloads,
       selected_concepts,
       first_seen: a.first_seen,
-      last_seen: a.last_seen,
+      last_seen: effectiveLastSeen,
       events_7d: a.events_7d,
     }
-    const heat = classifyHeat(partial)
-    const next_action = computeNextAction(partial)
+    const heat = classifyHeat(partial, buyer)
+    const plans = link.plans as Array<{ id?: unknown; name?: string }> | null
+    const next_action = computeNextAction(partial, buyer, plans)
     signals.push({ ...partial, heat, next_action })
   }
 

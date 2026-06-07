@@ -106,7 +106,7 @@ export default async function SharePage({ params }: Props) {
 
   const { data: link } = await admin
     .from('shared_links')
-    .select('id, slug, plans, client_name, is_active, expires_at, view_count, user_id, city, state, financials, neighborhood_snapshot, market_snapshot, area_refreshed_at, builder_name, builder_logo_url')
+    .select('id, slug, plans, client_name, is_active, expires_at, view_count, user_id, city, state, financials, neighborhood_snapshot, market_snapshot, area_refreshed_at, builder_name, builder_logo_url, plans_updated_at')
     .eq('slug', slug)
     .single()
 
@@ -114,9 +114,37 @@ export default async function SharePage({ params }: Props) {
     return <InvalidLinkPage />
   }
 
+  // expires_at check: null means never expires (living portal)
   if (link.expires_at && new Date(link.expires_at) < new Date()) {
     return <InvalidLinkPage expired />
   }
+
+  // ── Buyer state: visit recording + favorites + saved configs ──────────
+  let favorites: string[] = []
+  let savedConfigs: Record<string, unknown> = {}
+  let previousVisitedAt: string | null = null
+  try {
+    const { data: bs } = await admin
+      .from('portal_buyer_state')
+      .select('favorites, saved_configs, last_visited_at, visit_count')
+      .eq('link_id', link.id)
+      .maybeSingle()
+
+    previousVisitedAt = (bs?.last_visited_at as string | null) ?? null
+    favorites = (bs?.favorites as string[] | null) ?? []
+    savedConfigs = (bs?.saved_configs as Record<string, unknown> | null) ?? {}
+
+    await admin.from('portal_buyer_state').upsert(
+      {
+        link_id: link.id,
+        previous_visited_at: previousVisitedAt,
+        last_visited_at: new Date().toISOString(),
+        visit_count: ((bs?.visit_count as number | null) ?? 0) + 1,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'link_id' },
+    )
+  } catch { /* non-fatal — never break the page render */ }
 
   // ── Area data (neighborhood + market) with 24h TTL cache per portal ──
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -170,13 +198,17 @@ export default async function SharePage({ params }: Props) {
       expiresAt={link.expires_at ?? null}
       branding={branding}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       financials={(link.financials as any) ?? null}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       neighborhood={neighborhood as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       market={market as any}
       areaAsOf={areaAsOf}
+      favorites={favorites}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      savedConfigs={savedConfigs as any}
+      previousVisitedAt={previousVisitedAt}
+      plansUpdatedAt={(link.plans_updated_at as string | null) ?? null}
     />
   )
 }

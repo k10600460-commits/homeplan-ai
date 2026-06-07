@@ -121,6 +121,17 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [intentSignals, setIntentSignals] = useState<IntentSignal[]>([]);
   const [intentLoading, setIntentLoading] = useState(true);
 
+  // Add-concept modal
+  const [addConceptSlug, setAddConceptSlug] = useState<string | null>(null);
+  const [addConceptForm, setAddConceptForm] = useState({ lotSize: "", budget: "", familySize: "" });
+  const [addConceptGenerating, setAddConceptGenerating] = useState(false);
+  const [addConceptError, setAddConceptError] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [generatedConcepts, setGeneratedConcepts] = useState<any[] | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [addingConcept, setAddingConcept] = useState<any | null>(null);
+  const [addedConceptName, setAddedConceptName] = useState<string | null>(null);
+
   // Extended branding state
   const [phone, setPhone] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
@@ -377,6 +388,74 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
     setTimeout(() => setCopiedSlug(null), 2000);
   }
 
+  function openAddConcept(slug: string) {
+    setAddConceptSlug(slug);
+    setAddConceptForm({ lotSize: "", budget: "", familySize: "" });
+    setAddConceptError(null);
+    setGeneratedConcepts(null);
+    setAddingConcept(null);
+    setAddedConceptName(null);
+  }
+
+  function closeAddConcept() {
+    setAddConceptSlug(null);
+    setGeneratedConcepts(null);
+    setAddedConceptName(null);
+  }
+
+  async function handleGenerateConcepts() {
+    const lotSizeNum  = parseInt(addConceptForm.lotSize.replace(/,/g, ""), 10);
+    const budgetNum   = parseInt(addConceptForm.budget.replace(/[$,]/g, ""), 10);
+    const familyNum   = parseInt(addConceptForm.familySize, 10);
+    if (!lotSizeNum || !budgetNum || !familyNum) {
+      setAddConceptError("Please fill in all three fields.");
+      return;
+    }
+    setAddConceptGenerating(true);
+    setAddConceptError(null);
+    setGeneratedConcepts(null);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lotSize: lotSizeNum, budget: budgetNum, familySize: familyNum }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setAddConceptError(d.error ?? "Generation failed. Please try again.");
+        return;
+      }
+      const data = await res.json();
+      setGeneratedConcepts(data.plans ?? []);
+    } catch {
+      setAddConceptError("Network error. Please try again.");
+    } finally {
+      setAddConceptGenerating(false);
+    }
+  }
+
+  async function handleAddConcept(plan: unknown) {
+    if (!addConceptSlug) return;
+    setAddingConcept(plan);
+    try {
+      const res = await fetch(`/api/portal/${addConceptSlug}/add-concept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      if (!res.ok) {
+        setAddConceptError("Failed to add concept. Please try again.");
+        return;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setAddedConceptName((plan as any)?.name ?? "Concept");
+      setGeneratedConcepts(null);
+      await loadSharedLinks();
+    } finally {
+      setAddingConcept(null);
+    }
+  }
+
   function timeAgo(iso: string) {
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diff / 60000);
@@ -433,6 +512,126 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
 
   return (
     <div className="min-h-screen bg-gray-50">
+
+      {/* Add Concept Modal */}
+      {addConceptSlug !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 px-0 sm:px-4"
+          onClick={closeAddConcept}
+        >
+          <div
+            className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Add a Concept</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Generate a new floor-plan and add it to <span className="font-mono text-gray-700">/s/{addConceptSlug}</span>
+                </p>
+              </div>
+              <button onClick={closeAddConcept} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {addedConceptName ? (
+              <div className="text-center py-8">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-lg font-bold text-gray-900">&ldquo;{addedConceptName}&rdquo; added!</p>
+                <p className="text-sm text-gray-500 mt-1">The buyer will see it with a New badge on their next visit.</p>
+                <button onClick={closeAddConcept} className="mt-6 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
+                  Done
+                </button>
+              </div>
+            ) : generatedConcepts ? (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-gray-700 mb-1">Pick one to add to the portal:</p>
+                {addConceptError && <p className="text-sm text-red-500">{addConceptError}</p>}
+                {generatedConcepts.map((p, idx) => (
+                  <div key={idx} className="flex items-start justify-between gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-900">{p.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {p.style} · {p.squareFootage?.toLocaleString()} sqft · {p.bedrooms}bd / {p.bathrooms}ba · ${(p.estimatedCost / 1000).toFixed(0)}K
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleAddConcept(p)}
+                      disabled={addingConcept !== null}
+                      className="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                    >
+                      {addingConcept === p ? "Adding…" : "Add this"}
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => { setGeneratedConcepts(null); setAddConceptError(null); }}
+                  className="w-full py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ← Back to form
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Lot Size (sq ft)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 8000"
+                    value={addConceptForm.lotSize}
+                    onChange={e => setAddConceptForm(f => ({ ...f, lotSize: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Total Budget ($)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 450000"
+                    value={addConceptForm.budget}
+                    onChange={e => setAddConceptForm(f => ({ ...f, budget: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Family Size</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 4"
+                    value={addConceptForm.familySize}
+                    onChange={e => setAddConceptForm(f => ({ ...f, familySize: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                {addConceptError && <p className="text-sm text-red-500">{addConceptError}</p>}
+                <button
+                  onClick={handleGenerateConcepts}
+                  disabled={addConceptGenerating}
+                  className="w-full py-3 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+                >
+                  {addConceptGenerating ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Generating…
+                    </>
+                  ) : "Generate 3 options →"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Nav */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -1049,26 +1248,37 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleCopyLink(link.slug)}
-                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
-                  >
-                    {copiedSlug === link.slug ? (
-                      <>
-                        <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                        </svg>
-                        Copy Link
-                      </>
-                    )}
-                  </button>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <button
+                      onClick={() => openAddConcept(link.slug)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add concept
+                    </button>
+                    <button
+                      onClick={() => handleCopyLink(link.slug)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                    >
+                      {copiedSlug === link.slug ? (
+                        <>
+                          <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                          </svg>
+                          Copy Link
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

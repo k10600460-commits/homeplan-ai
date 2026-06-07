@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
 import type { PortalBranding } from "./page";
 import { conceptImageSrc } from "@/lib/concept-style-image";
@@ -98,6 +98,8 @@ interface FloorPlan {
   highlights: string[];
   // Phase 2: builder-provided image URL takes priority over style mapping
   imageUrl?: string | null;
+  // Set when a concept is appended after the portal was first created
+  addedAt?: string | null;
 }
 
 const PLAN_COLORS: [number, number, number][] = [
@@ -374,16 +376,26 @@ function ConceptImage({ style, imageUrl }: { style: string; imageUrl?: string | 
   );
 }
 
-function PlanConfigurator({ plan, financials }: { plan: FloorPlan; financials: FinancialsSnapshot | null }) {
+function PlanConfigurator({
+  plan, financials, slug, planKey, savedConfig,
+}: {
+  plan: FloorPlan;
+  financials: FinancialsSnapshot | null;
+  slug: string;
+  planKey: string;
+  savedConfig: ConfigState | null;
+}) {
   const baseStyle = displayStyle(plan.style)
-  const [open, setOpen] = useState(false)
-  const [cfg, setCfg] = useState<ConfigState>({
-    sqft: plan.squareFootage, beds: plan.bedrooms, baths: plan.bathrooms, style: baseStyle,
-  })
+  const [open, setOpen] = useState(savedConfig !== null)
+  const [cfg, setCfg] = useState<ConfigState>(
+    savedConfig ?? { sqft: plan.squareFootage, beds: plan.bedrooms, baths: plan.bathrooms, style: baseStyle },
+  )
+  const [resumed, setResumed] = useState(savedConfig !== null)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const price    = computeConfigPrice(plan, cfg)
-  const rate     = financials?.rate ?? 6.5
-  const downPct  = financials?.downPct ?? 20
+  const price     = computeConfigPrice(plan, cfg)
+  const rate      = financials?.rate ?? 6.5
+  const downPct   = financials?.downPct ?? 20
   const termYears = financials?.termYears ?? 30
   const rateAsOf  = financials?.rateAsOf ?? null
   const monthly   = calcMonthly(price, downPct, rate, termYears)
@@ -394,10 +406,37 @@ function PlanConfigurator({ plan, financials }: { plan: FloorPlan; financials: F
   const sqftMax    = Math.min(5000, plan.squareFootage + 1000)
   const styleOpts  = STYLES.includes(baseStyle) ? STYLES : [baseStyle, ...STYLES]
 
+  // Debounce-save whenever cfg changes and panel is open
+  useEffect(() => {
+    if (!open) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      fetch(`/api/portal/${slug}/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: planKey, config: isModified ? cfg : null }),
+      }).catch(() => {})
+    }, 1500)
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg, open])
+
+  function handleReset(e: React.MouseEvent) {
+    e.stopPropagation()
+    const base = { sqft: plan.squareFootage, beds: plan.bedrooms, baths: plan.bathrooms, style: baseStyle }
+    setCfg(base)
+    setResumed(false)
+    fetch(`/api/portal/${slug}/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId: planKey, config: null }),
+    }).catch(() => {})
+  }
+
   return (
     <div className="border-t border-gray-100" onClick={e => e.stopPropagation()}>
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { setOpen(o => !o); setResumed(false) }}
         className="w-full px-6 py-3 flex items-center justify-between text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
       >
         <span className="flex items-center gap-2">
@@ -406,6 +445,9 @@ function PlanConfigurator({ plan, financials }: { plan: FloorPlan; financials: F
               d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
           </svg>
           Customize this plan
+          {resumed && !open && (
+            <span className="text-xs text-indigo-400 font-normal">· settings saved</span>
+          )}
         </span>
         <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -414,6 +456,16 @@ function PlanConfigurator({ plan, financials }: { plan: FloorPlan; financials: F
 
       {open && (
         <div className="px-6 pb-5 pt-1 space-y-4 bg-gray-50/60">
+          {/* Resumed notice */}
+          {resumed && (
+            <div className="flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 rounded-lg px-3 py-2">
+              <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Resumed your saved settings
+            </div>
+          )}
+
           {/* Price + monthly */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center shadow-sm">
             <p className="text-3xl font-extrabold text-gray-900">${price.toLocaleString()}</p>
@@ -482,7 +534,7 @@ function PlanConfigurator({ plan, financials }: { plan: FloorPlan; financials: F
           {/* Reset */}
           {isModified && (
             <button
-              onClick={e => { e.stopPropagation(); setCfg({ sqft: plan.squareFootage, beds: plan.bedrooms, baths: plan.bathrooms, style: baseStyle }) }}
+              onClick={handleReset}
               className="w-full py-2 rounded-xl text-xs font-semibold text-gray-500 border border-gray-200 hover:bg-white transition-colors"
             >
               Reset to original
@@ -915,6 +967,10 @@ interface Props {
   neighborhood: NeighborhoodData | null;
   market: MarketData | null;
   areaAsOf: string | null;
+  favorites: string[];
+  savedConfigs: Record<string, ConfigState>;
+  previousVisitedAt: string | null;
+  plansUpdatedAt: string | null;
 }
 
 interface InquiryForm {
@@ -924,7 +980,7 @@ interface InquiryForm {
   message: string;
 }
 
-export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding, financials, neighborhood, market, areaAsOf }: Props) {
+export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding, financials, neighborhood, market, areaAsOf, favorites: initialFavorites, savedConfigs, previousVisitedAt, plansUpdatedAt }: Props) {
   const isTeam = branding.plan === "team";
   const isPro  = branding.plan === "pro";
   const isBranded = isTeam || isPro;
@@ -932,6 +988,32 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
   const [lang, setLang] = useState<Lang>("en");
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+
+  // ── Favorites ─────────────────────────────────────────────────────────────
+  const [favSet, setFavSet] = useState<Set<string>>(() => new Set(initialFavorites.map(String)));
+
+  function toggleFavorite(planId: number | string, e: React.MouseEvent) {
+    e.stopPropagation();
+    const key = String(planId);
+    const on = !favSet.has(key);
+    setFavSet(prev => {
+      const next = new Set(prev);
+      if (on) next.add(key); else next.delete(key);
+      return next;
+    });
+    fetch(`/api/portal/${slug}/favorite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planId: key, on }),
+    }).catch(() => {});
+  }
+
+  // ── "Updated since last visit" banner ─────────────────────────────────────
+  const latestUpdate = [plansUpdatedAt, areaAsOf].filter(Boolean).sort().pop() ?? null;
+  const showUpdatedBanner =
+    previousVisitedAt !== null &&
+    latestUpdate !== null &&
+    latestUpdate > previousVisitedAt;
 
   // Inquiry modal state
   const [inquiryPlanIndex, setInquiryPlanIndex] = useState<number | null>(null); // null = closed
@@ -1390,11 +1472,26 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
           </div>
         )}
 
+        {/* "Updated since your last visit" banner */}
+        {showUpdatedBanner && (
+          <div className="mb-6 flex items-center gap-3 px-5 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+            <svg className="w-4 h-4 shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <span><strong>Updated since your last visit</strong> — new content has been added to this proposal.</span>
+          </div>
+        )}
+
         {/* Plan cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {plans.map((plan, i) => {
             const colors = STYLE_COLORS[i % STYLE_COLORS.length];
             const isSelected = selectedPlan === plan.id;
+            const planKey = String(plan.id);
+            const isFav = favSet.has(planKey);
+            const isNew = Boolean(
+              plan.addedAt && previousVisitedAt !== null && plan.addedAt > previousVisitedAt,
+            );
 
             return (
               <div
@@ -1412,14 +1509,31 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                 {/* Card header */}
                 <div className={`${colors.bg} px-6 py-5 border-b ${colors.border}`}>
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className={`inline-block text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-white ${colors.badge} mb-2`}>
-                        Plan {plan.id}
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`inline-block text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-white ${colors.badge}`}>
+                          Plan {plan.id}
+                        </span>
+                        {isNew && (
+                          <span className="inline-block text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-400 text-white">
+                            New
+                          </span>
+                        )}
+                      </div>
                       <h2 className="text-xl font-bold text-gray-900">{plan.name}</h2>
                       <p className={`text-sm font-medium ${colors.accent} mt-0.5`}>{plan.style}</p>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {/* Star/favorite toggle */}
+                      <button
+                        onClick={e => toggleFavorite(plan.id, e)}
+                        className={`p-1 rounded-full transition-colors ${isFav ? "text-yellow-400 hover:text-yellow-500" : "text-gray-300 hover:text-gray-400"}`}
+                        aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+                      >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                        </svg>
+                      </button>
                       <p className="text-2xl font-extrabold text-gray-900">
                         ${(plan.estimatedCost / 1000).toFixed(0)}–${Math.round(plan.estimatedCost * 1.1 / 1000)}K
                       </p>
@@ -1463,7 +1577,13 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                 </div>
 
                 {/* Configurator — always visible, self-contained expander */}
-                <PlanConfigurator plan={plan} financials={financials} />
+                <PlanConfigurator
+                  plan={plan}
+                  financials={financials}
+                  slug={slug}
+                  planKey={planKey}
+                  savedConfig={savedConfigs[planKey] ?? null}
+                />
 
                 {/* Expanded detail */}
                 {isSelected && (
