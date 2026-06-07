@@ -106,7 +106,7 @@ export default async function SharePage({ params }: Props) {
 
   const { data: link } = await admin
     .from('shared_links')
-    .select('id, slug, plans, client_name, is_active, expires_at, view_count, user_id, city, state, financials, neighborhood_snapshot, market_snapshot, area_refreshed_at')
+    .select('id, slug, plans, client_name, is_active, expires_at, view_count, user_id, city, state, financials, neighborhood_snapshot, market_snapshot, area_refreshed_at, builder_name, builder_logo_url')
     .eq('slug', slug)
     .single()
 
@@ -146,7 +146,21 @@ export default async function SharePage({ params }: Props) {
   }
 
   // Fetch builder's branding if they have a paid plan
-  const branding = await fetchBranding(admin, link.user_id)
+  let branding = await fetchBranding(admin, link.user_id)
+
+  // Per-portal override: builder_name / builder_logo_url set directly on shared_links
+  // (admin/demo use). Takes priority over account-level team_profiles branding.
+  // When present, forces isBranded=true even on free accounts.
+  const portalBuilderName = (link.builder_name as string | null)?.trim() || null
+  const portalLogoUrl     = (link.builder_logo_url as string | null)?.trim() || null
+  if (portalBuilderName || portalLogoUrl) {
+    branding = {
+      ...branding,
+      ...(portalBuilderName ? { companyName: portalBuilderName } : {}),
+      ...(portalLogoUrl     ? { logoDataUrl: portalLogoUrl }     : {}),
+      plan: branding.plan === 'free' ? 'pro' : branding.plan,
+    }
+  }
 
   return (
     <SharePortalClient

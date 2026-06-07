@@ -334,7 +334,7 @@ function ConceptImage({ style, imageUrl }: { style: string; imageUrl?: string | 
 
 const T = {
   en: {
-    title: "Your Floor Plan Proposals",
+    title: "Your Custom Home Proposals",
     subtitle: "Prepared exclusively for you",
     poweredBy: "Powered by",
     download: "Download PDF",
