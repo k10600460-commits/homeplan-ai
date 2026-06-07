@@ -415,10 +415,13 @@ function ConceptImage({ style, baseStyle, imageUrl }: { style: string; baseStyle
   const [failed, setFailed] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [visible, setVisible] = useState(true);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     setFailed(false);
-    setVisible(false);
+    const el = imgRef.current;
+    // Already cached/decoded → keep visible; else fade out until onLoad fires.
+    setVisible(Boolean(el && el.complete && el.naturalWidth > 0));
   }, [computed]);
 
   const src = failed ? styleImageUrl("default") : computed;
@@ -429,6 +432,7 @@ function ConceptImage({ style, baseStyle, imageUrl }: { style: string; baseStyle
     <div className="relative w-full aspect-video overflow-hidden bg-gray-100">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={imgRef}
         src={src}
         alt={`${style} home exterior`}
         className="w-full h-full object-cover transition-opacity duration-300"
