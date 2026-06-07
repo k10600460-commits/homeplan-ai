@@ -112,6 +112,48 @@ const STYLE_COLORS = [
   { bg: "bg-violet-50", border: "border-violet-200", badge: "bg-violet-600", accent: "text-violet-700" },
 ];
 
+// ── Configurator pricing model ──────────────────────────────────────────────
+const STYLE_PREMIUM: Record<string, number> = {
+  Contemporary: 12000, ModernFarmhouse: 8000,
+  Transitional: 4000,  Craftsman: 4000,
+  Colonial: 0,         Ranch: 0,
+}
+const MARGINAL_PER_SQFT = 200
+const BATH_PER_BATH     = 15000
+const BEDROOM_COST      = 10000
+const STYLES = ['Contemporary', 'Modern Farmhouse', 'Transitional', 'Craftsman', 'Colonial', 'Ranch']
+
+function getStylePremium(style: string): number {
+  return STYLE_PREMIUM[style.replace(/\s+/g, '')] ?? 0
+}
+
+function displayStyle(style: string): string {
+  return style.replace(/([a-z])([A-Z])/g, '$1 $2')
+}
+
+interface ConfigState { sqft: number; beds: number; baths: number; style: string }
+
+function computeConfigPrice(plan: FloorPlan, cfg: ConfigState): number {
+  const raw = plan.estimatedCost
+    + (cfg.sqft  - plan.squareFootage) * MARGINAL_PER_SQFT
+    + (cfg.baths - plan.bathrooms)     * BATH_PER_BATH
+    + (cfg.beds  - plan.bedrooms)      * BEDROOM_COST
+    + (getStylePremium(cfg.style) - getStylePremium(plan.style))
+  return Math.max(150000, Math.round(raw / 500) * 500)
+}
+
+function buildBreakdown(plan: FloorPlan, cfg: ConfigState, baseStyle: string): string {
+  const parts: string[] = ['Base']
+  const sqftDelta = cfg.sqft - plan.squareFootage
+  if (sqftDelta !== 0) parts.push(`${sqftDelta > 0 ? '+' : ''}${sqftDelta.toLocaleString()} sqft`)
+  const bathDelta = cfg.baths - plan.bathrooms
+  if (bathDelta !== 0) parts.push(`${bathDelta > 0 ? '+' : ''}${bathDelta} ba`)
+  const bedDelta = cfg.beds - plan.bedrooms
+  if (bedDelta !== 0) parts.push(`${bedDelta > 0 ? '+' : ''}${bedDelta} bd`)
+  if (cfg.style !== baseStyle) parts.push(cfg.style)
+  return parts.join(' · ')
+}
+
 // --- Squarified treemap layout ---
 interface TileRoom { name: string; sqft: number; area: number; x: number; y: number; w: number; h: number; }
 
@@ -330,6 +372,126 @@ function ConceptImage({ style, imageUrl }: { style: string; imageUrl?: string | 
       </div>
     </div>
   );
+}
+
+function PlanConfigurator({ plan, financials }: { plan: FloorPlan; financials: FinancialsSnapshot | null }) {
+  const baseStyle = displayStyle(plan.style)
+  const [open, setOpen] = useState(false)
+  const [cfg, setCfg] = useState<ConfigState>({
+    sqft: plan.squareFootage, beds: plan.bedrooms, baths: plan.bathrooms, style: baseStyle,
+  })
+
+  const price    = computeConfigPrice(plan, cfg)
+  const rate     = financials?.rate ?? 6.5
+  const downPct  = financials?.downPct ?? 20
+  const termYears = financials?.termYears ?? 30
+  const rateAsOf  = financials?.rateAsOf ?? null
+  const monthly   = calcMonthly(price, downPct, rate, termYears)
+  const breakdown = buildBreakdown(plan, cfg, baseStyle)
+  const isModified = cfg.sqft !== plan.squareFootage || cfg.beds !== plan.bedrooms || cfg.baths !== plan.bathrooms || cfg.style !== baseStyle
+  const isTight    = cfg.sqft / cfg.beds < 300
+  const sqftMin    = Math.max(1200, plan.squareFootage - 800)
+  const sqftMax    = Math.min(5000, plan.squareFootage + 1000)
+  const styleOpts  = STYLES.includes(baseStyle) ? STYLES : [baseStyle, ...STYLES]
+
+  return (
+    <div className="border-t border-gray-100" onClick={e => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full px-6 py-3 flex items-center justify-between text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+          Customize this plan
+        </span>
+        <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="px-6 pb-5 pt-1 space-y-4 bg-gray-50/60">
+          {/* Price + monthly */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center shadow-sm">
+            <p className="text-3xl font-extrabold text-gray-900">${price.toLocaleString()}</p>
+            <p className="text-lg font-bold text-blue-600 mt-1">
+              ≈ ${monthly.toLocaleString()}<span className="text-sm font-normal text-gray-400">/mo</span>
+            </p>
+            <p className="text-[10px] text-gray-400 mt-1">
+              Est. P&amp;I · {rate.toFixed(2)}%
+              {rateAsOf ? ` (as of ${new Date(rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})` : ''}
+              {' '}· {downPct}% down · {termYears}-yr
+            </p>
+          </div>
+
+          {/* Size */}
+          <div>
+            <div className="flex justify-between text-xs font-medium text-gray-600 mb-1">
+              <span>Size</span>
+              <span className="font-bold text-gray-900">{cfg.sqft.toLocaleString()} sqft</span>
+            </div>
+            <input type="range" min={sqftMin} max={sqftMax} step={50} value={cfg.sqft}
+              onChange={e => setCfg(c => ({ ...c, sqft: Number(e.target.value) }))}
+              className="w-full accent-indigo-600" />
+            {isTight && <p className="text-xs text-amber-500 mt-1">Tight for {cfg.beds} bedrooms</p>}
+          </div>
+
+          {/* Bedrooms */}
+          <div>
+            <div className="flex justify-between text-xs font-medium text-gray-600 mb-1">
+              <span>Bedrooms</span>
+              <span className="font-bold text-gray-900">{cfg.beds}</span>
+            </div>
+            <input type="range" min={2} max={6} step={1} value={cfg.beds}
+              onChange={e => setCfg(c => ({ ...c, beds: Number(e.target.value) }))}
+              className="w-full accent-indigo-600" />
+          </div>
+
+          {/* Bathrooms */}
+          <div>
+            <div className="flex justify-between text-xs font-medium text-gray-600 mb-1">
+              <span>Bathrooms</span>
+              <span className="font-bold text-gray-900">{cfg.baths}</span>
+            </div>
+            <input type="range" min={1} max={5} step={0.5} value={cfg.baths}
+              onChange={e => setCfg(c => ({ ...c, baths: Number(e.target.value) }))}
+              className="w-full accent-indigo-600" />
+          </div>
+
+          {/* Style */}
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1">Style</label>
+            <select
+              value={cfg.style}
+              onChange={e => setCfg(c => ({ ...c, style: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {styleOpts.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          {/* Breakdown */}
+          <div className="rounded-xl bg-blue-50 px-4 py-3">
+            <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-0.5">How this is calculated</p>
+            <p className="text-xs text-blue-700 font-medium">{breakdown}</p>
+          </div>
+
+          {/* Reset */}
+          {isModified && (
+            <button
+              onClick={e => { e.stopPropagation(); setCfg({ sqft: plan.squareFootage, beds: plan.bedrooms, baths: plan.bathrooms, style: baseStyle }) }}
+              className="w-full py-2 rounded-xl text-xs font-semibold text-gray-500 border border-gray-200 hover:bg-white transition-colors"
+            >
+              Reset to original
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 const T = {
@@ -1299,6 +1461,9 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                     ))}
                   </ul>
                 </div>
+
+                {/* Configurator — always visible, self-contained expander */}
+                <PlanConfigurator plan={plan} financials={financials} />
 
                 {/* Expanded detail */}
                 {isSelected && (
