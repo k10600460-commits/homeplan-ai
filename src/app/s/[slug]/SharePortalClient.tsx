@@ -810,7 +810,7 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(255, 255, 255);
-    doc.text(`PLAN ${plan.id}`, ML + BADGE_W / 2, BADGE_Y + BADGE_H / 2 + 1, { align: "center" });
+    doc.text(`PLAN ${String(plan.id).toUpperCase()}`, ML + BADGE_W / 2, BADGE_Y + BADGE_H / 2 + 1, { align: "center" });
 
     let y = BADGE_Y + BADGE_H + 6;
     doc.setFont("helvetica", "bold");
@@ -827,7 +827,7 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
     doc.setFontSize(15);
     doc.setTextColor(cr, cg, cb);
     const costHigh = Math.round(plan.estimatedCost * 1.1);
-    doc.text(`$${plan.estimatedCost.toLocaleString()}–$${costHigh.toLocaleString()}`, PW - ML, y, { align: "right" });
+    doc.text(`$${plan.estimatedCost.toLocaleString()} - $${costHigh.toLocaleString()}`, PW - ML, y, { align: "right" });
     {
       const mDown = financials?.downPct ?? 20;
       const mRate = financials?.rate ?? 6.5;
@@ -836,7 +836,7 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       doc.setTextColor(156, 163, 175);
-      doc.text(`≈ $${pdfMonthly.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}% — illustrative only`, PW - ML, y + 4.5, { align: "right" });
+      doc.text(`Est. $${pdfMonthly.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}% - illustrative only`, PW - ML, y + 4.5, { align: "right" });
     }
 
     y += 13;
@@ -965,13 +965,18 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
       doc.setFont("helvetica", "italic");
       doc.setFontSize(5.5);
       doc.setTextColor(180, 180, 180);
-      doc.text(T[lang].conceptCaption, ML, barTopY + 4 + barH + 3);
+      doc.text(T[lang].conceptCaption.replace(/[—–]/g, '-'), ML, barTopY + 4 + barH + 3);
     }
 
+    const disclaimer = "Floor-plan concepts are AI-assisted illustrations for preliminary use only - not construction drawings, and may not meet building codes or zoning. Verify with licensed professionals before relying on them.";
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
+    const discLines = doc.splitTextToSize(disclaimer, CW) as string[];
+    const bandH = 14 + Math.max(0, discLines.length - 1) * 3;
     doc.setFillColor(248, 250, 252);
-    doc.rect(0, PH - 14, PW, 14, "F");
+    doc.rect(0, PH - bandH, PW, bandH, "F");
     doc.setDrawColor(229, 231, 235);
-    doc.line(0, PH - 14, PW, PH - 14);
+    doc.line(0, PH - bandH, PW, PH - bandH);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(156, 163, 175);
@@ -981,19 +986,20 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
     const contactStr = contactParts.join(" · ");
     if (isTeam && companyLabel) {
       const leftLabel = contactStr ? `${companyLabel} · ${contactStr}` : companyLabel;
-      doc.text(leftLabel, ML, PH - 9);
-      doc.text(`© ${new Date().getFullYear()} ${companyLabel}`, PW - ML, PH - 9, { align: "right" });
+      doc.text(leftLabel, ML, PH - bandH + 5);
+      doc.text(`© ${new Date().getFullYear()} ${companyLabel}`, PW - ML, PH - bandH + 5, { align: "right" });
     } else if (isPro && companyLabel) {
       const leftLabel = contactStr ? `${companyLabel} · ${contactStr}` : `${companyLabel} · Powered by SplanAI · splanai.com`;
-      doc.text(leftLabel, ML, PH - 9);
-      doc.text(`© ${new Date().getFullYear()} SplanAI`, PW - ML, PH - 9, { align: "right" });
+      doc.text(leftLabel, ML, PH - bandH + 5);
+      doc.text(`© ${new Date().getFullYear()} SplanAI`, PW - ML, PH - bandH + 5, { align: "right" });
     } else {
-      doc.text("Powered by SplanAI · Data: Google Maps + RentCast · splanai.com", ML, PH - 9);
-      doc.text(`© ${new Date().getFullYear()} SplanAI`, PW - ML, PH - 9, { align: "right" });
+      doc.text("Powered by SplanAI · Data: Google Maps + RentCast · splanai.com", ML, PH - bandH + 5);
+      doc.text(`© ${new Date().getFullYear()} SplanAI`, PW - ML, PH - bandH + 5, { align: "right" });
     }
     doc.setFontSize(6);
     doc.setTextColor(180, 180, 180);
-    doc.text("Floor-plan concepts are AI-generated for preliminary illustration only. They are not construction-ready drawings and may not comply with building codes or zoning. Verify with licensed professionals before relying on them.", ML, PH - 4);
+    const discStartY = PH - 3 - (discLines.length - 1) * 3;
+    doc.text(discLines, ML, discStartY);
   });
 
   return doc;
