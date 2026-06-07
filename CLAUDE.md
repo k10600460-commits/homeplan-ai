@@ -81,7 +81,7 @@ npm run lint     # ESLint
 - `stripe` + `@stripe/stripe-js` — payments
 - `@supabase/supabase-js` + `@supabase/ssr` — auth + DB + Realtime
 - `resend` — transactional email
-- `pdfmake` + `jspdf` — PDF generation
+- `pdfmake` + `jspdf` — PDF generation. jsPDF の組み込み Helvetica は WinAnsi (Windows-1252) のみ対応。≈ (U+2248) / em dash (—) / en dash (–) は文字化けするため doc.text() 前に ASCII 変換必須（`Est.` / ` - `）。
 - `react-hook-form` + `zod` — form validation
 
 **Directory map**

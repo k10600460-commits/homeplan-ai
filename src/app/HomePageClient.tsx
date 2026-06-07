@@ -15,7 +15,7 @@ const T = {
       badge: "Featured on Product Hunt",
       headline1: "Close more home-building deals.",
       headline2: "Without the 3-day proposal wait.",
-      sub: "Enter lot details → get 3 buyer-ready floor plans in 30 seconds. Share a live portal. Close faster.",
+      sub: "Enter lot details → get 3 buyer-ready home concept proposals in 30 seconds. Share a live portal. Close faster.",
       ctaPrimary: "Generate Plans Free →",
       ctaSecondary: "See how it works",
       stat1: { value: "30 sec", label: "to generate" },
@@ -24,7 +24,7 @@ const T = {
     },
     trust: { label: "Powered by" },
     form: {
-      title: "Generate your first floor plan — free",
+      title: "Generate your first proposal — free",
       lotLabel: "Lot Size (sq ft)", lotPlaceholder: "e.g. 8500",
       budgetLabel: "Budget (USD)", budgetPlaceholder: "e.g. 350000",
       familyLabel: "Family Size", familyPlaceholder: "Select…",
@@ -66,7 +66,7 @@ const T = {
       heading: "From lot to client presentation in 30 seconds.",
       steps: [
         { step: "01", title: "Enter lot details", desc: "Lot size, budget, family size. Optional: city & state for neighborhood data.", icon: "📋" },
-        { step: "02", title: "AI generates 3 plans", desc: "Get three distinct floor plans with neighborhood data, avg rent, and mortgage estimates built in.", icon: "✨" },
+        { step: "02", title: "AI generates 3 plans", desc: "Get three distinct home concepts with neighborhood data, avg rent, and mortgage estimates built in.", icon: "✨" },
         { step: "03", title: "Share with your client", desc: "Download a branded PDF or send a unique link. Get notified when they view it.", icon: "🔗" },
       ],
     },
@@ -81,19 +81,19 @@ const T = {
     },
     mission: {
       heading: "Built for builders who close deals, not draw blueprints.",
-      body: "SplanAI isn't a design tool. It's the sales layer between your lot and your client's signature — floor plans, market data, financing, and client intelligence, all in one place.",
+      body: "SplanAI isn't a design tool. It's the sales layer between your lot and your client's signature — home concept proposals, market data, financing, and client intelligence, all in one place.",
     },
     pricing: {
       heading: "Simple, transparent pricing",
       sub: "Start free. Upgrade when you're ready.",
-      free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 floor plan generations / month", "SplanAI branded PDF export", "Neighborhood & market data", "Client sharing portal + view tracking", "All room types", "Email support"], cta: "Get started free" },
-      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 floor plan generations / month", "Branded PDF with your logo (Powered by SplanAI footer included)", "MLS listing data — real lot size & zoning in every plan (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
-      team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Everything in Pro, plus:", "Unlimited floor plan generations*", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF — your logo only, zero SplanAI branding", "Dedicated support"], cta: "Start 14-day free trial" },
+      free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 proposal generations / month", "SplanAI branded PDF export", "Neighborhood & market data", "Client sharing portal + view tracking", "All room types", "Email support"], cta: "Get started free" },
+      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 proposal generations / month", "Branded PDF with your logo (Powered by SplanAI footer included)", "MLS listing data — real lot size & zoning in every plan (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
+      team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Everything in Pro, plus:", "Unlimited proposal generations*", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF — your logo only, zero SplanAI branding", "Dedicated support"], cta: "Start 14-day free trial" },
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
     faq: [
       { q: "Is MLS integration legal?", a: "Yes. SplanAI connects to MLS data via the IDX policy framework established by the National Association of Realtors (NAR). Your MLS license is linked to your account, all API calls are logged in our audit system, and data is displayed in real time — never stored or redistributed. We comply with all NAR IDX guidelines and individual MLS board rules." },
-      { q: "What data sources do you use?", a: "SplanAI uses Google Maps (neighborhood places & geocoding), RentCast (market rent and sale price data), Anthropic Claude AI (floor plan generation), and optionally your MLS license for listing data. All sources are listed on your dashboard." },
+      { q: "What data sources do you use?", a: "SplanAI uses Google Maps (neighborhood places & geocoding), RentCast (market rent and sale price data), Anthropic Claude AI (proposal generation), and optionally your MLS license for listing data. All sources are listed on your dashboard." },
       { q: "Is my client data secure?", a: "Yes. All data is stored in a Supabase database with row-level security — only you can access your plans and client links. Shared links expire and can be deactivated anytime. We never sell your data." },
       { q: "Does it work in my state?", a: "SplanAI works nationwide for AI plan generation and market data. Neighborhood data (Google Maps) is available in all 50 states. MLS connectivity depends on your local MLS board — full coverage map coming soon." },
       { q: "Can I cancel anytime?", a: "Absolutely. Cancel from your dashboard in one click — no phone calls, no forms. Your Pro access continues until the end of your billing period." },
@@ -112,7 +112,7 @@ const T = {
       sub: "Early access — be one of our founding builders",
       items: [] as const,
     },
-    ctaBanner: { heading: "Ready to close more deals?", sub: "Be one of the first builders to close deals with AI floor plans.", cta: "Start Free — No Credit Card" },
+    ctaBanner: { heading: "Ready to close more deals?", sub: "Be one of the first builders to close deals with AI-generated proposals.", cta: "Start Free — No Credit Card" },
     footer: "© 2026 SplanAI. Built for home builders.",
   },
   es: {
@@ -121,16 +121,16 @@ const T = {
       badge: "Destacado en Product Hunt",
       headline1: "Cierra más contratos de construcción.",
       headline2: "Sin esperar 3 días por la propuesta.",
-      sub: "Ingresa los datos del lote → obtén 3 planos listos para el cliente en 30 segundos. Comparte un portal en vivo. Cierra más rápido.",
-      ctaPrimary: "Genera Planos Gratis →",
+      sub: "Ingresa los datos del lote → obtén 3 propuestas de concepto listas para el cliente en 30 segundos. Comparte un portal en vivo. Cierra más rápido.",
+      ctaPrimary: "Genera Propuestas Gratis →",
       ctaSecondary: "Cómo funciona",
       stat1: { value: "30 seg", label: "para generar" },
-      stat2: { value: "3 planos", label: "por sesión" },
+      stat2: { value: "3 propuestas", label: "por sesión" },
       stat3: { value: "14 días", label: "de prueba" },
     },
     trust: { label: "Con tecnología de" },
     form: {
-      title: "Genera tu primer plano — gratis",
+      title: "Genera tu primera propuesta — gratis",
       lotLabel: "Tamaño del terreno (pies²)", lotPlaceholder: "ej. 8500",
       budgetLabel: "Presupuesto (USD)", budgetPlaceholder: "ej. 350000",
       familyLabel: "Tamaño de la familia", familyPlaceholder: "Seleccionar…",
@@ -140,9 +140,9 @@ const T = {
       streetLabel: "Dirección", streetPlaceholder: "ej. 1234 Oak Lane, Austin, TX",
       streetHint: "Opcional — agrega datos del vecindario (tamaño del lote y zonificación: conecta MLS en Pro)",
       locationNote: "Opcional — agrega datos del vecindario y mercado",
-      cta: "Generar 3 Planos →", generating: "Generando Planos…",
-      signupNote: "✨ Registro rápido para recibir tus planos · Sin tarjeta de crédito",
-      disclaimer: "Sin tarjeta de crédito · Registro en 30 segundos · 3 planos gratis incluidos",
+      cta: "Generar 3 Propuestas →", generating: "Generando Propuestas…",
+      signupNote: "✨ Registro rápido para recibir tus propuestas · Sin tarjeta de crédito",
+      disclaimer: "Sin tarjeta de crédito · Registro en 30 segundos · 3 propuestas gratis incluidas",
     },
     pain: {
       heading: "¿Te suena familiar?",
@@ -152,7 +152,7 @@ const T = {
           icon: "😟",
           headline: "El cliente pide una propuesta. Pasas 3 días haciéndola.",
           body: "Para entonces, ya se fue. Las propuestas lentas no solo pierden tiempo — pierden contratos.",
-          solution: "SplanAI genera 3 planos en 30 segundos.",
+          solution: "SplanAI genera 3 propuestas en 30 segundos.",
         },
         {
           icon: "💸",
@@ -164,7 +164,7 @@ const T = {
           icon: "📉",
           headline: "Envías un PDF. Se queda en su bandeja.",
           body: "No sabes si lo abrieron. Mientras esperas, un competidor ya está haciendo seguimiento.",
-          solution: "Sabe exactamente cuándo lo abren y qué plano les gusta.",
+          solution: "Sabe exactamente cuándo lo abren y qué propuesta les gusta.",
         },
       ],
     },
@@ -172,7 +172,7 @@ const T = {
       heading: "Del lote a la presentación al cliente en 30 segundos.",
       steps: [
         { step: "01", title: "Ingresa los datos del lote", desc: "Tamaño, presupuesto, familia. Opcional: ciudad y estado para datos del vecindario.", icon: "📋" },
-        { step: "02", title: "La IA genera 3 planos", desc: "Obtén tres planos distintos con datos del vecindario, renta promedio y estimados de hipoteca incluidos.", icon: "✨" },
+        { step: "02", title: "La IA genera 3 propuestas", desc: "Obtén tres conceptos distintos con datos del vecindario, renta promedio y estimados de hipoteca incluidos.", icon: "✨" },
         { step: "03", title: "Comparte con tu cliente", desc: "Descarga el PDF o envía un enlace único. Recibe una notificación cuando lo vean.", icon: "🔗" },
       ],
     },
@@ -182,26 +182,26 @@ const T = {
       items: [
         { icon: "🗺️", title: "Inteligencia de Vecindario", desc: "Escuelas, seguridad y renta del mercado vía Google Maps y RentCast." },
         { icon: "📄", title: "PDF con Tu Marca en Un Clic", desc: "Propuestas profesionales con tu logo, distribución de habitaciones y estimado de costo." },
-        { icon: "📡", title: "Seguimiento en Tiempo Real", desc: "Sabe al instante cuando tu cliente abre el enlace y qué plano le interesa más." },
+        { icon: "📡", title: "Seguimiento en Tiempo Real", desc: "Sabe al instante cuando tu cliente abre el enlace y qué propuesta le interesa más." },
       ],
     },
     mission: {
       heading: "Construido para constructores que cierran contratos, no que dibujan planos.",
-      body: "SplanAI no es una herramienta de diseño. Es la capa de ventas entre tu lote y la firma de tu cliente — planos, datos de mercado, financiamiento e inteligencia del cliente, todo en un solo lugar.",
+      body: "SplanAI no es una herramienta de diseño. Es la capa de ventas entre tu lote y la firma de tu cliente — propuestas, datos de mercado, financiamiento e inteligencia del cliente, todo en un solo lugar.",
     },
     pricing: {
       heading: "Precios simples y transparentes",
       sub: "Empieza gratis. Actualiza cuando estés listo.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Datos de vecindario y mercado", "Portal para clientes + seguimiento de vistas", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
-      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 generaciones de planos / mes", "PDF con tu logo (pie Powered by SplanAI incluido)", "Datos MLS — tamaño del lote y zonificación reales en cada plano (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
-      team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Todo lo de Pro, más:", "Generaciones ilimitadas de planos*", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca — solo tu logo, sin branding de SplanAI", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
+      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 generaciones de propuestas / mes", "PDF con tu logo (pie Powered by SplanAI incluido)", "Datos MLS — tamaño del lote y zonificación reales en cada propuesta (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
+      team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Todo lo de Pro, más:", "Generaciones ilimitadas de propuestas*", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca — solo tu logo, sin branding de SplanAI", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
     faq: [
       { q: "¿Es legal la integración MLS?", a: "Sí. SplanAI se conecta a datos MLS bajo el marco de política IDX de la NAR. Tu licencia MLS se vincula a tu cuenta, todas las llamadas API se registran, y los datos se muestran en tiempo real — nunca almacenados ni redistribuidos." },
-      { q: "¿Qué fuentes de datos usa?", a: "Google Maps (vecindario y geocodificación), RentCast (datos de mercado de renta), Anthropic Claude AI (generación de planos) y opcionalmente tu licencia MLS." },
-      { q: "¿Mis datos de clientes son seguros?", a: "Sí. Todos los datos se almacenan con seguridad de nivel de fila en Supabase — solo tú accedes a tus planos y enlaces. Los enlaces compartidos se pueden desactivar en cualquier momento." },
-      { q: "¿Funciona en mi estado?", a: "SplanAI funciona en los 50 estados para generación de planos y datos de mercado. La conectividad MLS depende de tu junta MLS local." },
+      { q: "¿Qué fuentes de datos usa?", a: "Google Maps (vecindario y geocodificación), RentCast (datos de mercado de renta), Anthropic Claude AI (generación de propuestas) y opcionalmente tu licencia MLS." },
+      { q: "¿Mis datos de clientes son seguros?", a: "Sí. Todos los datos se almacenan con seguridad de nivel de fila en Supabase — solo tú accedes a tus propuestas y enlaces. Los enlaces compartidos se pueden desactivar en cualquier momento." },
+      { q: "¿Funciona en mi estado?", a: "SplanAI funciona en los 50 estados para generación de propuestas y datos de mercado. La conectividad MLS depende de tu junta MLS local." },
       { q: "¿Puedo cancelar en cualquier momento?", a: "Por supuesto. Cancela desde tu panel con un solo clic — sin llamadas telefónicas ni formularios. Tu acceso Pro continúa hasta el final del período de facturación." },
     ],
     security: {
@@ -209,7 +209,7 @@ const T = {
       sub: "Construido con privacidad y cumplimiento en mente.",
       items: [
         { icon: "🔒", text: "Los datos de clientes nunca se usan para entrenar modelos de IA" },
-        { icon: "🛡️", text: "Todos los planos y actividad del portal están encriptados" },
+        { icon: "🛡️", text: "Todas las propuestas y actividad del portal están encriptadas" },
         { icon: "📋", text: "Registros de auditoría conformes con MLS en cada consulta de datos" },
       ],
     },
@@ -218,7 +218,7 @@ const T = {
       sub: "Acceso anticipado — sé uno de nuestros primeros constructores",
       items: [] as const,
     },
-    ctaBanner: { heading: "¿Listo para cerrar más contratos?", sub: "Sé uno de los primeros constructores en cerrar contratos con planos de IA.", cta: "Empieza Gratis — Sin Tarjeta" },
+    ctaBanner: { heading: "¿Listo para cerrar más contratos?", sub: "Sé uno de los primeros constructores en cerrar contratos con propuestas de IA.", cta: "Empieza Gratis — Sin Tarjeta" },
     footer: "© 2026 SplanAI. Construido para constructores.",
   },
 } as const;
@@ -703,7 +703,7 @@ export default function Home() {
             <button type="submit" disabled={!isValid || loading}
               className="mt-6 w-full py-4 rounded-xl text-white text-base font-bold transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
               style={{ background: loading ? "#1D4ED8" : isValid ? "#3B82F6" : "#94A3B8" }}>
-              {loading ? <><Spinner />Generating floor plans… (~30 sec)</> : t.form.cta}
+              {loading ? <><Spinner />Generating proposals… (~30 sec)</> : t.form.cta}
             </button>
           </form>
           <p className="mt-4 text-xs text-center text-slate-400">{t.form.disclaimer}</p>
@@ -1041,7 +1041,7 @@ export default function Home() {
             <div className="rounded-2xl border-2 border-slate-100 overflow-hidden">
               <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100 bg-slate-50">
                 <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
-                <p className="font-bold text-slate-800 text-sm">AI generates 3 distinct floor plan proposals</p>
+                <p className="font-bold text-slate-800 text-sm">AI generates 3 distinct home concept proposals</p>
                 <span className="ml-auto text-xs text-slate-400 font-mono shrink-0">~30 sec</span>
               </div>
               <div className="p-5">
