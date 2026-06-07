@@ -107,6 +107,64 @@ interface ClauseResult {
   }>;
 }
 
+interface HotLead {
+  label: string;
+  slug: string;
+  city: string | null;
+  state: string | null;
+  events_7d: number;
+  plan_selects: number;
+  pdf_downloads: number;
+  last_seen: string;
+  next_action: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchHotLeads(supabase: any): Promise<HotLead[]> {
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: events } = await supabase
+    .from("link_events")
+    .select("link_id, event_type, created_at")
+    .gte("created_at", since7d);
+
+  if (!events?.length) return [];
+
+  const agg = new Map<string, { events_7d: number; plan_selects: number; pdf_downloads: number; last_seen: string }>();
+  for (const e of events as Array<{ link_id: string; event_type: string; created_at: string }>) {
+    if (!agg.has(e.link_id)) agg.set(e.link_id, { events_7d: 0, plan_selects: 0, pdf_downloads: 0, last_seen: e.created_at });
+    const a = agg.get(e.link_id)!;
+    a.events_7d++;
+    if (e.event_type === "plan_selected") a.plan_selects++;
+    if (e.event_type === "pdf_download") a.pdf_downloads++;
+    if (e.created_at > a.last_seen) a.last_seen = e.created_at;
+  }
+
+  const hotEntries = Array.from(agg.entries())
+    .filter(([, a]) => a.plan_selects >= 1 || a.pdf_downloads >= 1 || a.events_7d >= 3)
+    .sort((a, b) => b[1].last_seen.localeCompare(a[1].last_seen))
+    .slice(0, 5);
+
+  if (!hotEntries.length) return [];
+
+  const hotLinkIds = hotEntries.map(([id]) => id);
+  const { data: links } = await supabase
+    .from("shared_links")
+    .select("id, slug, client_name, builder_name, city, state")
+    .in("id", hotLinkIds);
+
+  return hotEntries
+    .map(([link_id, a]) => {
+      const l = (links as Array<{ id: string; slug: string; client_name: string | null; builder_name: string | null; city: string | null; state: string | null }> | null)?.find(x => x.id === link_id);
+      if (!l) return null;
+      const label = l.client_name?.trim() || l.builder_name?.trim() || l.slug;
+      const next_action = a.plan_selects >= 1 ? "Buyer selected a concept. Call today."
+        : a.pdf_downloads >= 1 ? "Buyer downloaded the proposal. Follow up."
+        : `Active ${a.events_7d}× this week — reach out.`;
+      return { label, slug: l.slug, city: l.city ?? null, state: l.state ?? null, ...a, next_action };
+    })
+    .filter((x): x is HotLead => x !== null);
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -216,7 +274,7 @@ export async function GET(req: NextRequest) {
   // ── 2. Collect DB stats for the KPI block ───────────────────────────────
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [subsResult, financeResult, portalViewsResult, newSignupsResult, newPortalLeadsResult, outreachSentResult, outreachRepliedResult, newGenerationsResult] = await Promise.all([
+  const [subsResult, financeResult, portalViewsResult, newSignupsResult, newPortalLeadsResult, outreachSentResult, outreachRepliedResult, newGenerationsResult, hotLeads] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("plan, status", { count: "exact" })
@@ -253,6 +311,7 @@ export async function GET(req: NextRequest) {
       .from("plan_generations")
       .select("id", { count: "exact" })
       .gte("created_at", since24h),
+    fetchHotLeads(supabase),
   ]);
 
   const todaySnap = financeResult.data?.[0];
@@ -448,6 +507,7 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     drafts: claudeResult.drafts,
     xPosts: claudeResult.xPosts,
     escalations: escalations ?? [],
+    hotLeads: hotLeads ?? [],
     gmailError,
     claudeError,
   });
@@ -521,8 +581,33 @@ interface DigestParams {
   drafts: ClauseResult["drafts"];
   xPosts: ClauseResult["xPosts"];
   escalations: Array<{ id: string; url: string; impact_level: string | null; ai_assessment: string | null }>;
+  hotLeads: HotLead[];
   gmailError: string | null;
   claudeError: string | null;
+}
+
+function buildHotLeadsHtml(hotLeads: HotLead[]): string {
+  if (!hotLeads.length) return `<p style="color:#6b7280;font-size:13px;">No hot leads this week.</p>`;
+  return hotLeads.map(l => {
+    const loc = [l.city, l.state].filter(Boolean).join(", ");
+    const badges: string[] = [];
+    if (l.plan_selects >= 1) badges.push(`<span style="background:#d1fae5;color:#065f46;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">✓ Plan selected</span>`);
+    if (l.pdf_downloads >= 1) badges.push(`<span style="background:#ede9fe;color:#5b21b6;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">↓ PDF</span>`);
+    return `
+    <div style="border:1px solid #fecaca;border-left:4px solid #ef4444;border-radius:8px;padding:12px 16px;margin-bottom:8px;background:#fff7f7;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">HOT</span>
+        <span style="font-size:14px;font-weight:700;color:#111827;">${l.label}</span>
+        ${loc ? `<span style="font-size:12px;color:#6b7280;">${loc}</span>` : ""}
+      </div>
+      <p style="margin:0 0 6px;font-size:13px;color:#1d4ed8;font-weight:600;">${l.next_action}</p>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        ${badges.join("")}
+        <span style="font-size:12px;color:#6b7280;">${l.events_7d} event${l.events_7d !== 1 ? "s" : ""} this week</span>
+        <a href="https://splanai.com/s/${l.slug}" style="font-size:12px;color:#3b82f6;text-decoration:none;margin-left:auto;">View portal →</a>
+      </div>
+    </div>`;
+  }).join("");
 }
 
 function buildDigestHtml(p: DigestParams): string {
@@ -648,6 +733,10 @@ function buildDigestHtml(p: DigestParams): string {
       <!-- Portal Opens -->
       <h2 style="margin:0 0 12px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">🔗 Portal Opens (24h)</h2>
       <div style="margin-bottom:28px;">${portalHtml}</div>
+
+      <!-- Hot Leads -->
+      <h2 style="margin:0 0 12px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">🔥 Hot Leads (7d)</h2>
+      <div style="margin-bottom:28px;">${buildHotLeadsHtml(p.hotLeads)}</div>
 
       <!-- Escalations -->
       <h2 style="margin:0 0 12px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">🚨 Escalations</h2>

@@ -40,6 +40,23 @@ interface TeamMember {
   planCount: number;
 }
 
+interface IntentSignal {
+  link_id: string;
+  slug: string;
+  label: string;
+  city: string | null;
+  state: string | null;
+  views: number;
+  plan_selects: number;
+  pdf_downloads: number;
+  selected_concepts: string[];
+  first_seen: string | null;
+  last_seen: string | null;
+  events_7d: number;
+  heat: "HOT" | "WARM" | "COLD";
+  next_action: string;
+}
+
 interface Props {
   user: User;
   subscription: Subscription | null;
@@ -99,6 +116,10 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [teamCheckoutLoading, setTeamCheckoutLoading] = useState(false);
   const [teamCheckoutError, setTeamCheckoutError] = useState("");
+
+  // Intent signals (buyer activity)
+  const [intentSignals, setIntentSignals] = useState<IntentSignal[]>([]);
+  const [intentLoading, setIntentLoading] = useState(true);
 
   // Extended branding state
   const [phone, setPhone] = useState("");
@@ -259,6 +280,16 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
       setTeamCheckoutLoading(false);
     }
   }
+
+  useEffect(() => {
+    fetch("/api/intent-signals")
+      .then(r => r.json())
+      .then((d: { signals?: IntentSignal[] }) => {
+        setIntentSignals(d.signals ?? []);
+        setIntentLoading(false);
+      })
+      .catch(() => setIntentLoading(false));
+  }, []);
 
   // Check MLS connection status on mount
   useEffect(() => {
@@ -1040,6 +1071,89 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Buyer Activity / Hot Leads */}
+        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
+              Buyer Activity
+            </h2>
+            {!intentLoading && intentSignals.length > 0 && (
+              <span className="text-xs text-gray-400">
+                {intentSignals.filter(s => s.heat === "HOT").length} hot
+                {" · "}
+                {intentSignals.filter(s => s.heat === "WARM").length} warm
+              </span>
+            )}
+          </div>
+
+          {intentLoading ? (
+            <p className="text-sm text-gray-400 text-center py-4">Loading…</p>
+          ) : intentSignals.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">
+              No buyer activity yet. Share proposals to start tracking engagement.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {intentSignals
+                .filter(s => s.heat !== "COLD")
+                .slice(0, 10)
+                .map(s => {
+                  const heatCfg = {
+                    HOT:  { bg: "bg-red-50",    border: "border-red-200",    badge: "bg-red-100 text-red-700",     dot: "bg-red-500"   },
+                    WARM: { bg: "bg-amber-50",  border: "border-amber-200",  badge: "bg-amber-100 text-amber-700", dot: "bg-amber-400" },
+                    COLD: { bg: "bg-gray-50",   border: "border-gray-100",   badge: "bg-gray-100 text-gray-500",   dot: "bg-gray-300"  },
+                  }[s.heat];
+                  return (
+                    <div key={s.link_id} className={`px-4 py-3 rounded-xl border ${heatCfg.bg} ${heatCfg.border}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold ${heatCfg.badge}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${heatCfg.dot}`} />
+                              {s.heat}
+                            </span>
+                            <span className="text-sm font-semibold text-gray-900 truncate">{s.label}</span>
+                            {(s.city || s.state) && (
+                              <span className="text-xs text-gray-400 shrink-0">{[s.city, s.state].filter(Boolean).join(", ")}</span>
+                            )}
+                          </div>
+                          <p className="text-xs font-medium text-blue-700">{s.next_action}</p>
+                          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                            {s.views > 0 && (
+                              <span className="text-xs text-gray-500">{s.views} view{s.views !== 1 ? "s" : ""}</span>
+                            )}
+                            {s.plan_selects > 0 && (
+                              <span className="text-xs text-emerald-600 font-semibold">✓ {s.plan_selects} plan selected</span>
+                            )}
+                            {s.pdf_downloads > 0 && (
+                              <span className="text-xs text-purple-600 font-semibold">↓ PDF</span>
+                            )}
+                            <span className="text-xs text-gray-400 ml-auto shrink-0">
+                              {s.last_seen ? timeAgo(s.last_seen) : ""}
+                            </span>
+                          </div>
+                        </div>
+                        <a
+                          href={`/s/${s.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors pt-0.5"
+                        >
+                          View →
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              {intentSignals.filter(s => s.heat === "COLD").length > 0 && (
+                <p className="text-xs text-gray-400 text-center pt-1">
+                  + {intentSignals.filter(s => s.heat === "COLD").length} cold lead{intentSignals.filter(s => s.heat === "COLD").length !== 1 ? "s" : ""} (no recent activity)
+                </p>
+              )}
             </div>
           )}
         </div>
