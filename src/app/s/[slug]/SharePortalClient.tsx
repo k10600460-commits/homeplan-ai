@@ -317,6 +317,99 @@ function ConceptLayout({
   );
 }
 
+// ── Zone classification ───────────────────────────────────────────────────────
+const ZONE_PATTERNS: ReadonlyArray<{ label: string; re: RegExp }> = [
+  { label: 'Living / Common',   re: /Great|Living|Family|Kitchen|Dining|Foyer|Office|Study|Flex|Loft|Pantry|Mud/i },
+  { label: 'Bedrooms',          re: /Bed|Primary|Suite|Master|Nursery/i },
+  { label: 'Outdoor & Utility', re: /Porch|Patio|Deck|Balcony|Lanai|Garage|Carport/i },
+]
+const ZONE_ORDER = ['Living / Common', 'Bedrooms', 'Outdoor & Utility', 'Other']
+const ZONE_ALPHA: Record<string, number> = {
+  'Living / Common':   0.22,
+  'Bedrooms':          0.15,
+  'Outdoor & Utility': 0.11,
+  'Other':             0.07,
+}
+function classifyZone(name: string): string {
+  for (const { label, re } of ZONE_PATTERNS) if (re.test(name)) return label
+  return 'Other'
+}
+
+function ConceptLayoutSchematic({
+  plan,
+  accentRGB,
+}: {
+  plan: FloorPlan
+  accentRGB: [number, number, number]
+}) {
+  if (!plan.rooms || plan.rooms.length === 0) return null
+
+  const namedTotal   = plan.rooms.reduce((s, r) => s + r.sqft, 0)
+  const residual     = plan.squareFootage - namedTotal
+  const [cr, cg, cb] = accentRGB
+
+  type REntry = { name: string; sqft: number; zone: string; muted: boolean }
+  const allRooms: REntry[] = [
+    ...plan.rooms.map(rm => ({ name: rm.name, sqft: rm.sqft, zone: classifyZone(rm.name), muted: false })),
+    ...(residual >= 50
+      ? [{ name: 'Baths · Hallways · Storage', sqft: residual, zone: 'Other', muted: true }]
+      : []
+    ),
+  ]
+
+  const grouped = ZONE_ORDER
+    .map(z => ({ zone: z, rooms: allRooms.filter(rm => rm.zone === z) }))
+    .filter(g => g.rooms.length > 0)
+
+  return (
+    <div className="mt-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 mb-2">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Layout at a glance</h3>
+        <span className="text-xs text-gray-400 tabular-nums">
+          {plan.squareFootage.toLocaleString()} sq ft · {plan.bedrooms} bd · {plan.bathrooms} ba · {plan.stories}-story
+        </span>
+      </div>
+      <div className="rounded-xl border border-gray-100 bg-white overflow-hidden divide-y divide-gray-100">
+        {grouped.map(({ zone, rooms }) => {
+          const alpha = ZONE_ALPHA[zone] ?? 0.07
+          return (
+            <div key={zone} className="px-3 pt-2 pb-3">
+              <p
+                className="text-[9px] font-bold uppercase tracking-widest mb-1.5"
+                style={{ color: `rgba(${cr},${cg},${cb},0.75)` }}
+              >
+                {zone}
+              </p>
+              <div className="flex gap-1">
+                {rooms.map((rm, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      flexGrow:        rm.sqft,
+                      flexShrink:      1,
+                      flexBasis:       '0%',
+                      minWidth:        '56px',
+                      backgroundColor: `rgba(${cr},${cg},${cb},${alpha})`,
+                      borderColor:     `rgba(${cr},${cg},${cb},${alpha * 2})`,
+                    }}
+                    className={`rounded-lg border px-2 py-2.5 min-h-[54px] flex flex-col justify-center${rm.muted ? ' opacity-60' : ''}`}
+                  >
+                    <p className="text-[11px] font-semibold text-gray-800 leading-tight">{rm.name}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5 tabular-nums">{rm.sqft.toLocaleString()} sqft</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <p className="text-[10px] text-gray-400 italic mt-1.5 leading-snug">
+        Schematic — not to scale. Final plan is designed for your lot.
+      </p>
+    </div>
+  )
+}
+
 function ConceptImage({ style, imageUrl }: { style: string; imageUrl?: string | null }) {
   const [src, setSrc] = useState(() => conceptImageSrc(style, imageUrl));
   const [hidden, setHidden] = useState(false);
@@ -1628,13 +1721,9 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                       ))}
                     </div>
 
-                    <ConceptLayout
+                    <ConceptLayoutSchematic
                       plan={plan}
-                      colorRGB={PLAN_COLORS[(plan.id - 1) % PLAN_COLORS.length]}
-                      conceptLayout={t.conceptLayout}
-                      conceptCaption={t.conceptCaption}
-                      mainFloor={t.mainFloor}
-                      upperFloor={t.upperFloor}
+                      accentRGB={PLAN_COLORS[(plan.id - 1) % PLAN_COLORS.length]}
                     />
 
                     <MortgageWidget
