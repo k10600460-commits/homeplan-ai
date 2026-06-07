@@ -653,6 +653,8 @@ const T = {
     emailInvalid: "Please enter a valid email address.",
     submit: "Send Inquiry",
     submitting: "Sending…",
+    inquiryConsent: "Your contact details are shared with the builder so they can reach out. See our",
+    privacyLabel: "Privacy Policy",
     successTitle: "The builder has been notified!",
     successBody: "They'll be in touch soon.",
     cancel: "Cancel",
@@ -695,6 +697,8 @@ const T = {
     emailInvalid: "Por favor ingrese un correo válido.",
     submit: "Enviar consulta",
     submitting: "Enviando…",
+    inquiryConsent: "Tus datos de contacto se comparten con el constructor para que pueda comunicarse contigo. Consulta nuestra",
+    privacyLabel: "Política de Privacidad",
     successTitle: "¡El constructor ha sido notificado!",
     successBody: "Se pondrán en contacto pronto.",
     cancel: "Cancelar",
@@ -737,6 +741,8 @@ const T = {
     emailInvalid: "请输入有效的电子邮件地址。",
     submit: "发送询问",
     submitting: "发送中…",
+    inquiryConsent: "您的联系方式将与建造商共享，以便其与您联系。请参阅我们的",
+    privacyLabel: "隐私政策",
     successTitle: "建造商已收到通知！",
     successBody: "他们会尽快与您联系。",
     cancel: "取消",
@@ -1330,6 +1336,17 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                   {inquiryError && (
                     <p className="text-sm text-red-500">{inquiryError}</p>
                   )}
+                  <p className="text-[11px] leading-snug text-gray-400 mb-3">
+                    {t.inquiryConsent}{" "}
+                    <a
+                      href="https://splanai.com/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-gray-600"
+                    >
+                      {t.privacyLabel}
+                    </a>.
+                  </p>
                   <div className="flex gap-3 pt-1">
                     <button
                       type="button"
@@ -1866,6 +1883,19 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                   {optInStatus === "sending" ? "…" : "Notify me"}
                 </button>
               </form>
+              <p className="text-[11px] leading-snug text-gray-400 mt-3 max-w-sm mx-auto">
+                By subscribing, you agree to receive updates about this proposal from{" "}
+                {branding.companyName?.trim() || "the builder"}. Unsubscribe anytime via the
+                link in any email. See our{" "}
+                <a
+                  href="https://splanai.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-gray-600"
+                >
+                  Privacy Policy
+                </a>.
+              </p>
               {optInStatus === "error" && (
                 <p className="text-xs text-red-600 mt-2">Something went wrong. Please try again.</p>
               )}
