@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   robots: "noindex",
 };
 
-const LAST_UPDATED = "May 28, 2026";
+const LAST_UPDATED = "June 7, 2026";
 const CONTACT_EMAIL = "hello@splanai.com";
 
 export default function TermsPage() {
@@ -142,6 +142,19 @@ export default function TermsPage() {
                 <li>Use the service to generate content that is fraudulent, deceptive, or misleading.</li>
                 <li>Share your account credentials with others (each account is for one user).</li>
               </ul>
+              {/* TODO-counsel: CAN-SPAM / anti-spam law compliance for builder-to-buyer emails */}
+              <p className="leading-relaxed mt-3">
+                Additionally, you are responsible for the following:
+              </p>
+              <ul className="list-disc pl-6 space-y-2 leading-relaxed mt-2">
+                <li>If you use SplanAI&rsquo;s buyer notification or follow-up features, you are responsible
+                    for having a lawful basis to contact your buyers and for complying with applicable
+                    marketing and anti-spam laws (e.g., the U.S. CAN-SPAM Act). Follow-up emails are
+                    sent on your behalf and identify you as the sender.</li>
+                {/* TODO-counsel: MLS/IDX obligations */}
+                <li>If you connect an MLS account, you do so under your own MLS license and are
+                    responsible for complying with your MLS&rsquo;s rules and applicable IDX requirements.</li>
+              </ul>
               <p className="leading-relaxed mt-3">
                 You are responsible for ensuring that any floor plan proposals you share with clients
                 are clearly presented as preliminary AI-generated concepts and not as certified
@@ -176,9 +189,9 @@ export default function TermsPage() {
               </p>
               <p className="leading-relaxed mb-3">
                 Neighborhood data, market data, and mortgage estimates provided by SplanAI are sourced
-                from third-party APIs (Google Maps, RentCast) and are provided for informational
-                purposes only. SplanAI makes no warranties as to the accuracy, completeness, or
-                timeliness of such data.
+                from third-party providers (Google Maps, RentCast, and FRED) and are provided for
+                informational purposes only. SplanAI makes no warranties as to the accuracy,
+                completeness, or timeliness of such data.
               </p>
               <p className="leading-relaxed">
                 The service is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo; without warranties of any kind,

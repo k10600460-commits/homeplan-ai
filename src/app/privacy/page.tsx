@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   robots: "noindex",
 };
 
-const LAST_UPDATED = "May 28, 2026";
+const LAST_UPDATED = "June 7, 2026";
 const CONTACT_EMAIL = "hello@splanai.com";
 
 export default function PrivacyPage() {
@@ -86,7 +86,26 @@ export default function PrivacyPage() {
               <p className="leading-relaxed mt-3">
                 This data lets you, as the builder, know when your client has opened the link and
                 which plan they engaged with. It is associated with your account, not with any
-                identified individual on the viewer&rsquo;s side.
+                identified individual on the viewer&rsquo;s side. If a buyer opts in and provides their
+                email, the viewing and activity data above may be associated with that buyer.
+              </p>
+
+              {/* TODO-counsel: controller/processor distinction — builder is controller for buyer data */}
+              <h3 className="font-semibold text-slate-800 mb-2 mt-5">Client / Buyer Information on Shared Portals</h3>
+              <p className="leading-relaxed mb-2">
+                When you share a portal link with a prospective buyer (your client), we process
+                information about their interaction with that portal on your behalf:
+              </p>
+              <ul className="list-disc pl-6 space-y-1 leading-relaxed mt-2">
+                <li>If the buyer opts in via the portal&rsquo;s &ldquo;Get notified&rdquo; option, we collect the email
+                    address they provide so you can follow up with them.</li>
+                <li>We store the buyer&rsquo;s portal activity — concepts they favorite, configurations they
+                    save, and their visit history — to power the live portal experience.</li>
+              </ul>
+              <p className="leading-relaxed mt-3">
+                You, the builder, are responsible for your relationship with your buyers and for
+                having a lawful basis to collect and use their information. SplanAI processes this
+                data on your behalf.
               </p>
 
               <h3 className="font-semibold text-slate-800 mb-2 mt-5">Usage Data</h3>
@@ -118,6 +137,10 @@ export default function PrivacyPage() {
                     emails without your consent.</li>
                 <li>To alert us internally when external API usage approaches limits.</li>
                 <li>To notify you when a client opens your shared floor plan link.</li>
+                {/* TODO-counsel: CAN-SPAM compliance — on-behalf-of sender attribution */}
+                <li>To send follow-up emails to buyers who have opted in, on your behalf (shown as
+                    coming from you, the builder). Every such email includes a one-click unsubscribe
+                    link; when a buyer unsubscribes we record it and stop sending.</li>
               </ul>
               <p className="leading-relaxed mt-3">
                 We do <strong>not</strong> sell your personal data. We do not use your data to train
@@ -196,6 +219,26 @@ export default function PrivacyPage() {
                     <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline ml-1">Resend Privacy Policy</a>
                   </p>
                 </div>
+
+                {/* TODO-counsel: IDX/MLS data handling obligations */}
+                <div className="pl-4 border-l-2 border-slate-200">
+                  <p className="font-semibold text-slate-800">Trestle (MLS)</p>
+                  <p className="text-sm leading-relaxed mt-1">
+                    If you connect your MLS license (Pro and Team plans), we store your MLS access
+                    tokens in encrypted form (AES-256-GCM) and use them to fetch listing, lot, and
+                    zoning data for your proposals. Your use of MLS data is subject to your MLS
+                    agreement and applicable IDX rules.
+                  </p>
+                </div>
+
+                <div className="pl-4 border-l-2 border-slate-200">
+                  <p className="font-semibold text-slate-800">FRED (Federal Reserve Economic Data)</p>
+                  <p className="text-sm leading-relaxed mt-1">
+                    We retrieve current average mortgage rates from the St. Louis Fed&rsquo;s public API
+                    for use in financing estimates. Only public, aggregate data is used; no personal
+                    information is sent to FRED.
+                  </p>
+                </div>
               </div>
             </section>
 
@@ -222,7 +265,9 @@ export default function PrivacyPage() {
               <p className="leading-relaxed mb-3">
                 We retain your account data and generated plans for as long as your account is
                 active. Shared link viewing records (link_events) are retained indefinitely to
-                support the notification and analytics features of the service.
+                support the notification and analytics features of the service. Buyer portal
+                activity (favorites, saved settings, visit history) is retained while the shared
+                portal is active.
               </p>
               <p className="leading-relaxed">
                 If you request account deletion, we will delete your personal data within 30 days,
@@ -245,6 +290,12 @@ export default function PrivacyPage() {
                 <li><strong>Opt-out:</strong> California residents may request that we not sell
                     their personal data. We do not sell personal data.</li>
               </ul>
+              {/* TODO-counsel: confirm CCPA / GDPR applicability; add explicit disclosures if required */}
+              <p className="leading-relaxed mt-3">
+                If you received a shared portal link as a buyer: you can unsubscribe from
+                follow-up emails via the link in any such email, and you may contact the builder
+                who shared the portal, or us, to request deletion of your information.
+              </p>
               <p className="leading-relaxed mt-3">
                 To exercise any of these rights, email us at{" "}
                 <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">
