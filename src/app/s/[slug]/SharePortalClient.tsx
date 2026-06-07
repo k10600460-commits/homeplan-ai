@@ -1478,6 +1478,31 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
           </div>
         )}
 
+        {/* Pre-qualification CTA banner — portal level, always visible above plan cards */}
+        {prequalUrl && (
+          <div className="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-emerald-800">Ready to take the next step?</p>
+              <p className="text-xs text-emerald-600 mt-0.5">
+                Payments are estimates — see what you actually qualify for with our preferred lender.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                fetch(`/api/portal/${slug}/prequal-click`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({}),
+                }).catch(() => {});
+                window.open(prequalUrl!, '_blank', 'noopener,noreferrer');
+              }}
+              className="shrink-0 px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors whitespace-nowrap"
+            >
+              {prequalLabel || 'Get pre-qualified'}
+            </button>
+          </div>
+        )}
+
         {/* Plan cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {plans.map((plan, i) => {
