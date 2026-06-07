@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
 import type { PortalBranding } from "./page";
-import { conceptImageSrc } from "@/lib/concept-style-image";
+import { conceptImageSrc, styleImageUrl } from "@/lib/concept-style-image";
 import {
   computeConfigPrice, calcMonthly, getStylePremium,
   type ConfigState,
@@ -410,17 +410,18 @@ function ConceptLayoutSchematic({
   )
 }
 
-function ConceptImage({ style, imageUrl }: { style: string; imageUrl?: string | null }) {
-  const [src, setSrc] = useState(() => conceptImageSrc(style, imageUrl));
+function ConceptImage({ style, baseStyle, imageUrl }: { style: string; baseStyle?: string; imageUrl?: string | null }) {
+  const computed = conceptImageSrc(style, imageUrl, { baseStyle });
+  const [failed, setFailed] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [visible, setVisible] = useState(true);
 
-  const handleError = () => {
-    if (src !== "/concept-styles/default.jpg") {
-      setSrc("/concept-styles/default.jpg");
-    } else {
-      setHidden(true);
-    }
-  };
+  useEffect(() => {
+    setFailed(false);
+    setVisible(false);
+  }, [computed]);
+
+  const src = failed ? styleImageUrl("default") : computed;
 
   if (hidden) return null;
 
@@ -430,8 +431,12 @@ function ConceptImage({ style, imageUrl }: { style: string; imageUrl?: string | 
       <img
         src={src}
         alt={`${style} home exterior`}
-        className="w-full h-full object-cover"
-        onError={handleError}
+        className="w-full h-full object-cover transition-opacity duration-300"
+        style={{ opacity: visible ? 1 : 0 }}
+        onLoad={() => setVisible(true)}
+        onError={() => {
+          if (!failed) { setFailed(true); } else { setHidden(true); }
+        }}
       />
       <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-black/60 to-transparent">
         <p className="text-white text-[10px] leading-tight">
@@ -443,13 +448,14 @@ function ConceptImage({ style, imageUrl }: { style: string; imageUrl?: string | 
 }
 
 function PlanConfigurator({
-  plan, financials, slug, planKey, savedConfig,
+  plan, financials, slug, planKey, savedConfig, onStyleChange,
 }: {
   plan: FloorPlan;
   financials: FinancialsSnapshot | null;
   slug: string;
   planKey: string;
   savedConfig: ConfigState | null;
+  onStyleChange?: (style: string) => void;
 }) {
   const baseStyle = displayStyle(plan.style)
   const [open, setOpen] = useState(savedConfig !== null)
@@ -492,6 +498,7 @@ function PlanConfigurator({
     const base = { sqft: plan.squareFootage, beds: plan.bedrooms, baths: plan.bathrooms, style: baseStyle }
     setCfg(base)
     setResumed(false)
+    onStyleChange?.(baseStyle)
     fetch(`/api/portal/${slug}/config`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -584,7 +591,7 @@ function PlanConfigurator({
             <label className="text-xs font-medium text-gray-600 block mb-1">Style</label>
             <select
               value={cfg.style}
-              onChange={e => setCfg(c => ({ ...c, style: e.target.value }))}
+              onChange={e => { setCfg(c => ({ ...c, style: e.target.value })); onStyleChange?.(e.target.value); }}
               className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {styleOpts.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1062,6 +1069,16 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
 
   // ── Favorites ─────────────────────────────────────────────────────────────
   const [favSet, setFavSet] = useState<Set<string>>(() => new Set(initialFavorites.map(String)));
+
+  // ── Style-swap: tracks buyer's chosen style per plan card ─────────────────
+  const [styleByPlan, setStyleByPlan] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const [k, v] of Object.entries(savedConfigs ?? {})) {
+      const s = (v as { style?: string } | null)?.style;
+      if (s) init[k] = s;
+    }
+    return init;
+  });
 
   function toggleFavorite(planId: number | string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -1608,6 +1625,8 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
             const planIndex = i;
             const accentRGB = PLAN_COLORS[i % PLAN_COLORS.length];
             const isFav = favSet.has(planKey);
+            const baseStyleVal = displayStyle(plan.style);
+            const currentStyle = styleByPlan[planKey] ?? baseStyleVal;
             const isNew = Boolean(
               plan.addedAt && previousVisitedAt !== null && plan.addedAt > previousVisitedAt,
             );
@@ -1623,7 +1642,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                 }`}
               >
                 {/* Exterior concept image */}
-                <ConceptImage style={plan.style} imageUrl={plan.imageUrl} />
+                <ConceptImage style={currentStyle} baseStyle={baseStyleVal} imageUrl={plan.imageUrl} />
 
                 {/* Card header */}
                 <div className={`${colors.bg} px-6 py-5 border-b ${colors.border}`}>
@@ -1702,6 +1721,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                   slug={slug}
                   planKey={planKey}
                   savedConfig={savedConfigs[planKey] ?? null}
+                  onStyleChange={(s) => setStyleByPlan(prev => ({ ...prev, [planKey]: s }))}
                 />
 
                 {/* Expanded detail */}
