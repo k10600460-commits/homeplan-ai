@@ -761,6 +761,27 @@ const LANG_META: Record<Lang, { flag: string; label: string }> = {
   zh: { flag: "🇨🇳", label: "中文" },
 };
 
+async function imageToDataURL(url: string): Promise<{ dataUrl: string; w: number; h: number; fmt: 'PNG' | 'JPEG' } | null> {
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result as string);
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
+    const dims: { w: number; h: number } = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve({ w: im.naturalWidth, h: im.naturalHeight });
+      im.onerror = reject;
+      im.src = dataUrl;
+    });
+    return { dataUrl, ...dims, fmt: dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG' };
+  } catch { return null; }
+}
+
 async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding, financials?: FinancialsSnapshot | null): Promise<jsPDF> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const PW = 210, PH = 297, ML = 20, CW = PW - ML * 2;
@@ -771,7 +792,14 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
   const companyLabel = branding.companyName?.trim() || "";
   const logoBase64 = branding.logoDataUrl ?? null;
 
-  plans.forEach((plan, pi) => {
+  // Pre-compute footer disclaimer metrics (same for every page)
+  const disclaimer = "Floor-plan concepts are AI-assisted illustrations for preliminary use only - not construction drawings, and may not meet building codes or zoning. Verify with licensed professionals before relying on them.";
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  const discLines = doc.splitTextToSize(disclaimer, CW) as string[];
+  const bandH = 14 + Math.max(0, discLines.length - 1) * 3;
+
+  for (const [pi, plan] of plans.entries()) {
     if (pi > 0) doc.addPage();
     const [cr, cg, cb] = PLAN_COLORS[pi % PLAN_COLORS.length];
 
@@ -843,6 +871,20 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
     doc.setDrawColor(229, 231, 235);
     doc.line(ML, y, PW - ML, y);
     y += 4;
+
+    if (plan.imageUrl) {
+      const hero = await imageToDataURL(plan.imageUrl);
+      if (hero) {
+        const imgW = CW;
+        const imgH = Math.min(46, imgW * hero.h / hero.w);
+        doc.addImage(hero.dataUrl, hero.fmt, ML, y, imgW, imgH, undefined, 'FAST');
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(6);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Representative image - your custom home will be designed for your lot.', ML + 2, y + imgH - 2);
+        y += imgH + 6;
+      }
+    }
 
     const stats = [
       { label: T[lang].sqft, value: plan.squareFootage.toLocaleString() },
@@ -926,53 +968,77 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
       doc.text(`${room.sqft} sqft`, rx + roomColW - 4, ry, { align: "right" });
     });
 
-    // Concept layout: proportional bars after rooms section
-    const roomsBottomY = y + Math.ceil(plan.rooms.length / 2) * 9;
-    const barTopY      = roomsBottomY + 8;
-    const barH         = 22;
-    if (barTopY + barH + 10 < PH - 16) {
+    // Zone-grouped concept layout
+    const roomsBottomY  = y + Math.ceil(plan.rooms.length / 2) * 9;
+    const layoutTopY    = roomsBottomY + 8;
+    const residualSqft  = plan.squareFootage - plan.rooms.reduce((s, r) => s + r.sqft, 0);
+    const layoutEntries = [
+      ...plan.rooms.map(r => ({ name: r.name, sqft: r.sqft, zone: classifyZone(r.name) })),
+      ...(residualSqft >= 50 ? [{ name: 'Baths · Hallways · Storage', sqft: residualSqft, zone: 'Other' }] : []),
+    ];
+    const zoneGroups = ZONE_ORDER
+      .map(z => ({ zone: z, rooms: layoutEntries.filter(e => e.zone === z) }))
+      .filter(g => g.rooms.length > 0);
+    const blockH  = 13;
+    const zoneGap = 4;
+    const neededLayoutH = zoneGroups.length > 0
+      ? 6 + zoneGroups.length * (4 + blockH + zoneGap) - zoneGap + 4
+      : 0;
+
+    if (zoneGroups.length > 0 && layoutTopY + neededLayoutH < PH - bandH - 4) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.setTextColor(156, 163, 175);
-      doc.text(T[lang].conceptLayout.toUpperCase(), ML, barTopY - 2);
+      doc.text(T[lang].conceptLayout.toUpperCase(), ML, layoutTopY + 5);
 
-      const sortedRooms = [...plan.rooms].sort((a, b) => b.sqft - a.sqft);
-      const totalSqftPDF = sortedRooms.reduce((s, r) => s + r.sqft, 0);
-      const maxSqftPDF   = sortedRooms[0]?.sqft ?? 1;
-      let bx = ML;
-      for (const room of sortedRooms) {
-        const blockW = (room.sqft / totalSqftPDF) * CW;
-        const alpha  = 0.18 + 0.40 * (room.sqft / maxSqftPDF);
-        doc.setFillColor(
-          Math.round(cr * alpha + 240 * (1 - alpha)),
-          Math.round(cg * alpha + 248 * (1 - alpha)),
-          Math.round(cb * alpha + 250 * (1 - alpha)),
-        );
-        doc.roundedRect(bx, barTopY + 4, blockW - 0.5, barH, 1.5, 1.5, "F");
-        if (blockW > 16) {
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(6);
-          doc.setTextColor(Math.round(cr * 0.5), Math.round(cg * 0.5), Math.round(cb * 0.5));
-          const label = (doc.splitTextToSize(room.name, blockW - 4) as string[])[0];
-          doc.text(label, bx + blockW / 2 - 0.25, barTopY + 4 + barH / 2 - (blockW > 24 ? 2.5 : 0), { align: "center" });
-          if (blockW > 24) {
+      let ly = layoutTopY + 10;
+
+      for (const { zone, rooms: zRooms } of zoneGroups) {
+        const alpha     = ZONE_ALPHA[zone] ?? 0.07;
+        const zoneTotal = zRooms.reduce((s, r) => s + r.sqft, 0);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.setTextColor(Math.round(cr * 0.6), Math.round(cg * 0.6), Math.round(cb * 0.6));
+        doc.text(zone, ML, ly);
+        ly += 4;
+
+        let bx = ML;
+        for (const room of zRooms) {
+          const blockW = (room.sqft / zoneTotal) * CW;
+          doc.setFillColor(
+            Math.round(cr * alpha + 240 * (1 - alpha)),
+            Math.round(cg * alpha + 248 * (1 - alpha)),
+            Math.round(cb * alpha + 250 * (1 - alpha)),
+          );
+          doc.roundedRect(bx, ly, blockW - 0.5, blockH, 1.5, 1.5, "F");
+          if (blockW > 16) {
+            doc.setFont("helvetica", "bold");
             doc.setFontSize(5.5);
-            doc.text(`${room.sqft}sf`, bx + blockW / 2 - 0.25, barTopY + 4 + barH / 2 + 3.5, { align: "center" });
+            doc.setTextColor(Math.round(cr * 0.5), Math.round(cg * 0.5), Math.round(cb * 0.5));
+            const label = (doc.splitTextToSize(room.name, blockW - 4) as string[])[0];
+            doc.text(label, bx + blockW / 2 - 0.25, ly + blockH / 2 - (blockW > 26 ? 2 : 0), { align: "center" });
+            if (blockW > 26) {
+              doc.setFontSize(5);
+              doc.text(`${room.sqft}sf`, bx + blockW / 2 - 0.25, ly + blockH / 2 + 2.5, { align: "center" });
+            }
+          } else if (blockW > 8) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(4.5);
+            doc.setTextColor(Math.round(cr * 0.5), Math.round(cg * 0.5), Math.round(cb * 0.5));
+            doc.text(`${room.sqft}sf`, bx + blockW / 2 - 0.25, ly + blockH / 2 + 1.5, { align: "center" });
           }
+          bx += blockW;
         }
-        bx += blockW;
+        ly += blockH + zoneGap;
       }
+
       doc.setFont("helvetica", "italic");
       doc.setFontSize(5.5);
       doc.setTextColor(180, 180, 180);
-      doc.text(T[lang].conceptCaption.replace(/[—–]/g, '-'), ML, barTopY + 4 + barH + 3);
+      doc.text(T[lang].conceptCaption.replace(/[—–]/g, '-'), ML, ly - zoneGap + 2);
     }
 
-    const disclaimer = "Floor-plan concepts are AI-assisted illustrations for preliminary use only - not construction drawings, and may not meet building codes or zoning. Verify with licensed professionals before relying on them.";
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(6);
-    const discLines = doc.splitTextToSize(disclaimer, CW) as string[];
-    const bandH = 14 + Math.max(0, discLines.length - 1) * 3;
     doc.setFillColor(248, 250, 252);
     doc.rect(0, PH - bandH, PW, bandH, "F");
     doc.setDrawColor(229, 231, 235);
@@ -1000,7 +1066,7 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
     doc.setTextColor(180, 180, 180);
     const discStartY = PH - 3 - (discLines.length - 1) * 3;
     doc.text(discLines, ML, discStartY);
-  });
+  }
 
   return doc;
 }
