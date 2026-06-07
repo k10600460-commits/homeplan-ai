@@ -627,7 +627,8 @@ const T = {
     features: "Features",
     rooms: "Room Breakdown",
     highlights: "Key Highlights",
-    expand: "Click to expand details",
+    expand: "View layout, rooms & financing",
+    collapse: "Hide details",
     cost: "estimated cost",
     contact: "Questions? Contact your builder.",
     interested: "I'm interested in this one",
@@ -668,7 +669,8 @@ const T = {
     features: "Características",
     rooms: "Distribución",
     highlights: "Puntos Clave",
-    expand: "Clic para ver detalles",
+    expand: "Ver plano, habitaciones y financiación",
+    collapse: "Ocultar detalles",
     cost: "costo estimado",
     contact: "¿Preguntas? Comuníquese con su constructor.",
     interested: "Me interesa este",
@@ -709,7 +711,8 @@ const T = {
     features: "主要特点",
     rooms: "房间分布",
     highlights: "核心亮点",
-    expand: "点击查看详情",
+    expand: "查看布局、房间和贷款",
+    collapse: "收起详情",
     cost: "预估造价",
     contact: "有疑问？请联系您的建筑商。",
     interested: "我对这个方案感兴趣",
@@ -1773,6 +1776,15 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                     >
                       {t.interested}
                     </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handlePlanExpand(plan.id); }}
+                      className="w-full mt-1 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
+                    >
+                      {t.collapse}
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    </button>
                   </div>
                 )}
 
@@ -1784,7 +1796,15 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                     >
                       {t.interested}
                     </button>
-                    <p className="text-xs text-center text-gray-400">{t.expand}</p>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handlePlanExpand(plan.id); }}
+                      className="w-full py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      {t.expand}
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
                   </div>
                 )}
               </div>
