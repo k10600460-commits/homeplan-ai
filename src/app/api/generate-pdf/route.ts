@@ -107,13 +107,16 @@ function buildDocDefinition(plans: ZHPlanData[], defaultFont: string, branding: 
     });
 
     // ── Stats row ─────────────────────────────────────────────
+    const pdfGarages = plan.garages != null ? Math.min(3, Math.max(0, Math.round(plan.garages as number))) : 0;
+    const pdfStatCols = [
+      { stack: [{ text: plan.squareFootage.toLocaleString(), fontSize: 18, bold: true, color: '#0f172a' }, { text: '平方英尺', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
+      { stack: [{ text: String(plan.bedrooms), fontSize: 18, bold: true, color: '#0f172a' }, { text: '卧室', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
+      { stack: [{ text: String(plan.bathrooms), fontSize: 18, bold: true, color: '#0f172a' }, { text: '浴室', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
+      { stack: [{ text: String(plan.stories), fontSize: 18, bold: true, color: '#0f172a' }, { text: '层数', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
+      ...(pdfGarages > 0 ? [{ stack: [{ text: `${pdfGarages}-car`, fontSize: 18, bold: true, color: '#0f172a' }, { text: '车库', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' }] : []),
+    ];
     content.push({
-      columns: [
-        { stack: [{ text: plan.squareFootage.toLocaleString(), fontSize: 18, bold: true, color: '#0f172a' }, { text: '平方英尺', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
-        { stack: [{ text: String(plan.bedrooms), fontSize: 18, bold: true, color: '#0f172a' }, { text: '卧室', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
-        { stack: [{ text: String(plan.bathrooms), fontSize: 18, bold: true, color: '#0f172a' }, { text: '浴室', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
-        { stack: [{ text: String(plan.stories), fontSize: 18, bold: true, color: '#0f172a' }, { text: '层数', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
-      ],
+      columns: pdfStatCols,
       margin: [0, 0, 0, 12],
     });
 

@@ -6,6 +6,7 @@ export interface ZHPlanData {
   bedrooms: number;
   bathrooms: number;
   stories: number;
+  garages?: number;
   estimatedCost: number;
   description: string;
   features: string[];
@@ -82,7 +83,7 @@ export function buildZHHTML(plans: ZHPlanData[], branding?: ZHBranding): string 
       <div class="stat"><span class="val">${plan.squareFootage.toLocaleString()}</span><span class="lbl">平方英尺</span></div>
       <div class="stat"><span class="val">${plan.bedrooms}</span><span class="lbl">卧室</span></div>
       <div class="stat"><span class="val">${plan.bathrooms}</span><span class="lbl">浴室</span></div>
-      <div class="stat"><span class="val">${plan.stories}</span><span class="lbl">层数</span></div>
+      <div class="stat"><span class="val">${plan.stories}</span><span class="lbl">层数</span></div>${(() => { const g = plan.garages != null ? Math.min(3, Math.max(0, Math.round(plan.garages))) : 0; return g > 0 ? `\n      <div class="stat"><span class="val">${g}-car</span><span class="lbl">车库</span></div>` : ''; })()}
     </div>
     <div class="cost-box" style="border-color:${color}">
       预估造价：<strong style="color:${color}">$${plan.estimatedCost.toLocaleString()}</strong>
