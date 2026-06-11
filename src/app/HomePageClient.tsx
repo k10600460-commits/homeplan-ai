@@ -956,34 +956,8 @@ export default function Home() {
                 onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
               >{t.pricing.pro.cta}</a>
             </div>
-            {/* Custom — sales-led, no price shown */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-600/60" style={{ background: "#0F172A" }}>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.custom.label}</p>
-                <p className="text-2xl font-extrabold text-white mt-2">For 50+ employees</p>
-                <p className="text-sm text-slate-500 mt-1">Volume pricing · Talk to us</p>
-              </div>
-              <ul className="flex flex-col gap-3 flex-1">
-                {t.pricing.custom.features.map((f, i) => (
-                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "text-slate-300 font-medium" : "text-slate-400"}`}>
-                    <svg className="w-4 h-4 flex-shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>{f}
-                  </li>
-                ))}
-              </ul>
-              {/* TODO: Replace mailto with Calendly link once set up */}
-              <a
-                href="mailto:hello@splanai.com"
-                className="block text-center py-3 rounded-xl border border-slate-500 font-bold text-slate-300 hover:border-slate-300 hover:text-white transition-all text-sm"
-              >{t.pricing.custom.cta}</a>
-            </div>
-
             {/* Team — gold left border accent */}
             <div className="rounded-2xl p-7 sm:py-9 flex flex-col gap-5 relative overflow-hidden shadow-2xl border-l-4" style={{ background: "#0F172A", borderLeftColor: "#F59E0B", borderTopColor: "rgba(245,158,11,0.15)", borderRightColor: "rgba(245,158,11,0.15)", borderBottomColor: "rgba(245,158,11,0.15)", borderTopWidth: "1px", borderRightWidth: "1px", borderBottomWidth: "1px" }}>
-              <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#F59E0B", color: "#0F172A" }}>
-                ENTERPRISE
-              </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#F59E0B" }}>{t.pricing.team.label}</p>
                 <p className="text-4xl font-extrabold text-white mt-2">
@@ -1008,6 +982,29 @@ export default function Home() {
                 onMouseEnter={e => { if (!teamCheckoutLoading) (e.currentTarget as HTMLButtonElement).style.background = "#D97706"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#F59E0B"; }}
               >{teamCheckoutLoading ? "Redirecting…" : t.pricing.team.cta}</button>
+            </div>
+
+            {/* Custom — sales-led, no price shown */}
+            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-600/60" style={{ background: "#0F172A" }}>
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.custom.label}</p>
+                <p className="text-2xl font-extrabold text-white mt-2">For 50+ employees</p>
+                <p className="text-sm text-slate-500 mt-1">Volume pricing · Talk to us</p>
+              </div>
+              <ul className="flex flex-col gap-3 flex-1">
+                {t.pricing.custom.features.map((f, i) => (
+                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "text-slate-300 font-medium" : "text-slate-400"}`}>
+                    <svg className="w-4 h-4 flex-shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>{f}
+                  </li>
+                ))}
+              </ul>
+              {/* TODO: Replace mailto with Calendly link once set up */}
+              <a
+                href="mailto:hello@splanai.com"
+                className="block text-center py-3 rounded-xl border border-slate-500 font-bold text-slate-300 hover:border-slate-300 hover:text-white transition-all text-sm"
+              >{t.pricing.custom.cta}</a>
             </div>
           </div>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
