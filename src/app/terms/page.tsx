@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   robots: "noindex",
 };
 
-const LAST_UPDATED = "June 7, 2026";
+const LAST_UPDATED = "June 11, 2026";
 const CONTACT_EMAIL = "hello@splanai.com";
 
 export default function TermsPage() {
@@ -68,7 +68,8 @@ export default function TermsPage() {
               <ul className="list-disc pl-6 space-y-1 leading-relaxed">
                 <li><strong>Free</strong> — Up to 3 floor plan generations per month, including neighborhood &amp; market data and client sharing portal, at no cost.</li>
                 <li><strong>Pro</strong> — 100 floor plan generations per month, branded PDF export with your logo, MLS lot data connection via Trestle, and priority support. $49/month after a 14-day free trial.</li>
-                <li><strong>Team</strong> — Unlimited floor plan generations (subject to our{" "}<a href="#fair-use" className="text-blue-600 hover:underline">Fair Use Policy</a>), plus everything in Pro, multi-user access for 5–15 team members, and white-label PDF. $149/month after a 14-day free trial.</li>
+                <li><strong>Team</strong> — Unlimited floor plan generations (subject to our{" "}<a href="#fair-use" className="text-blue-600 hover:underline">Fair Use Policy</a>), plus everything in Pro, up to 15 seats, and white-label PDF. $149/month after a 14-day free trial.</li>
+                <li><strong>Custom</strong> — Sales-led plan for builders with 50+ employees. Includes higher generation volume, priority onboarding, multiple MLS connections, and pricing sized to your sales team. <a href="mailto:hello@splanai.com" className="text-blue-600 hover:underline">Contact us</a> to discuss.</li>
               </ul>
 
               <h3 className="font-semibold text-slate-800 mb-2 mt-6">Free Trial</h3>
@@ -93,8 +94,38 @@ export default function TermsPage() {
               </p>
             </section>
 
+            <section>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">4. Seat Licensing and Company Use</h2>
+              <p className="leading-relaxed mb-3">
+                SplanAI subscriptions are licensed for use by a single company or team. The following
+                rules apply to all plans:
+              </p>
+              <ul className="list-disc pl-6 space-y-2 leading-relaxed mb-3">
+                <li>
+                  <strong>Accounts are licensed per company.</strong> Sharing login credentials across
+                  individuals or legal entities is prohibited. Each person who uses SplanAI must have
+                  their own account.
+                </li>
+                <li>
+                  <strong>One subscription covers one company or team.</strong> Using a single
+                  subscription across multiple organizations — for example, through agency or reseller
+                  arrangements — is not permitted without express written consent from SplanAI.
+                </li>
+                <li>
+                  <strong>Plan limits and seat counts apply per company.</strong> Generating plans
+                  through multiple accounts to circumvent a plan&rsquo;s generation limit or seat count
+                  is a violation of these Terms.
+                </li>
+                <li>
+                  If your usage materially exceeds your plan&rsquo;s generation limit or seat count,
+                  SplanAI may contact you to discuss an upgrade to a plan that better fits your needs.
+                </li>
+              </ul>
+              {/* TODO-counsel: Review seat enforcement language for US contract law compliance before enterprise sales */}
+            </section>
+
             <section id="fair-use">
-              <h2 className="text-lg font-bold text-slate-900 mb-3">4. Fair Use Policy</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">5. Fair Use Policy</h2>
               <p className="leading-relaxed mb-3">
                 Plans described as offering &ldquo;unlimited&rdquo; floor plan generations are intended to
                 support normal, good-faith business use of SplanAI by a single subscribing
@@ -133,7 +164,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-slate-900 mb-3">5. Your Responsibilities</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">6. Your Responsibilities</h2>
               <p className="leading-relaxed mb-3">You agree not to:</p>
               <ul className="list-disc pl-6 space-y-1 leading-relaxed">
                 <li>Use the service for any unlawful purpose or in violation of any applicable law.</li>
@@ -163,7 +194,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-slate-900 mb-3">6. Intellectual Property</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">7. Intellectual Property</h2>
               <p className="leading-relaxed mb-3">
                 SplanAI and its content (software, design, branding) are owned by the operator and
                 are protected by applicable intellectual property laws.
@@ -180,7 +211,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-slate-900 mb-3">7. Disclaimers</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">8. Disclaimers</h2>
               <p className="leading-relaxed mb-3">
                 SplanAI provides floor plan proposals for preliminary sales and planning purposes only.
                 The proposals are <strong>not certified architectural drawings</strong> and should not
@@ -202,7 +233,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-slate-900 mb-3">8. Limitation of Liability</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">9. Limitation of Liability</h2>
               <p className="leading-relaxed">
                 To the fullest extent permitted by law, SplanAI shall not be liable for any indirect,
                 incidental, special, consequential, or punitive damages, or any loss of profits or
@@ -214,7 +245,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-slate-900 mb-3">9. Service Changes and Termination</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">10. Service Changes and Termination</h2>
               <p className="leading-relaxed mb-3">
                 SplanAI reserves the right to modify, suspend, or discontinue any part of the service
                 at any time with reasonable notice. We will notify you of material changes via email
@@ -227,7 +258,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-slate-900 mb-3">10. Governing Law</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">11. Governing Law</h2>
               <p className="leading-relaxed">
                 These Terms are governed by and construed in accordance with the laws of the United
                 States, without regard to conflict of law principles. Any disputes shall be resolved
@@ -236,7 +267,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-slate-900 mb-3">11. Changes to These Terms</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">12. Changes to These Terms</h2>
               <p className="leading-relaxed">
                 We may update these Terms from time to time. If we make material changes, we will
                 notify you by email or by posting a notice on SplanAI. Your continued use of the
@@ -245,7 +276,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-slate-900 mb-3">12. Contact</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">13. Contact</h2>
               <p className="leading-relaxed">
                 Questions about these Terms? Contact us at:{" "}
                 <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">

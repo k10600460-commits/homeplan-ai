@@ -173,6 +173,10 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [savingContact, setSavingContact] = useState(false);
   const isPro = subscription?.isActive ?? false;
 
+  // Usage data for 80% banner
+  const [usageData, setUsageData] = useState<{ current: number; limit: number; plan: string } | null>(null);
+  const [bannerUpgradeLoading, setBannerUpgradeLoading] = useState(false);
+
   // List expansion + Client Activity filter state
   const [showAllLinks, setShowAllLinks] = useState(false);
   const [showAllLeads, setShowAllLeads] = useState(false);
@@ -182,6 +186,30 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [linkActiveOnly, setLinkActiveOnly] = useState(false);
 
   const supabase = createClient();
+
+  useEffect(() => {
+    fetch('/api/usage')
+      .then(r => r.json())
+      .then((d: { current: number; limit: number; plan: string; allowed: boolean }) => setUsageData(d))
+      .catch(() => {});
+  }, []);
+
+  async function handleBannerUpgrade() {
+    const targetPlan = usageData?.plan === 'free' ? 'pro' : 'team';
+    setBannerUpgradeLoading(true);
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: targetPlan }),
+      });
+      const data = await res.json() as { url?: string };
+      if (data.url) { window.location.href = data.url; return; }
+    } catch { /* fall through */ }
+    window.location.href = targetPlan === 'team' ? '/login?plan=team' : '/login?plan=pro';
+    setBannerUpgradeLoading(false);
+  }
+
   // Ref so the Realtime callback always sees the latest links (avoids stale closure)
   const sharedLinksRef = useRef<SharedLink[]>([]);
 
@@ -816,6 +844,26 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
             </div>
           ))}
         </div>
+
+        {/* Usage 80% warning banner — Free/Pro only, non-blocking */}
+        {usageData && usageData.plan !== 'team' && usageData.limit < 9999 && usageData.current / usageData.limit >= 0.8 && (
+          <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+            <svg className="w-4 h-4 shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <p className="text-sm text-amber-800 flex-1">
+              <strong>{usageData.current} of {usageData.limit}</strong> plan generations used this month.{' '}
+              {usageData.current >= usageData.limit ? 'You\'ve hit your limit.' : `${usageData.limit - usageData.current} remaining.`}
+            </p>
+            <button
+              onClick={handleBannerUpgrade}
+              disabled={bannerUpgradeLoading}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-colors disabled:opacity-60"
+            >
+              {bannerUpgradeLoading ? '…' : usageData.plan === 'free' ? 'Upgrade to Pro' : 'Upgrade to Team'}
+            </button>
+          </div>
+        )}
 
         {/* Needs Attention */}
         {(nurtureDrafts.length > 0 || kpiHotLeads > 0) && (

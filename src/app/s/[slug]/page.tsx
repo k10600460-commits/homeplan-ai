@@ -302,14 +302,11 @@ function InvalidLinkPage({ expired }: { expired?: boolean }) {
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          このリンクは無効です
+          This link is no longer active.
         </h1>
         <p className="text-gray-500 mb-4">
-          {expired
-            ? 'This link has expired. Please contact your builder for a new link.'
-            : 'This link is no longer active. Please contact your builder for a new link.'}
+          Please contact your builder for an updated proposal.
         </p>
-        <p className="text-sm text-gray-400">Este enlace no es válido. Comuníquese con su constructor.</p>
       </div>
     </div>
   )

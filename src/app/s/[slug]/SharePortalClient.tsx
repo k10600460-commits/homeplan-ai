@@ -87,6 +87,7 @@ interface FloorPlan {
   bedrooms: number;
   bathrooms: number;
   stories: number;
+  garages?: number;
   estimatedCost: number;
   description: string;
   features: string[];
@@ -366,7 +367,7 @@ function ConceptLayoutSchematic({
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 mb-2">
         <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Layout at a glance</h3>
         <span className="text-xs text-gray-400 tabular-nums">
-          {plan.squareFootage.toLocaleString()} sq ft · {plan.bedrooms} bd · {plan.bathrooms} ba · {plan.stories}-story
+          {plan.squareFootage.toLocaleString()} sq ft · {plan.bedrooms} bd · {plan.bathrooms} ba · {plan.stories}-story{plan.garages != null && plan.garages > 0 ? ` · ${plan.garages}-car garage` : ''}
         </span>
       </div>
       <div className="rounded-xl border border-gray-100 bg-white overflow-hidden divide-y divide-gray-100">
@@ -892,13 +893,15 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
       }
     }
 
-    const stats = [
+    const stats: { label: string; value: string }[] = [
       { label: T[lang].sqft, value: plan.squareFootage.toLocaleString() },
       { label: T[lang].beds, value: String(plan.bedrooms) },
       { label: T[lang].baths, value: String(plan.bathrooms) },
       { label: T[lang].stories, value: String(plan.stories) },
     ];
-    const sw = CW / 4;
+    const garages = plan.garages != null ? Math.min(3, Math.max(0, Math.round(plan.garages))) : 0;
+    if (garages > 0) stats.push({ label: "Garage", value: `${garages}-car` });
+    const sw = CW / stats.length;
     stats.forEach((stat, si) => {
       const sx = ML + si * sw;
       doc.setFont("helvetica", "bold");
@@ -909,7 +912,7 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
       doc.setFontSize(8);
       doc.setTextColor(107, 114, 128);
       doc.text(stat.label, sx + sw / 2, y + 17, { align: "center" });
-      if (si < 3) { doc.setDrawColor(229, 231, 235); doc.line(sx + sw, y + 1, sx + sw, y + 21); }
+      if (si < stats.length - 1) { doc.setDrawColor(229, 231, 235); doc.line(sx + sw, y + 1, sx + sw, y + 21); }
     });
 
     y += 26;

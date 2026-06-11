@@ -17,6 +17,7 @@ interface FloorPlan {
   bedrooms: number;
   bathrooms: number;
   stories: number;
+  garages?: number;
   estimatedCost: number;
   description: string;
   features: string[];
@@ -391,13 +392,15 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
     doc.line(ML, y, PW - ML, y);
     y += 4;
 
-    const stats = [
+    const stats: { label: string; value: string }[] = [
       { label: "Sq Ft",     value: plan.squareFootage.toLocaleString() },
       { label: "Bedrooms",  value: String(plan.bedrooms) },
       { label: "Bathrooms", value: String(plan.bathrooms) },
       { label: "Stories",   value: String(plan.stories) },
     ];
-    const sw = CW / 4;
+    const garagesVal = plan.garages != null ? Math.min(3, Math.max(0, Math.round(plan.garages))) : 0;
+    if (garagesVal > 0) stats.push({ label: "Garage", value: `${garagesVal}-car` });
+    const sw = CW / stats.length;
 
     stats.forEach((stat, si) => {
       const sx = ML + si * sw;
@@ -411,7 +414,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       doc.setTextColor(107, 114, 128);
       doc.text(stat.label, sx + sw / 2, y + 17, { align: "center" });
 
-      if (si < 3) {
+      if (si < stats.length - 1) {
         doc.setDrawColor(229, 231, 235);
         doc.line(sx + sw, y + 1, sx + sw, y + 21);
       }
@@ -916,19 +919,26 @@ export default function Results() {
                 </div>
 
                 {/* Stats row */}
-                <div className="grid grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
-                  {[
+                {(() => {
+                  const g = plan.garages != null ? Math.min(3, Math.max(0, Math.round(plan.garages))) : 0;
+                  const statItems: { label: string; value: string | number }[] = [
                     { label: "Sq Ft", value: plan.squareFootage.toLocaleString() },
                     { label: "Beds", value: plan.bedrooms },
                     { label: "Baths", value: plan.bathrooms },
                     { label: "Stories", value: plan.stories },
-                  ].map((stat) => (
+                    ...(g > 0 ? [{ label: "Garage", value: `${g}-car` }] : []),
+                  ];
+                  return (
+                <div className={`grid ${g > 0 ? 'grid-cols-5' : 'grid-cols-4'} divide-x divide-gray-100 border-b border-gray-100`}>
+                  {statItems.map((stat) => (
                     <div key={stat.label} className="px-3 py-3 text-center">
                       <p className="text-lg font-bold text-gray-900">{stat.value}</p>
                       <p className="text-xs text-gray-500">{stat.label}</p>
                     </div>
                   ))}
                 </div>
+                  );
+                })()}
 
                 {/* Description */}
                 <div className="px-6 py-4">

@@ -17,8 +17,9 @@ returns 3 floor-plan proposals as PDFs in ~30 seconds.
 
 ## Pricing (do not invent or alter; ask if unsure)
 - Free: $0/mo — 3 generations/month, SplanAI-branded PDF, neighborhood & market data, client sharing portal. Signup required, no credit card.
-- Pro: $49/mo — 100 generations/month, logo-branded PDF, MLS data via Trestle, priority support. 14-day free trial (card required at signup).
-- Team: $149/mo — unlimited generations (fair use), white-label PDF, 5–15 users, team dashboard & KPIs, dedicated support. 14-day free trial (card required at signup).
+- Pro: $49/mo — 100 generations/month · **1 seat** (invite blocked by code), logo-branded PDF, MLS data via Trestle, priority support. 14-day free trial (card required at signup).
+- Team: $149/mo — unlimited generations (fair use · internal review threshold: **250 gen/mo**, no hard block), white-label PDF, **up to 15 seats** (MAX_MEMBERS=15 in code), team dashboard & KPIs, dedicated support. 14-day free trial (card required at signup).
+- Custom: sales-led · no code implementation · for builders with 50+ employees. Higher volume, priority onboarding, multiple MLS connections. CTA: mailto:hello@splanai.com (Calendly TODO). Price: TBD per deal, target $499–$999/mo.
 - Founding promo: code PRODUCTHUNT = 100% off first month, valid through 2026-06-30.
 
 ## Stack & architecture

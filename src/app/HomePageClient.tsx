@@ -90,8 +90,9 @@ const T = {
       heading: "Simple, transparent pricing",
       sub: "Start free. Upgrade when you're ready.",
       free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 proposal generations / month", "SplanAI branded PDF export", "Neighborhood & market data", "Client sharing portal + view tracking", "All room types", "Email support"], cta: "Get started free" },
-      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 proposal generations / month", "Branded PDF with your logo (Powered by SplanAI footer included)", "MLS listing data — real lot size & zoning in every plan (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
-      team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Everything in Pro, plus:", "Unlimited proposal generations*", "5–15 team members", "Team dashboard & member KPIs", "White-label PDF — your logo only, zero SplanAI branding", "Dedicated support"], cta: "Start 14-day free trial" },
+      pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 proposals/mo · 1 seat", "Branded PDF with your logo (Powered by SplanAI footer included)", "MLS listing data — real lot size & zoning in every plan (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
+      team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Everything in Pro, plus:", "Unlimited proposals/mo (fair use*) · up to 15 seats", "Team dashboard & member KPIs", "White-label PDF — your logo only, zero SplanAI branding", "Dedicated support"], cta: "Start 14-day free trial" },
+      custom: { label: "Custom", features: ["Everything in Team, plus:", "Higher generation volume", "Priority onboarding", "Multiple MLS connections", "Pricing sized to your sales team"], cta: "Talk to us" },
       footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
     faq: [
@@ -199,8 +200,9 @@ const T = {
       heading: "Precios simples y transparentes",
       sub: "Empieza gratis. Actualiza cuando estés listo.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Datos de vecindario y mercado", "Portal para clientes + seguimiento de vistas", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
-      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 generaciones de propuestas / mes", "PDF con tu logo (pie Powered by SplanAI incluido)", "Datos MLS — tamaño del lote y zonificación reales en cada propuesta (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
-      team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Todo lo de Pro, más:", "Generaciones ilimitadas de propuestas*", "5–15 miembros del equipo", "Panel de equipo y KPIs por miembro", "PDF sin marca — solo tu logo, sin branding de SplanAI", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
+      pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 propuestas/mes · 1 usuario", "PDF con tu logo (pie Powered by SplanAI incluido)", "Datos MLS — tamaño del lote y zonificación reales en cada propuesta (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
+      team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Todo lo de Pro, más:", "Propuestas ilimitadas/mes (uso justo*) · hasta 15 usuarios", "Panel de equipo y KPIs por miembro", "PDF sin marca — solo tu logo, sin branding de SplanAI", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
+      custom: { label: "Custom", features: ["Todo lo de Equipo, más:", "Mayor volumen de generaciones", "Incorporación prioritaria", "Múltiples conexiones MLS", "Precio según tu equipo de ventas"], cta: "Contáctanos" },
       footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
     faq: [
@@ -414,6 +416,10 @@ export default function Home() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Limit-exceeded modal
+  const [limitModal, setLimitModal] = useState<{ plan: 'free' | 'pro' | 'team'; current: number; limit: number; upgradePath: string } | null>(null);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+
   // MLS state
   const [mlsConnected, setMlsConnected] = useState(false);
   const [mlsListingId, setMlsListingId] = useState("");
@@ -477,7 +483,9 @@ export default function Home() {
       const data = await res.json();
       if (res.status === 401) { router.push("/login"); return; }
       if (res.status === 429 && data.code === "LIMIT_EXCEEDED") {
-        router.push(`/upgrade?current=${data.current}&limit=${data.limit}&plan=${data.plan}`); return;
+        setLimitModal({ plan: data.plan as 'free' | 'pro' | 'team', current: data.current, limit: data.limit, upgradePath: data.upgradePath as string });
+        setLoading(false);
+        return;
       }
       if (!res.ok) throw new Error(data.error || "Something went wrong");
       sessionStorage.setItem("floorPlans", JSON.stringify(data.plans));
@@ -511,6 +519,22 @@ export default function Home() {
     } catch { /* fall through */ }
     window.location.href = "/login?plan=team";
     setTeamCheckoutLoading(false);
+  }
+
+  async function handleUpgradeFromModal(upgradePath: string) {
+    if (upgradePath === 'custom') { window.location.href = 'mailto:hello@splanai.com'; return; }
+    setUpgradeLoading(true);
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: upgradePath }),
+      });
+      const data = await res.json() as { url?: string };
+      if (data.url) { window.location.href = data.url; return; }
+    } catch { /* fall through */ }
+    window.location.href = upgradePath === 'team' ? '/login?plan=team' : '/login?plan=pro';
+    setUpgradeLoading(false);
   }
 
   return (
@@ -884,7 +908,7 @@ export default function Home() {
             <h2 className="text-3xl sm:text-4xl font-extrabold mb-3 text-white">{t.pricing.heading}</h2>
             <p className="text-slate-400">{t.pricing.sub}</p>
           </AnimateIn>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Free */}
             <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-700/60" style={{ background: "#1E293B" }}>
               <div>
@@ -932,6 +956,29 @@ export default function Home() {
                 onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
               >{t.pricing.pro.cta}</a>
             </div>
+            {/* Custom — sales-led, no price shown */}
+            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-600/60" style={{ background: "#0F172A" }}>
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.custom.label}</p>
+                <p className="text-2xl font-extrabold text-white mt-2">For 50+ employees</p>
+                <p className="text-sm text-slate-500 mt-1">Volume pricing · Talk to us</p>
+              </div>
+              <ul className="flex flex-col gap-3 flex-1">
+                {t.pricing.custom.features.map((f, i) => (
+                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "text-slate-300 font-medium" : "text-slate-400"}`}>
+                    <svg className="w-4 h-4 flex-shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>{f}
+                  </li>
+                ))}
+              </ul>
+              {/* TODO: Replace mailto with Calendly link once set up */}
+              <a
+                href="mailto:hello@splanai.com"
+                className="block text-center py-3 rounded-xl border border-slate-500 font-bold text-slate-300 hover:border-slate-300 hover:text-white transition-all text-sm"
+              >{t.pricing.custom.cta}</a>
+            </div>
+
             {/* Team — gold left border accent */}
             <div className="rounded-2xl p-7 sm:py-9 flex flex-col gap-5 relative overflow-hidden shadow-2xl border-l-4" style={{ background: "#0F172A", borderLeftColor: "#F59E0B", borderTopColor: "rgba(245,158,11,0.15)", borderRightColor: "rgba(245,158,11,0.15)", borderBottomColor: "rgba(245,158,11,0.15)", borderTopWidth: "1px", borderRightWidth: "1px", borderBottomWidth: "1px" }}>
               <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#F59E0B", color: "#0F172A" }}>
@@ -1168,6 +1215,61 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* ── Limit-exceeded modal ─────────────────────────────────────── */}
+      {limitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
+            <button onClick={() => setLimitModal(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition-colors text-xl leading-none">✕</button>
+
+            {limitModal.plan === 'free' ? (
+              <>
+                <div className="text-3xl mb-3">🚀</div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">You've used your 3 free plans this month</h2>
+                <p className="text-gray-500 mb-6 text-sm leading-relaxed">Your free plan includes 3 floor plan generations per month. Upgrade to Pro for 100/mo, your own branding, and MLS data.</p>
+                <button
+                  onClick={() => handleUpgradeFromModal('pro')}
+                  disabled={upgradeLoading}
+                  className="w-full py-3 rounded-xl font-bold text-white transition-colors disabled:opacity-60"
+                  style={{ background: "#3B82F6" }}
+                  onMouseEnter={e => { if (!upgradeLoading) (e.currentTarget as HTMLButtonElement).style.background = "#2563EB"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#3B82F6"; }}
+                >
+                  {upgradeLoading ? 'Redirecting…' : 'Start Pro Trial — $49/mo'}
+                </button>
+              </>
+            ) : limitModal.plan === 'pro' ? (
+              <>
+                <div className="text-3xl mb-3">📊</div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">You&rsquo;ve hit your 100/mo limit</h2>
+                <p className="text-gray-500 mb-4 text-sm leading-relaxed">Team plan gives you unlimited generations (fair use), up to 15 seats, and white-label PDFs.</p>
+                <button
+                  onClick={() => handleUpgradeFromModal('team')}
+                  disabled={upgradeLoading}
+                  className="w-full py-3 rounded-xl font-bold transition-colors disabled:opacity-60 mb-3"
+                  style={{ background: "#F59E0B", color: "#0F172A" }}
+                  onMouseEnter={e => { if (!upgradeLoading) (e.currentTarget as HTMLButtonElement).style.background = "#D97706"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#F59E0B"; }}
+                >
+                  {upgradeLoading ? 'Redirecting…' : 'Upgrade to Team — $149/mo'}
+                </button>
+                <a href="mailto:hello@splanai.com" className="block text-center text-sm text-gray-400 hover:text-gray-700 transition-colors">
+                  Generating at higher volume? Talk to us →
+                </a>
+              </>
+            ) : (
+              <>
+                <div className="text-3xl mb-3">📬</div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Generation limit reached</h2>
+                <p className="text-gray-500 mb-6 text-sm leading-relaxed">Contact us to discuss a custom plan sized to your team.</p>
+                <a href="mailto:hello@splanai.com" className="block text-center py-3 rounded-xl font-bold text-blue-600 border border-blue-600 hover:bg-blue-50 transition-colors">
+                  Talk to us →
+                </a>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

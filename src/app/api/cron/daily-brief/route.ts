@@ -168,6 +168,100 @@ async function fetchHotLeads(supabase: any): Promise<HotLead[]> {
     .filter((x): x is HotLead => x !== null);
 }
 
+// Free mail domains + known test accounts to exclude from domain-match check
+const FREE_DOMAINS = new Set([
+  'gmail.com','yahoo.com','yahoo.co.jp','outlook.com','hotmail.com','icloud.com',
+  'me.com','aol.com','protonmail.com','live.com','msn.com','mail.com',
+]);
+const EXCLUDED_USER_IDS = new Set([
+  '12d6d041-0000-0000-0000-000000000000', // master/seed account — replace with real UUID if needed
+]);
+
+interface OveruseFlag {
+  userId: string;
+  email: string;
+  plan: string;
+  current: number;
+  limit: number;
+}
+interface MultiDomainFlag { domain: string; count: number; emails: string[] }
+interface OveruseFlags {
+  nearLimit: OveruseFlag[];
+  teamHighUsage: OveruseFlag[];
+  multiDomains: MultiDomainFlag[];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchOveruseFlags(supabase: any): Promise<OveruseFlags> {
+  const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+  const LIMITS: Record<string, number> = { free: 3, pro: 100, team: 9999 };
+
+  const [subsResult, usageResult] = await Promise.all([
+    supabase.from('subscriptions').select('user_id, plan').in('status', ['active', 'trialing']),
+    supabase.from('api_usage').select('user_id, request_count').eq('month', currentMonth),
+  ]);
+
+  const subs = (subsResult.data ?? []) as Array<{ user_id: string; plan: string }>;
+  const usageMap = new Map<string, number>(
+    ((usageResult.data ?? []) as Array<{ user_id: string; request_count: number }>)
+      .map(u => [u.user_id, u.request_count])
+  );
+
+  // Flag A: ≥80% of plan limit (Free/Pro only)
+  const nearLimitRaw = subs
+    .filter(s => !EXCLUDED_USER_IDS.has(s.user_id) && s.plan !== 'team')
+    .map(s => ({ userId: s.user_id, plan: s.plan, current: usageMap.get(s.user_id) ?? 0, limit: LIMITS[s.plan] ?? 3 }))
+    .filter(s => s.limit > 0 && s.current / s.limit >= 0.8);
+
+  // Flag B: Team 250+ generations (fair-use review)
+  const teamHighRaw = subs
+    .filter(s => !EXCLUDED_USER_IDS.has(s.user_id) && s.plan === 'team')
+    .map(s => ({ userId: s.user_id, plan: 'team', current: usageMap.get(s.user_id) ?? 0, limit: 9999 }))
+    .filter(s => s.current >= 250);
+
+  // Enrich with emails for flagged accounts
+  const flaggedIds = [...new Set([...nearLimitRaw.map(x => x.userId), ...teamHighRaw.map(x => x.userId)])];
+  const emailMap = new Map<string, string>();
+  await Promise.all(flaggedIds.map(async uid => {
+    try {
+      const { data } = await supabase.auth.admin.getUserById(uid);
+      if (data?.user?.email) emailMap.set(uid, data.user.email);
+    } catch { /* non-critical */ }
+  }));
+
+  const nearLimit: OveruseFlag[] = nearLimitRaw.map(x => ({ ...x, email: emailMap.get(x.userId) ?? x.userId }));
+  const teamHighUsage: OveruseFlag[] = teamHighRaw.map(x => ({ ...x, email: emailMap.get(x.userId) ?? x.userId }));
+
+  // Flag C: Same business domain with 2+ accounts
+  let multiDomains: MultiDomainFlag[] = [];
+  try {
+    const domainMap = new Map<string, string[]>();
+    let page = 1;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data: listData } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+      const users = listData?.users ?? [];
+      for (const u of users as Array<{ id: string; email?: string }>) {
+        if (!u.email || EXCLUDED_USER_IDS.has(u.id)) continue;
+        const domain = u.email.split('@')[1]?.toLowerCase();
+        if (!domain || FREE_DOMAINS.has(domain) || domain === 'splanai.com') continue;
+        if (!domainMap.has(domain)) domainMap.set(domain, []);
+        domainMap.get(domain)!.push(u.email);
+      }
+      if (users.length < 1000) break;
+      page++;
+    }
+    multiDomains = Array.from(domainMap.entries())
+      .filter(([, emails]) => emails.length >= 2)
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([domain, emails]) => ({ domain, count: emails.length, emails }));
+  } catch (err) {
+    console.error('[daily-brief] fetchOveruseFlags domain check error:', err);
+  }
+
+  return { nearLimit, teamHighUsage, multiDomains };
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -277,7 +371,7 @@ export async function GET(req: NextRequest) {
   // ── 2. Collect DB stats for the KPI block ───────────────────────────────
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [subsResult, financeResult, portalViewsResult, newSignupsResult, newPortalLeadsResult, outreachSentResult, outreachRepliedResult, newGenerationsResult, hotLeads] = await Promise.all([
+  const [subsResult, financeResult, portalViewsResult, newSignupsResult, newPortalLeadsResult, outreachSentResult, outreachRepliedResult, newGenerationsResult, hotLeads, overuseFlags] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("plan, status", { count: "exact" })
@@ -315,6 +409,7 @@ export async function GET(req: NextRequest) {
       .select("id", { count: "exact" })
       .gte("created_at", since24h),
     fetchHotLeads(supabase),
+    fetchOveruseFlags(supabase),
   ]);
 
   const todaySnap = financeResult.data?.[0];
@@ -511,6 +606,7 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     xPosts: claudeResult.xPosts,
     escalations: escalations ?? [],
     hotLeads: hotLeads ?? [],
+    overuseFlags: overuseFlags ?? { nearLimit: [], teamHighUsage: [], multiDomains: [] },
     gmailError,
     claudeError,
   });
@@ -585,6 +681,7 @@ interface DigestParams {
   xPosts: ClauseResult["xPosts"];
   escalations: Array<{ id: string; url: string; impact_level: string | null; ai_assessment: string | null }>;
   hotLeads: HotLead[];
+  overuseFlags: OveruseFlags;
   gmailError: string | null;
   claudeError: string | null;
 }
@@ -612,6 +709,45 @@ function buildHotLeadsHtml(hotLeads: HotLead[]): string {
       </div>
     </div>`;
   }).join("");
+}
+
+function buildOveruseFlagsHtml(flags: OveruseFlags): string {
+  const hasAny = flags.nearLimit.length > 0 || flags.teamHighUsage.length > 0 || flags.multiDomains.length > 0;
+  if (!hasAny) return `<p style="color:#6b7280;font-size:13px;">No overuse flags today.</p>`;
+
+  const rows: string[] = [];
+
+  if (flags.nearLimit.length > 0) {
+    rows.push(`<p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;margin:0 0 6px;">A · Near plan limit (≥80%)</p>`);
+    rows.push(...flags.nearLimit.map(f =>
+      `<div style="border:1px solid #fde68a;border-radius:6px;padding:8px 12px;margin-bottom:4px;background:#fffbeb;">
+        <span style="font-size:13px;color:#111827;">${f.email}</span>
+        <span style="margin-left:8px;font-size:11px;color:#6b7280;">${f.plan.toUpperCase()} · ${f.current}/${f.limit} (${Math.round(f.current/f.limit*100)}%)</span>
+      </div>`
+    ));
+  }
+
+  if (flags.teamHighUsage.length > 0) {
+    rows.push(`<p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;margin:12px 0 6px;">B · Team fair-use review (≥250 gen/mo)</p>`);
+    rows.push(...flags.teamHighUsage.map(f =>
+      `<div style="border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;margin-bottom:4px;background:#fff7f7;">
+        <span style="font-size:13px;color:#111827;">${f.email}</span>
+        <span style="margin-left:8px;font-size:11px;color:#6b7280;">TEAM · ${f.current} generations this month</span>
+      </div>`
+    ));
+  }
+
+  if (flags.multiDomains.length > 0) {
+    rows.push(`<p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;margin:12px 0 6px;">C · Same business domain (seat-sharing risk)</p>`);
+    rows.push(...flags.multiDomains.map(f =>
+      `<div style="border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;margin-bottom:4px;background:#f9fafb;">
+        <span style="font-size:13px;font-weight:600;color:#111827;">@${f.domain}</span>
+        <span style="margin-left:8px;font-size:11px;color:#6b7280;">${f.count} accounts: ${f.emails.join(', ')}</span>
+      </div>`
+    ));
+  }
+
+  return rows.join('');
 }
 
 function buildDigestHtml(p: DigestParams): string {
@@ -741,6 +877,10 @@ function buildDigestHtml(p: DigestParams): string {
       <!-- Hot Leads -->
       <h2 style="margin:0 0 12px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">🔥 Hot Leads (7d)</h2>
       <div style="margin-bottom:28px;">${buildHotLeadsHtml(p.hotLeads)}</div>
+
+      <!-- Overuse Flags -->
+      <h2 style="margin:0 0 12px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">⚠️ Overuse Flags</h2>
+      <div style="margin-bottom:28px;">${buildOveruseFlagsHtml(p.overuseFlags)}</div>
 
       <!-- Escalations -->
       <h2 style="margin:0 0 12px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">🚨 Escalations</h2>

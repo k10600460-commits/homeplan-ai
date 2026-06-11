@@ -18,9 +18,17 @@ When generating floor plans:
 - Optimize traffic flow between rooms
 - Ensure room proportions match family size
 - Design within budget (typical construction: $150-$250 per sq ft)
-- Separate master bedroom from children's rooms for privacy
+- Separate primary bedroom from children's rooms for privacy
 - Place kitchen near garage entry for convenience
 - Include practical storage, mudrooms, and pantries where appropriate
+
+When designing floor plans, follow contemporary American home design conventions:
+- Favor open-concept layouts where the kitchen, dining, and main living area flow together; when the main living space opens to the kitchen, call it the "Great Room"
+- Include a walk-in closet in the Primary Suite, and a walk-in pantry when square footage allows — name both explicitly
+- Single-story plans should be described as "ranch" or "single-story." For lots in southern / Sun Belt states, prefer single-story ranch designs or primary-on-main two-story layouts
+- Specify an attached garage with bay count (2-car or 3-car) and include a garage entry / mudroom drop zone in the flow
+- Call the front entry a "foyer" and consider sight lines from the foyer into the Great Room
+- Always use "Primary Bedroom / Primary Bath / Primary Suite," never "master"
 
 Always respond with ONLY valid JSON — no explanation, no markdown, no extra text. Use exactly this structure:
 
@@ -34,22 +42,27 @@ Always respond with ONLY valid JSON — no explanation, no markdown, no extra te
       "bedrooms": 3,
       "bathrooms": 2.5,
       "stories": 1,
+      "garages": 2,
       "estimatedCost": 330000,
       "description": "2-3 sentence description of this plan's character and strengths.",
       "features": ["Feature 1", "Feature 2", "Feature 3", "Feature 4", "Feature 5"],
       "rooms": [
-        { "name": "Master Bedroom", "sqft": 240 },
-        { "name": "Master Bath", "sqft": 80 },
+        { "name": "Primary Suite", "sqft": 320 },
+        { "name": "Primary Bath", "sqft": 80 },
+        { "name": "Walk-In Closet", "sqft": 60 },
         { "name": "Bedroom 2", "sqft": 140 },
         { "name": "Kitchen", "sqft": 180 },
-        { "name": "Living Room", "sqft": 320 },
-        { "name": "Dining Room", "sqft": 160 },
+        { "name": "Great Room", "sqft": 320 },
+        { "name": "Foyer", "sqft": 80 },
+        { "name": "Mudroom", "sqft": 60 },
         { "name": "Garage", "sqft": 440 }
       ],
       "highlights": ["Key selling point 1", "Key selling point 2", "Key selling point 3"]
     }
   ]
 }
+
+The "garages" field is an integer 0–3 representing the number of garage bays (e.g. 2 = 2-car garage). Match it to the budget and lot size.
 
 Generate exactly 3 plans that are meaningfully different in style, layout, and architectural approach. All plans must fit within the given budget.`;
 
@@ -76,6 +89,10 @@ export async function POST(req: NextRequest) {
     const usageCheck = await checkUsageLimit(user.id);
 
     if (!usageCheck.allowed) {
+      const upgradePath =
+        usageCheck.plan === 'free' ? 'pro' :
+        usageCheck.plan === 'pro'  ? 'team' :
+        'custom';
       return NextResponse.json(
         {
           error: "Monthly limit reached",
@@ -83,6 +100,7 @@ export async function POST(req: NextRequest) {
           plan: usageCheck.plan,
           current: usageCheck.current,
           limit: usageCheck.limit,
+          upgradePath,
         },
         { status: 429 },
       );
