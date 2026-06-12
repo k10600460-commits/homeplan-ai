@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { headers } from 'next/headers'
+import { createHash } from 'crypto'
 import SharePortalClient from './SharePortalClient'
 import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
 import { geocodeCity, getNearbyPlaces, haversineKm, computeSafetyScore, PlaceResult } from '@/lib/neighborhood'
@@ -159,6 +161,32 @@ export default async function SharePage({ params }: Props) {
       { onConflict: 'link_id' },
     )
   } catch { /* non-fatal — never break the page render */ }
+
+  // ── Server-side 'view' event (UA-filtered; skips bots/crawlers/link-previewers) ──
+  const BOT_UA = /bot|crawler|spider|preview|slurp|googlebot|bingbot|slackbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|discordbot|telegrambot|headlesschrome|ms-office|msoffice/i
+  try {
+    const hdrs = await headers()
+    const ua = hdrs.get('user-agent') ?? ''
+    if (!BOT_UA.test(ua)) {
+      const rawIp = hdrs.get('x-forwarded-for')?.split(',')[0].trim()
+        || hdrs.get('x-real-ip')
+        || 'unknown'
+      const ipHash = createHash('sha256')
+        .update(rawIp + (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').slice(0, 16))
+        .digest('hex')
+      const { error } = await admin.rpc('record_link_view', {
+        p_link_id:    link.id,
+        p_event_type: 'view',
+        p_plan_index: null,
+        p_referrer:   (hdrs.get('referer') ?? '').slice(0, 512) || null,
+        p_user_agent: ua.slice(0, 512) || null,
+        p_ip_hash:    ipHash,
+      })
+      if (error) console.error('[share/view]', error)
+    }
+  } catch (err) {
+    console.error('[share/view]', err)
+  }
 
   // ── Area data (neighborhood + market) with 24h TTL cache per portal ──
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

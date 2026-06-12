@@ -1199,15 +1199,6 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
     }
   }
 
-  // Record 'view' event on mount
-  useEffect(() => {
-    fetch("/api/share/event", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, eventType: "view" }),
-    }).catch(() => {});
-  }, [slug]);
-
   async function downloadZH(targetPlans: FloorPlan[], filename: string) {
     const res = await fetch("/api/generate-pdf", {
       method: "POST",
@@ -1234,7 +1225,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
           : "SplanAI-Floor-Plans.pdf";
         doc.save(pdfName);
       }
-      fetch("/api/share/event", {
+      fetch("/api/share/activity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug, eventType: "pdf_download" }),
@@ -1253,7 +1244,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
       const doc = await buildPDF([plan], lang, branding, financials);
       doc.save(filename);
     }
-    fetch("/api/share/event", {
+    fetch("/api/share/activity", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug, eventType: "pdf_download", planIndex: plans.findIndex(p => p.id === plan.id) }),
@@ -1263,7 +1254,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
   function handlePlanExpand(planId: number) {
     setSelectedPlan(selectedPlan === planId ? null : planId);
     if (selectedPlan !== planId) {
-      fetch("/api/share/event", {
+      fetch("/api/share/activity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug, eventType: "plan_selected", planIndex: plans.findIndex(p => p.id === planId) }),

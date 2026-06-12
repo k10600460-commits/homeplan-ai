@@ -4,7 +4,8 @@ import { createClient } from '@supabase/supabase-js'
 import { getClientIp } from '@/lib/security'
 import { checkRateLimitDB } from '@/lib/rate-limit-db'
 
-const ALLOWED_EVENTS = ['view', 'pdf_download', 'plan_selected'] as const
+// 'view' is recorded server-side in page.tsx — only user-initiated events here
+const ALLOWED_EVENTS = ['pdf_download', 'plan_selected'] as const
 type EventType = (typeof ALLOWED_EVENTS)[number]
 
 // 30 events/min per IP — generous for real users, blocks scripted flooding
@@ -13,7 +14,7 @@ const EVENT_RATE = { limit: 30, windowSec: 60 }
 export async function POST(req: NextRequest) {
   // Rate limit: IP-based (unauthenticated public endpoint)
   const ip = getClientIp(req)
-  const rl = await checkRateLimitDB(`share_event:ip:${ip}`, EVENT_RATE)
+  const rl = await checkRateLimitDB(`share_activity:ip:${ip}`, EVENT_RATE)
   if (!rl.allowed) {
     return NextResponse.json(
       { ok: false, reason: 'rate_limited' },
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, reason: 'expired' })
     }
 
-    await admin.rpc('record_link_view', {
+    const { error } = await admin.rpc('record_link_view', {
       p_link_id:    link.id,
       p_event_type: eventType,
       p_plan_index: planIndex,
@@ -72,10 +73,11 @@ export async function POST(req: NextRequest) {
       p_user_agent: userAgent || null,
       p_ip_hash:    ipHash,
     })
+    if (error) console.error('[share/activity]', error)
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('[share/event]', err)
+    console.error('[share/activity]', err)
     return NextResponse.json({ ok: false })
   }
 }
