@@ -1151,7 +1151,7 @@ export default function Home() {
               <button
                 onClick={handleLPTeamCTA}
                 disabled={teamCheckoutLoading}
-                className="block w-full text-center py-3 rounded-xl font-bold text-white transition-colors shadow-lg text-sm disabled:opacity-60"
+                className="block w-full text-center py-3 rounded-xl font-bold text-white transition-colors shadow-lg text-sm disabled:opacity-60 cursor-pointer"
                 style={{ background: "#F59E0B", color: "#0F172A" }}
                 onMouseEnter={e => { if (!teamCheckoutLoading) (e.currentTarget as HTMLButtonElement).style.background = "#D97706"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#F59E0B"; }}

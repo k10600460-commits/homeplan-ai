@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
+  const plan = searchParams.get("plan");
 
   if (code) {
     const cookieStore = await cookies();
@@ -49,7 +50,8 @@ export async function GET(request: NextRequest) {
         sendWelcomeEmail(data.user.email).catch(console.error);
       }
       if (isNewUser) {
-        return NextResponse.redirect(`${origin}/dashboard?new_signup=1`);
+        const planQuery = plan === "team" || plan === "pro" ? `&plan=${plan}` : "";
+        return NextResponse.redirect(`${origin}/dashboard?new_signup=1${planQuery}`);
       }
 
       return NextResponse.redirect(`${origin}${next}`);

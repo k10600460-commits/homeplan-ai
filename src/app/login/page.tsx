@@ -67,7 +67,7 @@ function LoginContent() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback${planParam === "team" || planParam === "pro" ? `?plan=${planParam}` : ""}`,
         data: { terms_agreed_at: new Date().toISOString() },
       },
     });

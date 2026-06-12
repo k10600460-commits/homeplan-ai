@@ -76,6 +76,7 @@ interface Props {
   user: User;
   subscription: Subscription | null;
   isNewSignup?: boolean;
+  newSignupPlan?: "team" | "pro";
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -98,7 +99,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://homeplan-ai.vercel.a
 // ── MLS connection state ──────────────────────────────────────────────────────
 type MlsStatus = "idle" | "connected" | "connecting" | "error";
 
-export default function DashboardClient({ user, subscription, isNewSignup = false }: Props) {
+export default function DashboardClient({ user, subscription, isNewSignup = false, newSignupPlan }: Props) {
   const router = useRouter();
   const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -643,7 +644,11 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
     autoSubscribeFiredRef.current = true;
     track("signup");
     window.history.replaceState({}, "", "/dashboard");
-    handleSubscribe();
+    if (newSignupPlan === "team") {
+      handleTeamCheckout();
+    } else {
+      handleSubscribe();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
