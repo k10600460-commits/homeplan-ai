@@ -7,6 +7,10 @@ import { ProductHuntBadge } from "@/components/ProductHuntBadge";
 import { SocialProofBar } from "@/components/SocialProofBar";
 import { track } from "@vercel/analytics";
 
+// ── Constants ────────────────────────────────────────────────────────
+// TODO: Replace with Calendly link once set up (L1173)
+const CUSTOM_PLAN_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20Custom%20plan%20inquiry&body=Team%20size%3A%0D%0AProposals%20per%20month%3A%0D%0AMarkets%20%2F%20MLS%3A%0D%0A"
+
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
   en: {
@@ -692,7 +696,7 @@ export default function Home() {
   }
 
   async function handleUpgradeFromModal(upgradePath: string) {
-    if (upgradePath === 'custom') { window.location.href = 'mailto:hello@splanai.com'; return; }
+    if (upgradePath === 'custom') { window.location.href = CUSTOM_PLAN_MAILTO; return; }
     setUpgradeLoading(true);
     try {
       const res = await fetch('/api/checkout', {
@@ -1080,7 +1084,7 @@ export default function Home() {
           </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Free */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-700/60" style={{ background: "#1E293B" }}>
+            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-700/60 hover:-translate-y-1 transition-all" style={{ background: "#1E293B" }}>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.free.label}</p>
                 <p className="text-4xl font-extrabold text-white mt-2">{t.pricing.free.price}</p>
@@ -1100,7 +1104,7 @@ export default function Home() {
               </a>
             </div>
             {/* Pro */}
-            <div className="rounded-2xl p-7 sm:py-10 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40" style={{ background: "#0F172A", boxShadow: "0 8px 40px rgba(59,130,246,0.30)" }}>
+            <div className="rounded-2xl p-7 sm:py-10 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40 hover:-translate-y-1 transition-all" style={{ background: "#0F172A", boxShadow: "0 8px 40px rgba(59,130,246,0.30)" }}>
               <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{ background: "#3B82F6" }}>
                 {t.pricing.pro.badge}
               </div>
@@ -1127,7 +1131,7 @@ export default function Home() {
               >{t.pricing.pro.cta}</a>
             </div>
             {/* Team — gold left border accent */}
-            <div className="rounded-2xl p-7 sm:py-9 flex flex-col gap-5 relative overflow-hidden shadow-2xl border-l-4" style={{ background: "#0F172A", borderLeftColor: "#F59E0B", borderTopColor: "rgba(245,158,11,0.15)", borderRightColor: "rgba(245,158,11,0.15)", borderBottomColor: "rgba(245,158,11,0.15)", borderTopWidth: "1px", borderRightWidth: "1px", borderBottomWidth: "1px" }}>
+            <div className="rounded-2xl p-7 sm:py-9 flex flex-col gap-5 relative overflow-hidden shadow-2xl border-l-4 hover:-translate-y-1 transition-all" style={{ background: "#0F172A", borderLeftColor: "#F59E0B", borderTopColor: "rgba(245,158,11,0.15)", borderRightColor: "rgba(245,158,11,0.15)", borderBottomColor: "rgba(245,158,11,0.15)", borderTopWidth: "1px", borderRightWidth: "1px", borderBottomWidth: "1px" }}>
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#F59E0B" }}>{t.pricing.team.label}</p>
                 <p className="text-4xl font-extrabold text-white mt-2">
@@ -1155,7 +1159,7 @@ export default function Home() {
             </div>
 
             {/* Custom — sales-led, no price shown */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-600/60" style={{ background: "#0F172A" }}>
+            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-600/60 hover:-translate-y-1 transition-all" style={{ background: "#0F172A" }}>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.custom.label}</p>
                 <p className="text-2xl font-extrabold text-white mt-2">For 50+ employees</p>
@@ -1172,7 +1176,7 @@ export default function Home() {
               </ul>
               {/* TODO: Replace mailto with Calendly link once set up */}
               <a
-                href="mailto:hello@splanai.com"
+                href={CUSTOM_PLAN_MAILTO}
                 className="block text-center py-3 rounded-xl border border-slate-500 font-bold text-slate-300 hover:border-slate-300 hover:text-white transition-all text-sm"
               >{t.pricing.custom.cta}</a>
             </div>
