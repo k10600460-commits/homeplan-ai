@@ -309,71 +309,241 @@ function AnimateIn({
   );
 }
 
-// ── Hero product preview (right panel) ───────────────────────────────
+// ── Hero product preview — 4-phase sequence animation ────────────────
+//
+// Phase 0 (0-2.5s)  : Input form with mock values appearing
+// Phase 1 (2.5-5s)  : "Generating plans… ~30 sec" spinner (accelerated for demo)
+// Phase 2 (5-9.5s)  : Results reveal — neighborhood → mortgage → plans stagger
+// Phase 3 (9.5-12s) : "Client viewed" badge slides in, hold, then loop
+//
+// prefers-reduced-motion → skip to end state (phase 2 fully visible, no animation)
+// User hover → pause loop; mouse leave → resume
+
+const HERO_PLANS = [
+  { id: "01", name: "Craftsman Ranch",   sqft: "2,100 sqft", cost: "$315K", bd: "3bd/2ba",   color: "blue",    bgClass: "bg-blue-500",    selected: false },
+  { id: "02", name: "Modern Farmhouse",  sqft: "2,350 sqft", cost: "$352K", bd: "4bd/2.5ba", color: "emerald", bgClass: "bg-emerald-500", selected: true  },
+  { id: "03", name: "Contemporary",      sqft: "1,980 sqft", cost: "$297K", bd: "3bd/2ba",   color: "violet",  bgClass: "bg-violet-500",  selected: false },
+] as const;
+
+const HERO_CHIPS = [
+  { icon: "🏫", label: "Schools",  val: "★ 8.4/10", bg: "bg-blue-50",   border: "border-blue-100"   },
+  { icon: "🛡️", label: "Safety",   val: "High",     bg: "bg-emerald-50", border: "border-emerald-100" },
+  { icon: "📊", label: "Avg Rent", val: "$1,850/mo", bg: "bg-violet-50",  border: "border-violet-100"  },
+] as const;
+
+// Phase durations in ms
+const PHASE_MS = { input: 2500, generating: 2500, results: 4500, badge: 2500 };
+
+type HeroPhase = 0 | 1 | 2 | 3;
+
+function fi(visible: boolean, delay = 0): React.CSSProperties {
+  return {
+    transition: `opacity 0.4s ease ${delay}ms, transform 0.4s ease ${delay}ms`,
+    opacity: visible ? 1 : 0,
+    transform: visible ? "translateY(0)" : "translateY(8px)",
+  };
+}
+
 function HeroPreview({ scrollY = 0 }: { scrollY?: number }) {
+  const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const [phase, setPhase] = useState<HeroPhase>(reduced ? 2 : 0);
+  const [planVisible, setPlanVisible] = useState([false, false, false]);
+  const paused = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (reduced) return;
+
+    function runCycle() {
+      if (paused.current) { timerRef.current = setTimeout(runCycle, 200); return; }
+
+      setPhase(0);
+      setPlanVisible([false, false, false]);
+
+      timerRef.current = setTimeout(() => {
+        if (paused.current) { timerRef.current = setTimeout(runCycle, 200); return; }
+        setPhase(1);
+
+        timerRef.current = setTimeout(() => {
+          if (paused.current) { timerRef.current = setTimeout(runCycle, 200); return; }
+          setPhase(2);
+          // Stagger plan cards
+          [0, 1, 2].forEach(i => {
+            timerRef.current = setTimeout(() => setPlanVisible(v => { const n = [...v] as [boolean,boolean,boolean]; n[i] = true; return n; }), i * 350);
+          });
+
+          timerRef.current = setTimeout(() => {
+            if (paused.current) { timerRef.current = setTimeout(runCycle, 200); return; }
+            setPhase(3);
+            timerRef.current = setTimeout(runCycle, PHASE_MS.badge);
+          }, PHASE_MS.results);
+        }, PHASE_MS.generating);
+      }, PHASE_MS.input);
+    }
+
+    runCycle();
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [reduced]);
+
+  const showInput      = phase === 0;
+  const showGenerating = phase === 1;
+  const showResults    = phase >= 2;
+  const showBadge      = phase >= 3;
+  const chipVisible    = showResults;
+
   return (
     <div
       className="relative w-full max-w-lg mx-auto lg:mx-0"
       style={{ transform: `translateY(${Math.min(scrollY * 0.05, 10)}px)`, transition: "transform 0.1s linear" }}
+      onMouseEnter={() => { paused.current = true; }}
+      onMouseLeave={() => { paused.current = false; }}
     >
       <div className="absolute -inset-6 bg-blue-500/20 rounded-3xl blur-3xl" />
       <div className="relative bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
+
+        {/* Browser chrome */}
         <div className="flex items-center gap-1.5 px-4 py-3 bg-slate-900/80 border-b border-slate-700">
           <div className="w-3 h-3 rounded-full bg-red-500/80" />
           <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
           <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-          <span className="ml-2 text-xs text-slate-500 font-mono">splanai.com/results</span>
+          <span className="ml-2 text-xs text-slate-500 font-mono">
+            {showResults ? "splanai.com/results" : "splanai.com"}
+          </span>
         </div>
-        <div className="p-4 bg-slate-50">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-extrabold text-slate-800">Splan<span className="text-blue-500">AI</span></span>
-            <div className="flex gap-1.5">
-              <span className="px-2 py-1 rounded text-xs bg-emerald-100 text-emerald-700 font-semibold border border-emerald-200">Share Link ✓</span>
-              <span className="px-2 py-1 rounded text-xs bg-blue-500 text-white font-semibold">PDF</span>
-            </div>
-          </div>
-          {/* Neighborhood data first — establishes insight/relief before showing plan output */}
-          <div className="grid grid-cols-3 gap-1.5 mb-2">
-            <div className="rounded-lg bg-blue-50 border border-blue-100 p-2 flex items-center gap-1.5">
-              <span className="text-sm">🏫</span>
-              <div><p className="text-xs font-semibold text-slate-700">Schools</p><p className="text-xs text-slate-400">★ 8.4/10</p></div>
-            </div>
-            <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-2 flex items-center gap-1.5">
-              <span className="text-sm">🛡️</span>
-              <div><p className="text-xs font-semibold text-slate-700">Safety</p><p className="text-xs text-slate-400">High</p></div>
-            </div>
-            <div className="rounded-lg bg-violet-50 border border-violet-100 p-2 flex items-center gap-1.5">
-              <span className="text-sm">📊</span>
-              <div><p className="text-xs font-semibold text-slate-700">Avg Rent</p><p className="text-xs text-slate-400">$1,850/mo</p></div>
-            </div>
-          </div>
-          <div className="mb-3 rounded-lg bg-slate-800 p-2.5 flex items-center justify-between">
-            <span className="text-xs text-slate-400">Mortgage (20% down, 30yr, ~6.5%)</span>
-            <span className="text-sm font-extrabold text-white">$1,876<span className="text-slate-400 text-xs font-normal">/mo</span></span>
-          </div>
-          {/* 3 AI-generated plans — shown after neighborhood context is established */}
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { id: "01", name: "Craftsman Ranch", sqft: "2,100 sqft", cost: "$315K", bd: "3bd/2ba", color: "blue", selected: false },
-              { id: "02", name: "Modern Farmhouse", sqft: "2,350 sqft", cost: "$352K", bd: "4bd/2.5ba", color: "emerald", selected: true },
-              { id: "03", name: "Contemporary", sqft: "1,980 sqft", cost: "$297K", bd: "3bd/2ba", color: "violet", selected: false },
-            ].map(p => (
-              <div key={p.id} className={`rounded-xl border-2 bg-white overflow-hidden ${p.selected ? "border-emerald-400 shadow-md" : "border-slate-200"}`}>
-                <div className={`px-2 py-1.5 text-white text-xs font-bold ${p.color === "blue" ? "bg-blue-500" : p.color === "emerald" ? "bg-emerald-500" : "bg-violet-500"}`}>
-                  Plan {p.id} {p.selected && "✓"}
+
+        <div className="p-4 bg-slate-50 min-h-[220px] relative">
+
+          {/* ── Phase 0: Input form ──────────────────────────────── */}
+          <div
+            aria-hidden={!showInput}
+            style={{
+              position: showInput ? "relative" : "absolute",
+              inset: showInput ? undefined : 0,
+              padding: showInput ? undefined : "1rem",
+              transition: "opacity 0.35s ease",
+              opacity: showInput ? 1 : 0,
+              pointerEvents: showInput ? "auto" : "none",
+            }}
+          >
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Generate 3 plans →</p>
+            <div className="flex flex-col gap-2">
+              {[
+                { label: "Lot Size",    val: "8,500 sq ft",  delay: 200  },
+                { label: "Budget",      val: "$450,000",      delay: 500  },
+                { label: "Family Size", val: "4 people",      delay: 800  },
+                { label: "City, State", val: "Austin, TX",    delay: 1100 },
+              ].map(f => (
+                <div key={f.label} className="flex items-center gap-2" style={fi(showInput, f.delay)}>
+                  <span className="text-xs text-slate-400 w-20 shrink-0">{f.label}</span>
+                  <span className="flex-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-800">{f.val}</span>
                 </div>
-                <div className="p-2">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">{p.name}</p>
-                  <p className="text-sm font-extrabold text-slate-900 mt-0.5">{p.cost}</p>
-                  <p className="text-xs text-slate-400">{p.sqft}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{p.bd}</p>
-                </div>
+              ))}
+            </div>
+            <div style={fi(showInput, 1400)} className="mt-3 w-full py-2 rounded-lg bg-blue-500 text-white text-xs font-bold text-center">
+              Generate 3 Plans →
+            </div>
+          </div>
+
+          {/* ── Phase 1: Generating spinner ──────────────────────── */}
+          <div
+            aria-hidden={!showGenerating}
+            style={{
+              position: "absolute", inset: 0, padding: "1rem",
+              transition: "opacity 0.35s ease",
+              opacity: showGenerating ? 1 : 0,
+              pointerEvents: showGenerating ? "auto" : "none",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.75rem",
+            }}
+          >
+            <svg className="w-7 h-7 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+              <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            <p className="text-sm font-semibold text-slate-700">Generating plans…</p>
+            <p className="text-xs text-slate-400">~30 sec · AI + neighborhood data</p>
+            <div className="w-32 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+              <div
+                className="h-1.5 rounded-full bg-blue-500"
+                style={{
+                  width: showGenerating ? "88%" : "2%",
+                  transition: showGenerating ? `width ${PHASE_MS.generating - 200}ms ease-out 100ms` : "none",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* ── Phase 2+3: Results ───────────────────────────────── */}
+          <div
+            aria-hidden={!showResults}
+            style={{
+              position: showResults ? "relative" : "absolute",
+              inset: showResults ? undefined : 0,
+              padding: showResults ? undefined : "1rem",
+              transition: "opacity 0.4s ease",
+              opacity: showResults ? 1 : 0,
+              pointerEvents: showResults ? "auto" : "none",
+            }}
+          >
+            <div className="flex items-center justify-between mb-3" style={fi(showResults)}>
+              <span className="text-xs font-extrabold text-slate-800">Splan<span className="text-blue-500">AI</span></span>
+              <div className="flex gap-1.5">
+                <span className="px-2 py-1 rounded text-xs bg-emerald-100 text-emerald-700 font-semibold border border-emerald-200">Share Link ✓</span>
+                <span className="px-2 py-1 rounded text-xs bg-blue-500 text-white font-semibold">PDF</span>
               </div>
-            ))}
+            </div>
+
+            {/* Neighborhood chips */}
+            <div className="grid grid-cols-3 gap-1.5 mb-2">
+              {HERO_CHIPS.map((c, i) => (
+                <div key={c.label} className={`rounded-lg ${c.bg} border ${c.border} p-2 flex items-center gap-1.5`} style={fi(chipVisible, i * 120)}>
+                  <span className="text-sm">{c.icon}</span>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700">{c.label}</p>
+                    <p className="text-xs text-slate-400">{c.val}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Mortgage bar */}
+            <div className="mb-3 rounded-lg bg-slate-800 p-2.5 flex items-center justify-between" style={fi(chipVisible, 360)}>
+              <span className="text-xs text-slate-400">Mortgage (20% down, 30yr, ~6.5%)</span>
+              <span className="text-sm font-extrabold text-white">$1,876<span className="text-slate-400 text-xs font-normal">/mo</span></span>
+            </div>
+
+            {/* Plan cards */}
+            <div className="grid grid-cols-3 gap-2">
+              {HERO_PLANS.map((p, i) => (
+                <div
+                  key={p.id}
+                  className={`rounded-xl border-2 bg-white overflow-hidden ${p.selected ? "border-emerald-400 shadow-md" : "border-slate-200"}`}
+                  style={fi(planVisible[i])}
+                >
+                  <div className={`px-2 py-1.5 text-white text-xs font-bold ${p.bgClass}`}>
+                    Plan {p.id} {p.selected && "✓"}
+                  </div>
+                  <div className="p-2">
+                    <p className="text-xs font-bold text-slate-800 leading-tight truncate">{p.name}</p>
+                    <p className="text-sm font-extrabold text-slate-900 mt-0.5">{p.cost}</p>
+                    <p className="text-xs text-slate-400">{p.sqft}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{p.bd}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-      <div className="absolute -bottom-4 right-0 bg-white rounded-xl shadow-xl border border-slate-100 px-2.5 py-1.5 flex items-center gap-1.5 whitespace-nowrap">
+
+      {/* ── Badge: "Client viewed plan" ───────────────────────────── */}
+      <div
+        className="absolute -bottom-4 right-0 bg-white rounded-xl shadow-xl border border-slate-100 px-2.5 py-1.5 flex items-center gap-1.5 whitespace-nowrap"
+        style={{
+          transition: "opacity 0.45s ease, transform 0.45s ease",
+          opacity: showBadge ? 1 : 0,
+          transform: showBadge ? "translateY(0)" : "translateY(6px)",
+        }}
+      >
         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
         <span className="text-xs font-semibold text-slate-700">Client viewed plan</span>
         <span className="text-xs text-slate-400">just now</span>
