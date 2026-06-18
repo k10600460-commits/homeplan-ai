@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { PHYSICAL_ADDRESS } from '@/lib/emails'
+import { insertEvent } from '@/lib/analytics'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://splanai.com'
 
@@ -19,7 +21,7 @@ function buildHtmlBody(body: string, unsubUrl: string): string {
 ${escaped}
 <hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0">
 <p style="font-size:12px;color:#9ca3af">You're receiving this because you subscribed to updates on your home proposal.
-<a href="${unsubUrl}" style="color:#9ca3af">Unsubscribe</a>.</p>
+<a href="${unsubUrl}" style="color:#9ca3af">Unsubscribe</a> · ${PHYSICAL_ADDRESS}</p>
 </body></html>`
 }
 
@@ -27,6 +29,14 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // Block sends until a real US postal address replaces the placeholder (CAN-SPAM §7(a)(5))
+  if (PHYSICAL_ADDRESS.startsWith("<<FILL")) {
+    return NextResponse.json(
+      { error: "Commercial email send blocked: physical postal address not configured." },
+      { status: 503 },
+    )
+  }
+
   const { id } = await params
 
   const supabase = await createServerClient()
@@ -126,6 +136,8 @@ export async function POST(
     sent_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }).eq('id', id)
+
+  insertEvent('nurture_sent', user.id, { metadata: { draft_id: id, link_id: draft.link_id } })
 
   return NextResponse.json({ ok: true })
 }

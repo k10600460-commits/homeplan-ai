@@ -41,5 +41,9 @@ export async function GET(request: NextRequest) {
     const { sendWelcomeEmail } = await import("@/lib/emails");
     sendWelcomeEmail(data.user.email).catch(console.error);
   }
+  if (type === "signup") {
+    const { insertEvent } = await import("@/lib/analytics");
+    insertEvent("signup", data.user.id, { metadata: { source: "email_confirm" } });
+  }
   return NextResponse.redirect(`${origin}/dashboard?new_signup=1`);
 }

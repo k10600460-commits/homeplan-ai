@@ -1,251 +1,75 @@
-# 📢 SplanAI Sales Agent
-
-**Role:** Post-Launch Outreach, DM Automation & Pipeline Management
-**Cron:** 毎朝 8:00 JST (`/api/cron/sales-dm-draft`)
-**Level:** Semi-auto（Agent がドラフト生成 → Shuraemon レビュー → 手動送信）
-**Last Updated:** 2026-05-20
-
----
-
-## Mission
-
-ローンチ後 30 日以内に有料顧客 15 社（Stretch: 30 社）を獲得する。
-Direct Outreach（DM）を中心に、white-glove onboarding で最初の 5 社を事例化し、
-その成果を次の 50 社への説得材料にする。
-
----
-
-## 1. ターゲット選定基準
-
-| 条件 | 内容 |
-|------|------|
-| 規模 | 年間 5〜80 棟のオーナー経営ビルダー |
-| 優先州 | TX / FL / NC / GA / AZ / TN / SC / CA / CO（住宅着工数 Top 9） |
-| Web 存在 | Website あり（最低限のリテラシー確認） |
-| 除外 | 大手コーポレートチェーン、仲介専業、管理会社 |
-
-**データソース（優先順）:**
-1. Google Maps Places API — `home builder [city]` 検索
-2. NAHB Member Directory — 公開部分
-3. LinkedIn（MRR $500 到達後に Sales Navigator $79.99/月 検討）
-
----
-
-## 2. outreach_log SQL Operations
-
-```sql
--- テーブル定義（supabase/migrations/20260522_post_launch_tables.sql に記載）
-
--- 今日の対象 5 社を取得（TX/FL/NC 優先）
-SELECT * FROM outreach_log
-WHERE status = 'pending'
-ORDER BY
-  CASE WHEN state IN ('TX','FL','NC') THEN 0 ELSE 1 END,
-  created_at ASC
-LIMIT 5;
-
--- DM 送信後に更新
-UPDATE outreach_log
-SET status = 'sent', sent_at = now()
-WHERE id = '[uuid]';
-
--- 返信受信時に更新
-UPDATE outreach_log
-SET status = 'replied', replied_at = now(), notes = '[内容]'
-WHERE id = '[uuid]';
-
--- Zoom 予約完了時
-UPDATE outreach_log SET status = 'qualified' WHERE id = '[uuid]';
-
--- 有料転換時
-UPDATE outreach_log SET status = 'paid' WHERE id = '[uuid]';
-```
-
-**Status 遷移:**
-```
-pending → sent → replied → qualified (Zoom予約) → demo_done → trial_started → paid
-                                                              └→ (7日無応答) → revival_mail
-```
-
----
-
-## 3. DM 5 パターン
-
-### Pattern A — 「追客漏れ減らせます」
-*使用条件: Web に「お客様の声」「follow-up」系ヒントがある*
-
-```
-Subject: Quick question about your buyer follow-ups
-
-Hi [Name], saw [Company] builds [X] homes/year in [City].
-Most builders I talk to lose deals because clients go cold
-between the first showing and the contract.
-
-Built a tool that auto-tracks when buyers open your floor plan
-PDFs and pings you when they're ready. Free tier, takes 60
-seconds to try: splanai.com
-
-Worth a 15-min Zoom?
-
-— Shoji
-```
-
-### Pattern B — 「営業 1 人分削減」
-*使用条件: Web に複数の営業担当の名前が出ている*
-
-```
-Subject: $49 vs hiring another salesperson
-
-[Name], curious — do you have a dedicated salesperson at [Company]?
-Most small builders end up wearing 4 hats and sales is the first to slip.
-
-SplanAI handles the part most salespeople hate: generating plans
-for picky clients, tracking who's actually interested, sending follow-ups.
-$49/mo, no contract.
-
-splanai.com — happy to walk you through it.
-```
-
-### Pattern C — 「MLS をもっと売上化」
-*使用条件: Web に「MLS」「listings」「Trestle」の言及がある*
-
-```
-Subject: Your MLS license is underused
-
-Hi [Name], if [Company] is paying for MLS access but only using
-it for showings, you're leaving deals on the table.
-
-Built a tool that connects to your MLS via Trestle, pulls real
-lots, and generates 3 floor plans in 30 sec to send to clients.
-Same MLS, 4x the close rate.
-
-Free trial: splanai.com
-```
-
-### Pattern D — 「来場率改善」
-*使用条件: Web に「model home」「open house」が前面に出ている*
-
-```
-Subject: Why buyers don't show up to your model home
-
-[Name], a builder in [State] told me their model home traffic
-dropped 40% post-pandemic. Buyers are getting picky online.
-
-What if you sent them a personalized 3-plan PDF the night before
-their visit? They show up pre-sold.
-
-15-min demo: splanai.com
-```
-
-### Pattern E — 「失注復活」（最強）
-*使用条件: 年間棟数推定 20+、創業 10 年以上の established ビルダー*
-
-```
-Subject: That deal from 2024 you wrote off
-
-Hi [Name], how many buyers walked from [Company] in the past
-18 months because of rates or budget?
-
-SplanAI tracks all your past inquiries and pings you when
-something changes — rates drop, prices in their target zip
-change, etc. Resurrect 5-10% of those = 1-2 extra deals/year.
-
-splanai.com — take 30 sec.
-```
-
----
-
-## 4. パターン判定フロー
-
-```
-Web / Facebook を web_fetch で分析
-  ↓
-「追客・follow-up」ヒントあり？ → Pattern A
-  ↓
-複数営業担当の名前あり？ → Pattern B
-  ↓
-「MLS / Trestle / listings」の言及あり？ → Pattern C
-  ↓
-「model home / open house」が前面？ → Pattern D
-  ↓
-年間棟数 20+ かつ 創業 10 年+？ → Pattern E
-  ↓
-いずれも当てはまらない → Pattern A（デフォルト）
-```
-
----
-
-## 5. /goal テンプレート（毎朝の Sales Agent 起動）
-
-```
-/goal Sales Agentとして以下を実行:
-
-1. Supabase outreach_log から status='pending' の5社を取得
-   優先: state IN ('TX','FL','NC') > その他 > created_at ASC
-2. 各社の website / Facebook を web_fetch で分析（各1分以内）
-3. パターン判定フロー（agents/sales.md §4）に従い A〜E を決定
-4. 各社にパーソナライズした DM ドラフトを生成
-5. obsidian-vault/YYYY-MM-DD-sales-drafts.md に以下の形式で保存:
-   ## [Company] — Pattern X
-   **理由**: [選択した根拠]
-   **DM本文**:
-   [ドラフト本文]
-6. Shuraemonに「5 DMs ready for review → obsidian-vault/YYYY-MM-DD-sales-drafts.md」と報告
-
-Shuraemonのレビュー後、LinkedIn / Email で手動送信。
-送信後 outreach_log の status を 'sent' に更新。
-```
-
----
-
-## 6. 返信→Demo→成約 ファネル管理
-
-```
-返信受信:
-  → outreach_log.status = 'replied'
-  → Commander に通知（Daily Brief の Escalation セクション）
-
-Zoom 予約:
-  → white-glove/[company-name].md を obsidian-vault に作成
-  → outreach_log.status = 'qualified'
-
-Demo 完了:
-  → outreach_log.status = 'demo_done'
-  → trial_started へ誘導
-
-Trial 開始後 7 日間応答なし:
-  → revival mail 自動送信（Commander が検知）
-  → subject: "Still thinking about [Company]? Here's what changed."
-```
-
----
-
-## 7. White-glove ルール（最初の 5 社）
-
-- Zoom 60 分 × 週 1 で 4 週間（合計 4 回）
-- `obsidian-vault/white-glove/[company-name].md` に記録
-- **必ず収集する Before/After 数値**:
-  - 月間プラン生成数
-  - 平均顧客応答時間
-  - 商談化率（%)
-  - 月間受注件数
-- 4 週間後、Sales Agent が事例ページ草稿を生成
-- 事例は次の 50 社 DM の「社名・数値」として使用する
-
----
-
-## 8. 30 日 KPI 目標
-
-| KPI | 保守 | Stretch |
-|-----|------|---------|
-| DM 送付数 | 100 社 | 200 社 |
-| DM 返信率 | 15% | 25% |
-| Demo / Zoom | 5 本 | 15 本 |
-| White-glove 完成 | 3 社 | 5 社 |
-| 有料転換 | 15 社 | 30 社 |
-
----
-
-**Contact:** Shuraemon 直接
-**Last Updated:** 2026-05-20
-**Next Review:** 2026-05-27 (ローンチ翌日・初回DM結果確認)
+# SplanAI Sales Strategy (Source of Truth) — 2026-06-18
+Supersedes: 旧 agents/sales.md（旧ICP=年5-80棟・owner-op／LinkedIn=MRR$500後）
+Provenance: 田中MTG(2026-06-09)のピボット ＋ go-forward再精査(2026-06-18, CC+Codex)
+Status: ACTIVE。CC/Codex はビルド時に本docを参照（旧戦略に対してビルドしない）
+
+## 0. 一行戦略
+"Serve both, target one." 製品は小〜中規模 両対応。**能動アウトリーチ＋主メッセージは中規模に絞る**。
+小規模は Free/$49/$149 self-serve の受動オンランプで受ける（門前払いしない／能動の槍は向けない）。
+
+## 1. ICP（能動ターゲット）
+中規模 custom / semi-custom ビルダー（~100人規模・年間数十棟〜）。
+条件＝予算がある・営業チームが既にいる・労働コスト痛が深い・LinkedInで役職者に届く（"払う＆届く"）。
+地理＝新築が活発なサンベルト＋注文比率が濃い地域（New England／中西部／東南中部 ~Nashville）。
+受動枠＝年5-25棟/<10人の小規模は Free/$49 で自走サインアップ可。
+
+## 2. Wedge / ポジショニング（見出し）
+労働力不足＝"建てる側"の制約。需要は強いが建築キャパが頭打ち（"建てたい300 : 建てる100"）。人は増やせない。
+→ 刺さるのは「もっと売れる」じゃなく **「人を増やさず、今ある需要をさばく」**。
+3本柱: ①需要をトリアージ（本気の買い手を優先） ②1人あたり生産性UP（経験浅い担当でも即プロ級提案）
+        ③長い順番待ちを冷まさない（期待値を最初に揃える）
+NG: 「もっと受注を」（建築キャパ頭打ち相手に逆効果）
+
+## 3. ペルソナ
+主＝営業リーダー（VP/Director/Manager of Sales）or オーナー/プリンシパル（この規模はオーナーが営業に近い）。
+副＝マーケ責任者（buyer-ready提案＋ポータルの角度）。"効率化を買う"のは営業リーダー。
+
+## 4. バリュープロップ（製品→中規模ペインの写像）
+- 即 buyer-ready 提案（30秒・ブランドPDF＋ポータル）→ 速く決まる／junior でも回る／drafter・レンダ待ち不要
+- 買い手 intent scoring（HOT/WARM/COLD＋Buyer Activity・shipped）→ 300件をトリアージ、ホット優先、tire-kicker に時間を割かない
+- 追客自動化（nurture 下書き→送信・shipped）→ 長い waitlist を手間なく warm 維持
+正直さ: AI間取りは設計士の代替でなく"営業の入口"。ビルダーが調整＋MLSで実データ反映。
+
+## 5. 価格ポスチャ（billing は作り直さない）
+- Free / $49 Pro / $149 Team ＝ self-serve on-ramp（小規模＋中規模の trial 入口）
+- **中規模アンカー＝ sales-led "Custom"**（席/拠点ベース・価値価格）。cold で数字は出さない＝デモ/会話で willingness-to-pay を見る
+- $149 Team＝中規模が試す現実的入口、Custom＝複数席/拠点。価格シグナルは E-1 で収集
+
+## 6. チャネル & モーション
+- チャネル＝**LinkedIn主体（今すぐ）**・実名/顔出し。旧"MRR$500後"は撤回。メールは副（検証済みアドレスのみ）
+- モーション＝**デモ/会話主導**（cold self-serve サインアップ狙いではない）
+- Hook＝**実区画1件のサンプル提案を先出し**（30秒生成で安く量産・"語らず見せる"／元GTMの"サンプル先出し"と一致）
+- 有料ツール（Apollo/Sales Nav）は今は無し。E-2 で discovery volume がボトルネックと実証後に購入判断
+
+## 7. Cadence（E-1: 10-20社・手動・全計測・自動化しない）
+T1 LinkedIn コネクト申請（パーソナライズ・ピッチ無し）※既接続/InMail なら T2 から
+T2 wedge メッセージ＋サンプル提案オファー
+T3 サンプル提案を納品（ブランド入り・相手の実区画）→「これが御社の buyer に見える画面」
+T4 ソフトフォロー → 15分デモ予約
+メールは同内容をミラー（検証済みアドレスのみ）
+例（cold DM・英語・**送信前に HUMANIZE 必須**）:
+> "Hi [Name] — quick one. [Builder] sells to-be-built homes, and demand's outrunning what anyone
+> can build right now. I made a tool that turns a lot address into a buyer-ready proposal — 3 concepts,
+> live financing, a branded buyer portal — in ~30 seconds, and flags which buyers are actually hot so
+> your team works the right ones first. Want me to run a free sample on one of your active lots and
+> send it over? No call — just so you can see what your buyer would get."
+
+## 8. アウトリーチ規則
+- 公開/検証済みアドレスのみ。個人メール推測禁止
+- パイプライン監査時は Gmail `in:scheduled` を必ず確認
+- nurture/follow-up 送信は CAN-SPAM 物理住所(P0-1)が入るまで停止
+- 1社1ペルソナ／同一文面の連投禁止（バリアントは記録して使い分け）
+
+## 9. 計測（instrument-before-diagnose）
+アウトリーチ単位: account / role / list / channel / touch# / message-variant / sent_at /
+                  delivered(inbox vs spam if detectable) / opened / replied(Y/N+sentiment) /
+                  sample_sent / demo_booked
+製品ファネル(サーバー側・P0-2): signup / trial_started / checkout_started / checkout_success /
+                  share_link_created / portal_lead_created / nurture_sent
+判定: n=31 無計測では channel vs offer を断定不可。E-1 の計測結果で初めて診断
+
+## 10. 現フェーズ / 後回し
+NOW: P0-1(CAN-SPAM住所)・P0-2(サーバーfunnelログ)・本doc着地 → E-1(10-20社 instrumented)
+DEFER: Apollo/Sales Nav有料(E-2でvolume実証後)／リッチtriage・需要-キャパエンジン[要Fable5](初active lead後)／
+       MLS e2e(実ビルダー認証=顧客獲得が前提)／testimonials(顧客が出るまで)
+NOTE: plan_generations INSERT は best-effort telemetry＝KPI数値は保証会計でない

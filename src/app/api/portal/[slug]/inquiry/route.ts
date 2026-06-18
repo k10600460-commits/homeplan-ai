@@ -71,7 +71,7 @@ export async function POST(
   const builderUserId: string = link.user_id;
 
   // Insert lead
-  await db.from("portal_leads").insert({
+  const { error: leadError } = await db.from("portal_leads").insert({
     link_id:         link.id,
     builder_user_id: builderUserId,
     buyer_name:      buyerName,
@@ -81,6 +81,13 @@ export async function POST(
     message,
     status:          "new",
   });
+
+  if (!leadError) {
+    const { insertEvent } = await import("@/lib/analytics");
+    insertEvent("portal_lead_created", builderUserId, {
+      metadata: { link_id: link.id, slug, has_email: !!buyerEmail, has_phone: !!buyerPhone },
+    });
+  }
 
   // Record link_event 'inquiry'
   const rawIp = req.headers.get("x-forwarded-for")?.split(",")[0].trim()

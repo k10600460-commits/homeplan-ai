@@ -71,6 +71,9 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  const { insertEvent } = await import('@/lib/analytics')
+  insertEvent('share_link_created', user.id, { metadata: { slug: data.slug } })
+
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://homeplan-ai.vercel.app').replace(/\/$/, '')
   return NextResponse.json({ slug: data.slug, url: `${appUrl}/s/${data.slug}` })
 }

@@ -2,6 +2,7 @@ import { stripe, planFromPriceId } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { insertEvent } from "@/lib/analytics";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,6 +68,20 @@ export async function POST(req: NextRequest) {
           session.subscription as string,
         );
         await upsertSubscription(userId, subscription);
+
+        // Funnel log — deduped by Stripe event id (UNIQUE constraint on stripe_event_id)
+        const plan = planFromPriceId(subscription.items.data[0]?.price.id);
+        if (subscription.status === "trialing") {
+          insertEvent("trial_started", userId, {
+            metadata: { plan, subscription_id: subscription.id },
+            stripeEventId: event.id,
+          });
+        } else if (subscription.status === "active") {
+          insertEvent("checkout_success", userId, {
+            metadata: { plan, subscription_id: subscription.id },
+            stripeEventId: event.id,
+          });
+        }
         break;
       }
 

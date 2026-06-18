@@ -82,6 +82,9 @@ export async function POST(req: NextRequest) {
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 
+    const { insertEvent } = await import("@/lib/analytics");
+    insertEvent("checkout_started", user.id, { metadata: { plan: "team", session_id: session.id } });
+
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("[team-checkout] Stripe error:", error);

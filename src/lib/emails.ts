@@ -5,6 +5,14 @@ const FROM = "SplanAI <noreply@splanai.com>";
 const REPLY_TO = "hello@splanai.com";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com";
 
+// CAN-SPAM §7(a)(5): valid physical postal address required in all commercial email.
+// Replace placeholder with a US virtual mailbox address before enabling nurture sends.
+export const PHYSICAL_ADDRESS = "<<FILL: virtual mailbox US address>>";
+
+function footerHtml(url = APP_URL): string {
+  return `<p style="color:#cbd5e1;font-size:12px;margin-top:4px">© 2026 SplanAI · <a href="${url}" style="color:#94a3b8">splanai.com</a><br>${PHYSICAL_ADDRESS}</p>`;
+}
+
 export async function sendWelcomeEmail(to: string) {
   await resend.emails.send({
     from: FROM,
@@ -24,7 +32,7 @@ export async function sendWelcomeEmail(to: string) {
   <a href="${APP_URL}" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Generate Your First Plan →</a>
   <p style="margin-top:32px;color:#94a3b8;font-size:13px">Need more? <a href="${APP_URL}#pricing" style="color:#3b82f6">Upgrade to Pro</a> for 100 floor plan generations/month, your logo on PDFs, and priority support.</p>
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-  <p style="color:#cbd5e1;font-size:12px">© 2026 SplanAI · <a href="${APP_URL}" style="color:#94a3b8">splanai.com</a></p>
+  ${footerHtml()}
 </div>`,
   }).catch(console.error);
 }
@@ -47,7 +55,7 @@ export async function sendTrialReminderEmail(to: string, trialEndDate: string, p
   <p style="color:#475569;margin-bottom:24px">After your trial, you'll automatically continue at <strong>${price}</strong> — or you can cancel anytime from your dashboard with one click.</p>
   <a href="${APP_URL}/dashboard" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Manage Your Subscription →</a>
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-  <p style="color:#cbd5e1;font-size:12px">© 2026 SplanAI · <a href="${APP_URL}" style="color:#94a3b8">splanai.com</a></p>
+  ${footerHtml()}
 </div>`,
   }).catch(console.error);
 }
@@ -66,7 +74,7 @@ export async function sendFirstPlanFollowupEmail(to: string) {
   <a href="${APP_URL}/dashboard" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">View Your Shared Links →</a>
   <p style="margin-top:24px;color:#94a3b8;font-size:13px">You'll get a notification the moment your client opens the link.</p>
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-  <p style="color:#cbd5e1;font-size:12px">© 2026 SplanAI · <a href="${APP_URL}" style="color:#94a3b8">splanai.com</a></p>
+  ${footerHtml()}
 </div>`,
   }).catch(console.error);
 }
@@ -96,7 +104,7 @@ export async function sendCancellationEmail(to: string, periodEndDate: string, p
   <p style="color:#475569;margin-bottom:24px">Changed your mind? Reactivate anytime from your dashboard — no new trial required.</p>
   <a href="${APP}/dashboard" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Go to Dashboard &#8594;</a>
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-  <p style="color:#cbd5e1;font-size:12px">&#169; 2026 SplanAI &middot; <a href="${APP}" style="color:#94a3b8">splanai.com</a></p>
+  ${footerHtml(APP)}
 </div>`,
   }).catch(console.error);
 }
@@ -134,7 +142,7 @@ export async function sendInquiryNotificationEmail(to: string, data: InquiryData
   ${contactLine ? `<a href="mailto:${data.buyerEmail ?? ""}" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Reply to Buyer →</a>` : ""}
   <p style="margin-top:24px;color:#94a3b8;font-size:13px">View the proposal: <a href="${data.portalUrl}" style="color:#3b82f6">${data.portalUrl}</a></p>
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-  <p style="color:#cbd5e1;font-size:12px">© 2026 SplanAI · <a href="${APP_URL}" style="color:#94a3b8">splanai.com</a></p>
+  ${footerHtml()}
 </div>`,
   }).catch(console.error);
 }
@@ -160,7 +168,7 @@ export async function sendTeamInviteEmail(to: string, ownerEmail: string, invite
   <a href="${inviteUrl}" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Accept Invitation →</a>
   <p style="margin-top:24px;color:#94a3b8;font-size:13px">This invitation link is unique to you. If you didn't expect this email, you can ignore it.</p>
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-  <p style="color:#cbd5e1;font-size:12px">© 2026 SplanAI · <a href="${APP_URL}" style="color:#94a3b8">splanai.com</a></p>
+  ${footerHtml()}
 </div>`,
   }).catch(console.error);
 }
