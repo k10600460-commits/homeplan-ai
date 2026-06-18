@@ -8,6 +8,7 @@ import {
   computeConfigPrice, calcMonthly, getStylePremium,
   type ConfigState,
 } from "@/lib/price-calculator";
+import { zillowSearchUrl } from "@/lib/external-links";
 
 interface FinancialsSnapshot {
   rate: number;
@@ -668,6 +669,7 @@ const T = {
     mortgageDisclaimer: "Illustrative estimate — not a financing offer.",
     downPct: "Down",
     interestRate: "Rate",
+    zillowComparables: "View comparable homes on Zillow ↗",
   },
   es: {
     title: "Sus Propuestas de Planos",
@@ -712,6 +714,7 @@ const T = {
     mortgageDisclaimer: "Estimación ilustrativa — no es una oferta de financiamiento.",
     downPct: "Entrada",
     interestRate: "Tasa",
+    zillowComparables: "Ver propiedades comparables en Zillow ↗",
   },
   zh: {
     title: "您的户型方案",
@@ -756,6 +759,7 @@ const T = {
     mortgageDisclaimer: "仅供参考，不构成融资报价。",
     downPct: "首付",
     interestRate: "利率",
+    zillowComparables: "在 Zillow 查看同类房源 ↗",
   },
 } as const;
 
@@ -1502,6 +1506,20 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                       </div>
                     )}
                   </div>
+                  {(() => {
+                    const addr = [market.city, market.state].filter(Boolean).join(", ");
+                    const zUrl = zillowSearchUrl(addr);
+                    return zUrl ? (
+                      <a
+                        href={zUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-block text-xs text-blue-500 hover:text-blue-700 transition-colors"
+                      >
+                        {t.zillowComparables}
+                      </a>
+                    ) : null;
+                  })()}
                 </div>
               )}
 

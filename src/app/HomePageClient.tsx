@@ -8,8 +8,10 @@ import { SocialProofBar } from "@/components/SocialProofBar";
 import { track } from "@vercel/analytics";
 
 // ── Constants ────────────────────────────────────────────────────────
-// TODO: Replace with Calendly link once set up (L1173)
 const CUSTOM_PLAN_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20Custom%20plan%20inquiry&body=Team%20size%3A%0D%0AProposals%20per%20month%3A%0D%0AMarkets%20%2F%20MLS%3A%0D%0A"
+// Set NEXT_PUBLIC_CALENDLY_URL in Vercel env to activate Calendly CTA; falls back to mailto until configured
+const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL ?? "";
+const CALENDLY_READY = Boolean(CALENDLY_URL && !CALENDLY_URL.startsWith("<<FILL"));
 
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
@@ -1174,9 +1176,11 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              {/* TODO: Replace mailto with Calendly link once set up */}
+              {/* Calendly when NEXT_PUBLIC_CALENDLY_URL is set; fallback to mailto */}
               <a
-                href={CUSTOM_PLAN_MAILTO}
+                href={CALENDLY_READY ? CALENDLY_URL : CUSTOM_PLAN_MAILTO}
+                target={CALENDLY_READY ? "_blank" : undefined}
+                rel={CALENDLY_READY ? "noopener noreferrer" : undefined}
                 className="block text-center py-3 rounded-xl border border-slate-500 font-bold text-slate-300 hover:border-slate-300 hover:text-white transition-all text-sm"
               >{t.pricing.custom.cta}</a>
             </div>

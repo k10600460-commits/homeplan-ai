@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { jsPDF } from "jspdf";
+import { zillowSearchUrl } from "@/lib/external-links";
 
 interface Room {
   name: string;
@@ -1197,6 +1198,20 @@ export default function Results() {
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mt-3">Source: RentCast · Updated monthly</p>
+                    {(() => {
+                      const addr = [market.city, market.state].filter(Boolean).join(", ");
+                      const zUrl = zillowSearchUrl(addr);
+                      return zUrl ? (
+                        <a
+                          href={zUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-block text-xs text-blue-500 hover:text-blue-700 transition-colors"
+                        >
+                          View comparable homes on Zillow ↗
+                        </a>
+                      ) : null;
+                    })()}
                   </div>
                 )}
 
