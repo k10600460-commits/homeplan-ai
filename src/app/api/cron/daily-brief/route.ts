@@ -7,7 +7,12 @@ import { google } from "googleapis";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ADMIN_EMAIL = process.env.ADMIN_ALERT_EMAIL ?? "k10600460@gmail.com";
+// Daily-brief recipient. hello@splanai.com is a live Gmail Workspace mailbox
+// (the founder's monitored business inbox, and the very inbox this brief reads
+// below via `to:hello@splanai.com`), so it reliably receives. Overridable via
+// DAILY_BRIEF_TO. The brief is sent FROM noreply@ which is in NOISE_SENDERS, so
+// it is filtered out of the next day's inbox triage (no self-referential loop).
+const ADMIN_EMAIL = process.env.DAILY_BRIEF_TO ?? "hello@splanai.com";
 const INBOX_EMAIL = "hello@splanai.com";
 const FROM_EMAIL = "SplanAI <noreply@splanai.com>";
 
@@ -262,6 +267,150 @@ async function fetchOveruseFlags(supabase: any): Promise<OveruseFlags> {
   return { nearLimit, teamHighUsage, multiDomains };
 }
 
+// ── Proposals ────────────────────────────────────────────────────────────────
+// Signal-bound, decision-ready action items. NOT free-form speculation — every
+// proposal fires only when a concrete DB threshold is crossed, and its `why` is
+// the raw numbers behind it. severity: act = do today · review = this week ·
+// flag = a contradiction where new data undercuts a prior decision/assumption.
+type ProposalSeverity = "act" | "review" | "flag";
+interface Proposal {
+  severity: ProposalSeverity;
+  what: string; // one line: the action
+  why: string;  // one line: the evidence
+}
+
+interface ProposalCtx {
+  hotLeads: HotLead[];
+  overuseFlags: OveruseFlags;
+  escalations: Array<{ url: string; ai_assessment: string | null }>;
+  activePaid: number; // active (not trialing) pro+team subs
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchProposals(supabase: any, ctx: ProposalCtx): Promise<Proposal[]> {
+  const proposals: Proposal[] = [];
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+
+  const [
+    outreachSent7dRes,
+    outreachOverdueRes,
+    outreachTopFitPendingRes,
+    nurturePendingRes,
+    analyticsAllTimeRes,
+    planGen7dRes,
+  ] = await Promise.all([
+    supabase.from("outreach_log").select("id", { count: "exact", head: true }).not("sent_at", "is", null).gte("sent_at", since7d),
+    supabase.from("outreach_log").select("id", { count: "exact", head: true }).is("sent_at", null).lte("next_action_due", today),
+    supabase.from("outreach_log").select("id", { count: "exact", head: true }).eq("status", "pending").eq("fit_tier", "★★★"),
+    supabase.from("nurture_drafts").select("trigger_type").eq("status", "pending"),
+    supabase.from("analytics_events").select("id", { count: "exact", head: true }),
+    supabase.from("plan_generations").select("id", { count: "exact", head: true }).gte("created_at", since7d),
+  ]);
+
+  const outreachSent7d = outreachSent7dRes.count ?? 0;
+  const overdue = outreachOverdueRes.count ?? 0;
+  const topFitPending = outreachTopFitPendingRes.count ?? 0;
+  const nurturePending = (nurturePendingRes.data ?? []) as Array<{ trigger_type: string }>;
+  const analyticsAllTime = analyticsAllTimeRes.count ?? 0;
+  const planGen7d = planGen7dRes.count ?? 0;
+
+  // ACT — warm buyers showing portal intent (highest priority)
+  if (ctx.hotLeads.length > 0) {
+    const top = ctx.hotLeads[0];
+    proposals.push({
+      severity: "act",
+      what: `Call ${ctx.hotLeads.length} hot lead${ctx.hotLeads.length > 1 ? "s" : ""} today — start with ${top.label}.`,
+      why: `${top.next_action} (${top.events_7d} portal event${top.events_7d !== 1 ? "s" : ""} in 7d).`,
+    });
+  }
+
+  // ACT — legal escalations needing review
+  if (ctx.escalations.length > 0) {
+    proposals.push({
+      severity: "act",
+      what: `Review ${ctx.escalations.length} HIGH legal-watch diff${ctx.escalations.length > 1 ? "s" : ""}.`,
+      why: (ctx.escalations[0].ai_assessment ?? ctx.escalations[0].url).slice(0, 160),
+    });
+  }
+
+  // ACT / REVIEW — outreach cadence. 0 sends in 7d while the pipeline is loaded
+  // contradicts the standing "outreach now" GTM decision — surface as actionable.
+  if (outreachSent7d === 0 && (overdue > 0 || topFitPending > 0)) {
+    proposals.push({
+      severity: "act",
+      what: `Resume builder outreach today — the pipeline is stalled.`,
+      why: `0 sent in 7d · ${overdue} action${overdue !== 1 ? "s" : ""} overdue · ${topFitPending} ★★★-fit prospect${topFitPending !== 1 ? "s" : ""} still pending — stalls the "outreach now" GTM call.`,
+    });
+  } else if (overdue > 0) {
+    proposals.push({
+      severity: "review",
+      what: `Clear ${overdue} overdue outreach action${overdue !== 1 ? "s" : ""}.`,
+      why: `${overdue} row${overdue !== 1 ? "s" : ""} have next_action_due ≤ today with no send logged.`,
+    });
+  }
+
+  // REVIEW — warm-buyer nurture drafts waiting for the builder to send
+  if (nurturePending.length > 0) {
+    const byType = nurturePending.reduce<Record<string, number>>((m, d) => {
+      m[d.trigger_type] = (m[d.trigger_type] ?? 0) + 1;
+      return m;
+    }, {});
+    const breakdown = Object.entries(byType).map(([t, n]) => `${n} ${t}`).join(", ");
+    proposals.push({
+      severity: "review",
+      what: `Review & send ${nurturePending.length} pending buyer nurture draft${nurturePending.length > 1 ? "s" : ""}.`,
+      why: `Warm-buyer follow-ups sitting in nurture_drafts (${breakdown}).`,
+    });
+  }
+
+  // REVIEW — monetization: accounts near plan limit / Team fair-use
+  if (ctx.overuseFlags.nearLimit.length > 0) {
+    proposals.push({
+      severity: "review",
+      what: `Nudge ${ctx.overuseFlags.nearLimit.length} account${ctx.overuseFlags.nearLimit.length > 1 ? "s" : ""} near plan limit toward an upgrade.`,
+      why: ctx.overuseFlags.nearLimit.slice(0, 3).map(f => `${f.email} ${f.current}/${f.limit}`).join("; ") + ".",
+    });
+  }
+  if (ctx.overuseFlags.teamHighUsage.length > 0) {
+    proposals.push({
+      severity: "review",
+      what: `Fair-use review: ${ctx.overuseFlags.teamHighUsage.length} Team account${ctx.overuseFlags.teamHighUsage.length > 1 ? "s" : ""} ≥250 gen/mo.`,
+      why: ctx.overuseFlags.teamHighUsage.slice(0, 3).map(f => `${f.email} ${f.current} gen`).join("; ") + ".",
+    });
+  }
+
+  // FLAG — seat-sharing risk (same business domain, 2+ accounts)
+  if (ctx.overuseFlags.multiDomains.length > 0) {
+    proposals.push({
+      severity: "flag",
+      what: `Seat-sharing risk: ${ctx.overuseFlags.multiDomains.length} business domain${ctx.overuseFlags.multiDomains.length > 1 ? "s" : ""} with 2+ accounts.`,
+      why: ctx.overuseFlags.multiDomains.slice(0, 3).map(f => `@${f.domain} ×${f.count}`).join("; ") + ".",
+    });
+  }
+
+  // FLAG — analytics_events empty undercuts the shipped P0 funnel-log assumption
+  if (analyticsAllTime === 0) {
+    proposals.push({
+      severity: "flag",
+      what: `Verify funnel instrumentation — analytics_events is empty.`,
+      why: `0 rows all-time despite the P0 server funnel-log shipping; any KPI sourced from analytics_events is currently blind.`,
+    });
+  }
+
+  // FLAG — paying accounts idle = churn risk
+  if (ctx.activePaid > 0 && planGen7d === 0) {
+    proposals.push({
+      severity: "flag",
+      what: `${ctx.activePaid} paid account${ctx.activePaid > 1 ? "s" : ""} generated 0 plans in 7d — engagement/churn risk.`,
+      why: `No plan_generations in 7d while paying — reach out before the renewal date.`,
+    });
+  }
+
+  const rank: Record<ProposalSeverity, number> = { act: 0, review: 1, flag: 2 };
+  return proposals.sort((a, b) => rank[a.severity] - rank[b.severity]);
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -452,6 +601,16 @@ export async function GET(req: NextRequest) {
     .order("snapshot_at", { ascending: false })
     .limit(5);
 
+  // ── 2b. Proposals: signal-bound action items + reconsider flags ──────────
+  const activePaid = ((subsResult.data ?? []) as Array<{ plan: string; status: string }>)
+    .filter(s => s.status === "active" && (s.plan === "pro" || s.plan === "team")).length;
+  const proposals = await fetchProposals(supabase, {
+    hotLeads: hotLeads ?? [],
+    overuseFlags: overuseFlags ?? { nearLimit: [], teamHighUsage: [], multiDomains: [] },
+    escalations: escalations ?? [],
+    activePaid,
+  });
+
   // ── 3. Claude API: classify + draft + X posts ────────────────────────────
   let claudeResult: ClauseResult = { drafts: [], xPosts: [] };
   let claudeError: string | null = null;
@@ -607,6 +766,7 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     escalations: escalations ?? [],
     hotLeads: hotLeads ?? [],
     overuseFlags: overuseFlags ?? { nearLimit: [], teamHighUsage: [], multiDomains: [] },
+    proposals,
     gmailError,
     claudeError,
   });
@@ -682,8 +842,31 @@ interface DigestParams {
   escalations: Array<{ id: string; url: string; impact_level: string | null; ai_assessment: string | null }>;
   hotLeads: HotLead[];
   overuseFlags: OveruseFlags;
+  proposals: Proposal[];
   gmailError: string | null;
   claudeError: string | null;
+}
+
+function buildProposalsHtml(proposals: Proposal[]): string {
+  if (!proposals.length) {
+    return `<p style="color:#6b7280;font-size:13px;">No proposals — no threshold-crossing signals across funnel / outreach / nurture / generations in the last 24h–7d.</p>`;
+  }
+  const meta: Record<ProposalSeverity, { label: string; bg: string; fg: string; border: string }> = {
+    act:    { label: "ACT TODAY",  bg: "#dcfce7", fg: "#166534", border: "#22c55e" },
+    review: { label: "REVIEW",     bg: "#dbeafe", fg: "#1e40af", border: "#3b82f6" },
+    flag:   { label: "RECONSIDER", bg: "#fef9c3", fg: "#854d0e", border: "#eab308" },
+  };
+  return proposals.map(p => {
+    const m = meta[p.severity];
+    return `
+    <div style="border:1px solid #e5e7eb;border-left:4px solid ${m.border};border-radius:8px;padding:12px 16px;margin-bottom:8px;background:#fff;">
+      <div style="margin-bottom:5px;">
+        <span style="background:${m.bg};color:${m.fg};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${m.label}</span>
+      </div>
+      <p style="margin:0 0 3px;font-size:14px;font-weight:600;color:#111827;">${p.what}</p>
+      <p style="margin:0;font-size:12px;color:#6b7280;">${p.why}</p>
+    </div>`;
+  }).join("");
 }
 
 function buildHotLeadsHtml(hotLeads: HotLead[]): string {
@@ -866,6 +1049,11 @@ function buildDigestHtml(p: DigestParams): string {
 
     <div style="padding:28px 36px;">
 
+      <!-- Proposals -->
+      <h2 style="margin:0 0 4px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">💡 Proposals</h2>
+      <p style="margin:0 0 12px;font-size:12px;color:#9ca3af;">Signal-bound only — each item fires from a crossed threshold; the second line is the data behind it.</p>
+      <div style="margin-bottom:28px;">${buildProposalsHtml(p.proposals)}</div>
+
       <!-- KPI Snapshot -->
       <h2 style="margin:0 0 14px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">📊 KPI Snapshot</h2>
       <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">${kpiHtml}</table>
@@ -901,7 +1089,7 @@ function buildDigestHtml(p: DigestParams): string {
     <div style="background:#f9fafb;padding:16px 36px;border-top:1px solid #e5e7eb;">
       <p style="margin:0;font-size:11px;color:#9ca3af;text-align:center;">
         SplanAI Auto-Secretary · <a href="https://splanai.com/dashboard" style="color:#3b82f6;text-decoration:none;">Dashboard</a>
-        · Generated at 08:00 JST — nothing was auto-sent or auto-posted
+        · Generated at 07:00 JST — nothing was auto-sent or auto-posted
       </p>
     </div>
 
