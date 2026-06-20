@@ -37,22 +37,18 @@ NG: 「もっと受注を」（建築キャパ頭打ち相手に逆効果）
 
 ## 6. チャネル & モーション
 - チャネル＝**LinkedIn主体（今すぐ）**・実名/顔出し。旧"MRR$500後"は撤回。メールは副（検証済みアドレスのみ）
-- モーション＝**デモ/会話主導**（cold self-serve サインアップ狙いではない）
+- モーション＝**product-led self-serve クローズ**（サンプル先出し→相手が自分の区画で試す→signup＝活性化シグナル。デモは強制せず希望時のみ）
 - Hook＝**実区画1件のサンプル提案を先出し**（30秒生成で安く量産・"語らず見せる"／元GTMの"サンプル先出し"と一致）
 - 有料ツール（Apollo/Sales Nav）は今は無し。E-2 で discovery volume がボトルネックと実証後に購入判断
 
 ## 7. Cadence（E-1: 10-20社・手動・全計測・自動化しない）
 T1 LinkedIn コネクト申請（パーソナライズ・ピッチ無し）※既接続/InMail なら T2 から
-T2 wedge メッセージ＋サンプル提案オファー
-T3 サンプル提案を納品（ブランド入り・相手の実区画）→「これが御社の buyer に見える画面」
-T4 ソフトフォロー → 15分デモ予約
+T2 wedge メッセージ＋サンプル提案オファー（相手の実区画リンクを先出し）
+T3 サンプル提案を生かす → 「これが御社の buyer に見える画面」＋自分の区画で試せる導線
+T4 ソフトクローズ（押し付けない・サンプルは生かす・self-serve 導線／デモ強制しない）
 メールは同内容をミラー（検証済みアドレスのみ）
-例（cold DM・英語・**送信前に HUMANIZE 必須**）:
-> "Hi [Name] — quick one. [Builder] sells to-be-built homes, and demand's outrunning what anyone
-> can build right now. I made a tool that turns a lot address into a buyer-ready proposal — 3 concepts,
-> live financing, a branded buyer portal — in ~30 seconds, and flags which buyers are actually hot so
-> your team works the right ones first. Want me to run a free sample on one of your active lots and
-> send it over? No call — just so you can see what your buyer would get."
+**全文コピー（T2/T3/T4＋cold email・product-led・/verify-copy PASS）は `docs/launch/e1-outreach-kit.md`。**
+送信前 HUMANIZE 必須・同一文面の連投禁止（バリアントは e1-tracker.csv に記録）。
 
 ## 8. アウトリーチ規則
 - 公開/検証済みアドレスのみ。個人メール推測禁止
