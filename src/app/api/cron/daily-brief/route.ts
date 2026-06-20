@@ -125,6 +125,35 @@ interface HotLead {
   next_action: string;
 }
 
+// ── Demo / pause config ──────────────────────────────────────────────────────
+// Permanent demo portals — never counted as real leads or warm buyers.
+// Source of truth: project-outreach memory (cedaridg = Tanaka-MTG demo, harpethn
+// = second demo; both have client_email = null and only founder self-views).
+const DEMO_SLUGS = new Set(["cedaridg", "harpethn"]);
+
+// A shared_link is demo/test when its slug is in the denylist above. Used to
+// keep demo portals out of every buyer-derived count (hot leads, nurture drafts).
+// NOTE: client_email is NOT a usable demo signal in this app — share/create never
+// sets it and portal opt-in stores the buyer address in portal_buyer_state, so
+// every real portal also has client_email = null (verified via Codex review +
+// DB). The slug denylist is the reliable discriminator; add new demo slugs here.
+function isDemoLink(l: { slug?: string | null }): boolean {
+  return l.slug != null && DEMO_SLUGS.has(l.slug);
+}
+
+// Outreach is intentionally paused (2026-06-20). Gates to resume:
+//   (A) product-led copy rewrite incomplete,
+//   (B) LinkedIn identity-verification recovery pending,
+//   (C) CAN-SPAM physical (virtual-office) address not yet obtained.
+// Single source of truth the founder flips manually: env OUTREACH_PAUSED.
+// Defaults to paused (true) so a missing/unset env never silently re-fires the
+// "resume outreach now" nag while the three gates are still open. Set
+// OUTREACH_PAUSED=false in Vercel to resume ACT-TODAY outreach proposals.
+const OUTREACH_PAUSED =
+  process.env.OUTREACH_PAUSED != null
+    ? process.env.OUTREACH_PAUSED === "true"
+    : true;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchHotLeads(supabase: any): Promise<HotLead[]> {
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -162,7 +191,7 @@ async function fetchHotLeads(supabase: any): Promise<HotLead[]> {
   return hotEntries
     .map(([link_id, a]) => {
       const l = (links as Array<{ id: string; slug: string; client_name: string | null; builder_name: string | null; city: string | null; state: string | null }> | null)?.find(x => x.id === link_id);
-      if (!l) return null;
+      if (!l || isDemoLink(l)) return null;
       const label = l.client_name?.trim() || l.builder_name?.trim() || l.slug;
       const next_action = a.prequal_clicks >= 1 ? "Buyer started pre-qualification — call now."
         : a.plan_selects >= 1 ? "Buyer selected a concept. Call today."
@@ -303,7 +332,7 @@ async function fetchProposals(supabase: any, ctx: ProposalCtx): Promise<Proposal
     supabase.from("outreach_log").select("id", { count: "exact", head: true }).not("sent_at", "is", null).gte("sent_at", since7d),
     supabase.from("outreach_log").select("id", { count: "exact", head: true }).is("sent_at", null).lte("next_action_due", today),
     supabase.from("outreach_log").select("id", { count: "exact", head: true }).eq("status", "pending").eq("fit_tier", "★★★"),
-    supabase.from("nurture_drafts").select("trigger_type").eq("status", "pending"),
+    supabase.from("nurture_drafts").select("trigger_type, link_id").eq("status", "pending"),
     supabase.from("analytics_events").select("id", { count: "exact", head: true }),
     supabase.from("plan_generations").select("id", { count: "exact", head: true }).gte("created_at", since7d),
   ]);
@@ -311,9 +340,25 @@ async function fetchProposals(supabase: any, ctx: ProposalCtx): Promise<Proposal
   const outreachSent7d = outreachSent7dRes.count ?? 0;
   const overdue = outreachOverdueRes.count ?? 0;
   const topFitPending = outreachTopFitPendingRes.count ?? 0;
-  const nurturePending = (nurturePendingRes.data ?? []) as Array<{ trigger_type: string }>;
   const analyticsAllTime = analyticsAllTimeRes.count ?? 0;
   const planGen7d = planGen7dRes.count ?? 0;
+
+  // Drop demo/test portals from the nurture count (same exclusion as hot leads).
+  const nurturePendingRaw = (nurturePendingRes.data ?? []) as Array<{ trigger_type: string; link_id: string }>;
+  const nurtLinkIds = [...new Set(nurturePendingRaw.map(r => r.link_id).filter(Boolean))];
+  let nurtDemoLinkIds = new Set<string>();
+  if (nurtLinkIds.length) {
+    const { data: nls } = await supabase
+      .from("shared_links")
+      .select("id, slug")
+      .in("id", nurtLinkIds);
+    nurtDemoLinkIds = new Set(
+      ((nls ?? []) as Array<{ id: string; slug: string | null }>)
+        .filter(isDemoLink)
+        .map(l => l.id),
+    );
+  }
+  const nurturePending = nurturePendingRaw.filter(r => !nurtDemoLinkIds.has(r.link_id));
 
   // ACT — warm buyers showing portal intent (highest priority)
   if (ctx.hotLeads.length > 0) {
@@ -334,9 +379,19 @@ async function fetchProposals(supabase: any, ctx: ProposalCtx): Promise<Proposal
     });
   }
 
-  // ACT / REVIEW — outreach cadence. 0 sends in 7d while the pipeline is loaded
-  // contradicts the standing "outreach now" GTM decision — surface as actionable.
-  if (outreachSent7d === 0 && (overdue > 0 || topFitPending > 0)) {
+  // Outreach cadence. While intentionally paused, never read as "resume now":
+  // downgrade to a REVIEW status note that states the queued counts as a holding
+  // position, not a to-do. Only when un-paused do 0-sends + a loaded pipeline
+  // become an ACT-TODAY item (contradicting the standing "outreach now" call).
+  if (OUTREACH_PAUSED) {
+    if (topFitPending > 0 || overdue > 0) {
+      proposals.push({
+        severity: "review",
+        what: `Outreach paused — ${topFitPending} ★★★-fit prospect${topFitPending !== 1 ? "s" : ""} queued for after restart.`,
+        why: `On hold until product-led copy rewrite + LinkedIn verification + CAN-SPAM address clear; ${overdue} past-due item${overdue !== 1 ? "s" : ""} hold in the queue — no action needed until the gates lift.`,
+      });
+    }
+  } else if (outreachSent7d === 0 && (overdue > 0 || topFitPending > 0)) {
     proposals.push({
       severity: "act",
       what: `Resume builder outreach today — the pipeline is stalled.`,
