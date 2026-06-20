@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 
+// Server-only client. SUPABASE_SERVICE_ROLE_KEY bypasses RLS (analytics_events
+// has SELECT-only RLS and no INSERT policy by design), and is never exposed to
+// the browser — insertEvent is only called from server route handlers.
 function adminDb() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,6 +16,13 @@ function adminDb() {
  * Never throws — failures are logged and swallowed so user flows are never blocked.
  * For Stripe webhook events, pass stripeEventId to deduplicate retries via UNIQUE constraint
  * (upsert with ignoreDuplicates so 23505 never fires).
+ *
+ * The write is scheduled via next/server `after()` so it runs AFTER the response
+ * is flushed but the serverless function stays alive until it completes. The
+ * previous fire-and-forget `query.then(...)` was dispatched but never awaited, so
+ * on Vercel the lambda froze right after returning the response and the in-flight
+ * insert was dropped every time — leaving analytics_events empty despite the
+ * service_role key correctly bypassing RLS.
  */
 export function insertEvent(
   eventName: string,
@@ -25,16 +36,26 @@ export function insertEvent(
     ...(opts?.stripeEventId ? { stripe_event_id: opts.stripeEventId } : {}),
   };
 
-  const query = opts?.stripeEventId
-    ? adminDb()
-        .from("analytics_events")
-        .upsert(row, { onConflict: "stripe_event_id", ignoreDuplicates: true })
-    : adminDb().from("analytics_events").insert(row);
+  const flush = async (): Promise<void> => {
+    try {
+      const db = adminDb();
+      const { error } = opts?.stripeEventId
+        ? await db
+            .from("analytics_events")
+            .upsert(row, { onConflict: "stripe_event_id", ignoreDuplicates: true })
+        : await db.from("analytics_events").insert(row);
+      if (error) console.error("[analytics]", eventName, error.message);
+    } catch (e) {
+      console.error("[analytics]", eventName, String(e));
+    }
+  };
 
-  query.then(
-    (result) => {
-      if (result.error) console.error("[analytics]", eventName, result.error.message);
-    },
-    (e) => console.error("[analytics]", eventName, String(e)),
-  );
+  try {
+    // Keep the function alive past the response so the insert actually lands.
+    after(flush);
+  } catch {
+    // after() is only valid inside a request scope; outside one (should not
+    // happen for current callers) fall back to a best-effort detached write.
+    void flush();
+  }
 }
