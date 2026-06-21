@@ -6,11 +6,21 @@ const REPLY_TO = "hello@splanai.com";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com";
 
 // CAN-SPAM §7(a)(5): valid physical postal address required in all commercial email.
-// Replace placeholder with a US virtual mailbox address before enabling nurture sends.
-export const PHYSICAL_ADDRESS = "<<FILL: virtual mailbox US address>>";
+// Set PHYSICAL_ADDRESS in the environment (Vercel Production, server-only — keep it
+// out of the client bundle and out of git). While unset it stays the placeholder,
+// which the nurture send route's 503 gate detects to block commercial sends.
+// Currently the founder's Osaka home address (verification stage); swap to a US
+// address at volume / US incorporation.
+export const PHYSICAL_ADDRESS =
+  process.env.PHYSICAL_ADDRESS ?? "<<FILL: physical postal address>>";
+
+// Postal line without the leading brand, for footers that already render "SplanAI"
+// (the transactional © line) — avoids "SplanAI" appearing twice. Strips a leading
+// "SplanAI," if present; otherwise returns PHYSICAL_ADDRESS unchanged.
+const POSTAL_ADDRESS_LINE = PHYSICAL_ADDRESS.replace(/^\s*SplanAI,\s*/i, "");
 
 function footerHtml(url = APP_URL): string {
-  return `<p style="color:#cbd5e1;font-size:12px;margin-top:4px">© 2026 SplanAI · <a href="${url}" style="color:#94a3b8">splanai.com</a><br>${PHYSICAL_ADDRESS}</p>`;
+  return `<p style="color:#cbd5e1;font-size:12px;margin-top:4px">© 2026 SplanAI · <a href="${url}" style="color:#94a3b8">splanai.com</a><br>${POSTAL_ADDRESS_LINE}</p>`;
 }
 
 export async function sendWelcomeEmail(to: string) {
