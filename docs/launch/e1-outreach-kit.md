@@ -2,7 +2,7 @@
 Date: 2026-06-20
 Status: ACTIVE. Canonical full copy referenced by `agents/sales.md` §7 (which stays lean).
 Supersedes: the v1 cold email in `~/obsidian-vault/splanai-handover/handover-20260603-cold-outreach-email.md` (kept as historical).
-Voice: practitioner / product-led. Passed /verify-copy (2026-06-20). Author: Shoji (copy lane); CC checks + lands.
+Voice: practitioner / product-led. Passed /verify-copy (2026-06-20; labor-constraint wedge rewrite re-verified 2026-06-21). Author: Shoji (copy lane); CC checks + lands.
 
 ## Pre-send rules
 - **HUMANIZE before every send** — no identical-copy blasts; rotate/record variants per `e1-tracker.csv`.
@@ -26,53 +26,58 @@ T1 = connect request (personalized, NO pitch). If already connected / InMail, st
 
 ### T2 — Wedge DM
 ```
-Hi [Name] — quick one. [Builder] sells to-be-built homes, and demand's outrunning what
-anyone can put up right now. I built a tool that turns a lot address into a buyer-ready
-proposal — three concepts, live financing, a branded page your buyer opens on their phone
-— in about 30 seconds. Rather than describe it, here's one I ran on one of your lots:
-[link]. No call. And if you want it on a different lot, you can make your own in the same
-30 seconds, free: splanai.com
+Hi [Name] — quick one. Demand's outrunning what anyone can build right now, so the
+buyers who are ready matter more than ever — but your team can only personally work so
+many. I built a tool that turns a lot address into a buyer-ready proposal in ~30 seconds
+— so every buyer gets one, you see who's engaging, and the slow ones stay warm while you
+build. Here's one I ran on one of your lots: [link]. No call. Want it on another lot?
+Make your own, free, same 30 sec: splanai.com
 ```
 
 ### T3 — Follow-up
 ```
 [Name] — quick follow-up on the sample for [lot]. That page is exactly what your buyer
-sees — pull it up on a phone, it holds. Why it's worth a look for [Builder]: when a buyer's
-standing on a lot, the window between "I can picture this" and "let me think about it" is
-short, and that's where deals stall. This fills it in the time it takes to type the address.
-Try it on any lot you're selling — same link: splanai.com
+sees — three concepts, live financing, a branded page they pull up on their phone, and it
+holds. When a buyer's on a lot, the gap between "I can picture this" and "let me think
+about it" is short, and that's where deals stall — usually because there's nothing
+concrete to put in front of them fast enough. This fills that gap in the time it takes to
+type the address, for every buyer, not just the ones your team has time for. Try it on any
+lot you're selling — same link: splanai.com
 ```
 
 ### T4 — Soft close (NO demo)
 ```
 [Name] — last one from me, no pressure either way. The sample for [lot] is still live if
-it's useful. If it's not your thing, no worries. But if you ever want to put one in front
-of a real buyer, it's free and takes about 30 seconds: splanai.com. That's it — I'll leave
-you to it.
+it's useful. If it's not your thing, no worries. But if you ever want to put a real
+proposal in front of a buyer without pulling your team off what they're building, it's
+free and takes about 30 seconds: splanai.com. That's it — I'll leave you to it.
 ```
 
 ---
 
 ## Cold email (mirror — verified addresses only)
 ```
-Subject: 3 concepts for a [metro] lot — 30-second look?
+Subject A: 3 concepts for a [metro] lot — made for [Builder Co.]
+Subject B (A/B): more buyers than your team can keep up with?
 
 Hi [First name],
 
-I build a tool for custom and spec home builders. Instead of describing it, I put together
-a quick example for [Builder Co.].
+Demand's outrunning what most builders can put up right now — so the buyers who are ready
+to move matter more than ever, and your team can only personally work so many of them.
 
-For a typical [metro] lot (~[lot size], ~[$ price band], [family profile] buyer), here are
-three buyer-ready home concepts — each with a proposal page your buyer can open on their
-phone:
+I build a tool for that gap. Instead of describing it, I put together an example for
+[Builder Co.] — three buyer-ready home concepts for a typical [metro] lot (~[lot size],
+~[$ price band], [family profile] buyer), each with a proposal page your buyer can open on
+their phone:
 
 [https://splanai.com/s/SLUG]
 
-This isn't meant to replace your design process. It's the step before it — when a buyer's
-standing on a lot and you want to keep them excited with something they can picture today,
-in about 30 seconds instead of days.
+The point isn't to replace your design process — it's the step before it. When a buyer's
+standing on a lot, this puts a real proposal in their hands in about 30 seconds, so every
+interested buyer gets one, you see who's engaging, and the slower ones stay warm while you
+build.
 
-No call, no pitch. The part that matters: you can make your own for any lot, free, at
+No call, no pitch. You can make your own for any lot, free, at
 splanai.com — same 30 seconds, your address, your branding.
 
 Thanks for taking a look,
