@@ -6,6 +6,10 @@ import { google } from "googleapis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Research & Audit uses the Anthropic web_search tool (multiple searches) which
+// adds latency on top of Gmail + DB + Haiku. Raise the function ceiling so the
+// brief never gets killed mid-run. Requires Vercel Pro (300s cron cap).
+export const maxDuration = 300;
 
 // Daily-brief recipient. hello@splanai.com is a live Gmail Workspace mailbox
 // (the founder's monitored business inbox, and the very inbox this brief reads
@@ -110,6 +114,21 @@ interface ClauseResult {
     text: string;
     platform: string;
   }>;
+}
+
+interface ResearchItem {
+  title: string;
+  url: string;
+  source: string;
+  published: string;
+  summary: string;
+  scores: { r: number; c: number; n: number; a: number; total: number };
+  whyItMatters: string;
+  tag: string;
+}
+interface ResearchResult {
+  items: ResearchItem[];
+  rejectedNotes: string[];
 }
 
 interface HotLead {
@@ -466,6 +485,77 @@ async function fetchProposals(supabase: any, ctx: ProposalCtx): Promise<Proposal
   return proposals.sort((a, b) => rank[a.severity] - rank[b.severity]);
 }
 
+// ── Research & Audit (external web intelligence) ─────────────────────────────
+// Best-effort: collects SplanAI-relevant articles via the Anthropic web_search
+// server tool, audits each on R/C/N/A (relevance/credibility/novelty/actionability),
+// returns the top picks + rejection notes. FULLY guarded — any failure returns
+// {result:null,error} and never breaks the rest of the brief. The brief proposes;
+// the founder decides what to act on (nothing is implemented automatically).
+async function fetchResearchAndAudit(
+  apiKey: string,
+): Promise<{ result: ResearchResult | null; error: string | null }> {
+  try {
+    const anthropic = new Anthropic({ apiKey, timeout: 90_000 });
+    const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+    const prompt = `あなたはSplanAIのためのリサーチ＆監査エージェントです。web_searchツールを使い、SplanAIに役立つ最新記事を収集し、厳格に監査して、最後にJSONだけを返してください。
+
+SplanAI = 米国の中小ホームビルダー（年10〜50棟）向けのAI営業ツール。土地条件から30秒で3つのフロアプラン＋PDFを生成。ソロファウンダー、build-in-public、https://splanai.com 。
+
+今日: ${today}
+
+## 手順
+1. 収集: web_searchで直近7日を優先し、次の観点からSplanAIに役立つ記事を探す（英語ソース可、合計10〜20候補）:
+   - 米ホームビルダー / 住宅建設市場の動向（小規模ビルダー、住宅着工、金利・資材コスト）
+   - proptech / 不動産テックのプロダクト・資金調達・市場ニュース
+   - 建設・設計・フロアプランのAI（競合・隣接プロダクト）
+   - SaaS成長 / build-in-public / ソロファウンダーのGTM・価格・ローンチ
+   - Anthropic Claude API / LLM のプロダクト更新（技術スタックに関係するもの）
+   - 不動産・建設の規制・業界団体（NAR / NAHB / NAHREP）
+2. 監査: 各候補を R(関連性) C(信頼性) N(新規性) A(実行可能性) 各0〜5で批判的に採点。関連性3未満 / 宣伝・低品質SEO / 内容の薄い有料壁 / 重複 / 公開30日超 は却下。生き残った上位5本のみ採用。
+3. 出力: 説明文を付けず、最後にJSONのみを出力する。
+
+## 出力JSON（このスキーマ厳守）
+{
+  "items": [
+    {
+      "title": "記事タイトル",
+      "url": "https://...",
+      "source": "媒体名",
+      "published": "YYYY-MM-DD または ''",
+      "summary": "日本語2〜3文の要約",
+      "scores": { "r": 5, "c": 4, "n": 4, "a": 3, "total": 16 },
+      "whyItMatters": "SplanAIにとっての意味を1行（日本語）",
+      "tag": "競合ウォッチ|GTMアイデア|技術更新|市場シグナル|コンテンツ案 のいずれか"
+    }
+  ],
+  "rejectedNotes": [ "却下: <タイトル> — 理由", "..." ]
+}
+良い記事が少ない日は無理に埋めず items を少なくしてよい。`;
+
+    const msg = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 3500,
+      // web_search is a server-side tool; the model runs the searches and returns
+      // the final JSON in one call. Cast: tool type not yet in SDK's TS union.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 } as any],
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text = msg.content.map(b => (b.type === "text" ? b.text : "")).join("\n");
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { result: null, error: "research: no JSON in response" };
+    const parsed = JSON.parse(jsonMatch[0]) as ResearchResult;
+    parsed.items = (parsed.items ?? []).slice(0, 8);
+    parsed.rejectedNotes = (parsed.rejectedNotes ?? []).slice(0, 6);
+    return { result: parsed, error: null };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error("[daily-brief] research error:", error);
+    return { result: null, error };
+  }
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -671,6 +761,14 @@ export async function GET(req: NextRequest) {
   let claudeError: string | null = null;
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
+
+  // ── 3b. Research & Audit: start concurrently so its web searches overlap the
+  // Haiku triage + DB persistence below (kept off the critical path). Awaited
+  // just before the HTML is built.
+  const researchPromise: Promise<{ result: ResearchResult | null; error: string | null }> =
+    anthropicKey
+      ? fetchResearchAndAudit(anthropicKey)
+      : Promise.resolve({ result: null, error: "ANTHROPIC_API_KEY not set" });
   if (anthropicKey && (threads.length > 0 || true)) {
     const anthropic = new Anthropic({ apiKey: anthropicKey });
     const weekday = new Date().getDay();
@@ -797,6 +895,8 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Tokyo",
   });
 
+  const { result: researchResult, error: researchError } = await researchPromise;
+
   const html = buildDigestHtml({
     date: todayLabel,
     todayJST,
@@ -824,6 +924,8 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     proposals,
     gmailError,
     claudeError,
+    research: researchResult,
+    researchError,
   });
 
   const { error: sendError } = await resend.emails.send({
@@ -900,6 +1002,8 @@ interface DigestParams {
   proposals: Proposal[];
   gmailError: string | null;
   claudeError: string | null;
+  research: ResearchResult | null;
+  researchError: string | null;
 }
 
 function buildProposalsHtml(proposals: Proposal[]): string {
@@ -986,6 +1090,43 @@ function buildOveruseFlagsHtml(flags: OveruseFlags): string {
   }
 
   return rows.join('');
+}
+
+function buildResearchHtml(research: ResearchResult | null, researchError: string | null): string {
+  if (!research) {
+    return `<p style="color:#6b7280;font-size:13px;">${researchError ? `Research unavailable: ${researchError}` : "No research run today."}</p>`;
+  }
+  if (!research.items.length) {
+    const reviewed = research.rejectedNotes?.length
+      ? `<p style="margin:8px 0 0;font-size:11px;color:#9ca3af;">${research.rejectedNotes.length} candidate(s) reviewed — none passed audit.</p>`
+      : "";
+    return `<p style="color:#6b7280;font-size:13px;">監査を通過した記事は今日はありません（低品質の候補のみ）。</p>${reviewed}`;
+  }
+  const itemsHtml = research.items.map(it => {
+    const s = it.scores ?? { r: 0, c: 0, n: 0, a: 0, total: 0 };
+    const meta = [it.source, it.published].filter(Boolean).join(" · ");
+    return `
+    <div style="border:1px solid #e5e7eb;border-left:4px solid #6366f1;border-radius:8px;padding:12px 16px;margin-bottom:8px;background:#fff;">
+      <div style="margin-bottom:5px;">
+        <span style="background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${it.tag ?? "research"}</span>
+        ${meta ? `<span style="margin-left:6px;font-size:11px;color:#6b7280;">${meta}</span>` : ""}
+        <span style="float:right;font-size:11px;font-weight:700;color:#4f46e5;">score ${s.total}/20</span>
+      </div>
+      <p style="margin:0 0 3px;font-size:14px;font-weight:600;color:#111827;">
+        <a href="${it.url}" style="color:#1d4ed8;text-decoration:none;">${it.title}</a>
+      </p>
+      <p style="margin:0 0 4px;font-size:12px;color:#374151;">${it.summary ?? ""}</p>
+      <p style="margin:0 0 4px;font-size:12px;color:#4338ca;">→ ${it.whyItMatters ?? ""}</p>
+      <p style="margin:0;font-size:11px;color:#9ca3af;">R${s.r} · C${s.c} · N${s.n} · A${s.a}</p>
+    </div>`;
+  }).join("");
+  const notesHtml = research.rejectedNotes?.length
+    ? `<div style="margin-top:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;">
+        <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">Audit Notes — 却下</p>
+        ${research.rejectedNotes.map(n => `<p style="margin:0 0 2px;font-size:11px;color:#9ca3af;">• ${n}</p>`).join("")}
+      </div>`
+    : "";
+  return itemsHtml + notesHtml;
 }
 
 function buildDigestHtml(p: DigestParams): string {
@@ -1091,6 +1232,8 @@ function buildDigestHtml(p: DigestParams): string {
         <a href="https://splanai.com/s/${pt.slug}" style="font-size:11px;color:#3b82f6;text-decoration:none;">View portal →</a>
       </div>`).join("");
 
+  const researchHtml = buildResearchHtml(p.research, p.researchError);
+
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -1138,6 +1281,11 @@ function buildDigestHtml(p: DigestParams): string {
       <!-- X Post Drafts -->
       <h2 style="margin:28px 0 12px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">🐦 X Post Drafts (post manually)</h2>
       <div>${xPostsHtml}</div>
+
+      <!-- Research & Audit -->
+      <h2 style="margin:28px 0 4px;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">🔎 Research &amp; Audit</h2>
+      <p style="margin:0 0 12px;font-size:12px;color:#9ca3af;">外部Web記事を収集→監査スコア化した候補。採否はあなたが判断（気に入ったら Obsidian の <code>.raw/</code> に入れて <code>/ppp</code>）。</p>
+      <div>${researchHtml}</div>
 
     </div>
 
