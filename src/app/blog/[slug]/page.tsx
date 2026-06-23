@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -44,6 +45,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return {
     title: `${article.title} | SplanAI`,
     description: article.description ?? undefined,
+    keywords: parseKeywords(article.target_keyword),
     alternates: { canonical },
     openGraph: {
       title: article.title,
@@ -78,6 +80,19 @@ function stripLeadingTitleH1(content: string, title: string): string {
   if (normalize(headingText) !== normalize(title)) return content;
   const rest = firstNewline === -1 ? "" : content.slice(firstNewline + 1).replace(/^\n+/, "");
   return rest;
+}
+
+function parseKeywords(targetKeyword: string): string[] | undefined {
+  const keywords = targetKeyword
+    .split(",")
+    .map((keyword) => keyword.trim())
+    .filter(Boolean);
+
+  return keywords.length > 0 ? keywords : undefined;
+}
+
+function serializeJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
 function formatDate(iso: string): string {
@@ -115,35 +130,35 @@ export default async function BlogArticlePage({ params }: Params) {
     <div style={{ background: "#F8FAFC", minHeight: "100vh" }}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-slate-800/60" style={{ background: "#0F172A" }}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="text-xl font-extrabold tracking-tight text-white">
+          <Link href="/" className="text-xl font-extrabold tracking-tight text-white">
             Splan<span className="text-blue-400">AI</span>
-          </a>
+          </Link>
           <nav className="hidden md:flex items-center gap-7 text-sm text-slate-400">
-            <a href="/#how" className="hover:text-white transition-colors">How it works</a>
-            <a href="/#pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="/blog" className="hover:text-white transition-colors">Blog</a>
+            <Link href="/#how" className="hover:text-white transition-colors">How it works</Link>
+            <Link href="/#pricing" className="hover:text-white transition-colors">Pricing</Link>
+            <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
           </nav>
-          <a
+          <Link
             href="/login"
             className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors"
             style={{ background: "#3B82F6" }}
           >
             Sign in
-          </a>
+          </Link>
         </div>
       </header>
 
       {/* Article */}
       <main className="max-w-2xl mx-auto px-6 py-16">
-        <a href="/blog" className="text-sm text-blue-500 hover:text-blue-700 transition-colors font-medium">
+        <Link href="/blog" className="text-sm text-blue-500 hover:text-blue-700 transition-colors font-medium">
           ← All articles
-        </a>
+        </Link>
 
         <article className="mt-8">
           <header className="mb-8">
@@ -171,13 +186,13 @@ export default async function BlogArticlePage({ params }: Params) {
         <div className="mt-16 p-6 rounded-xl border border-blue-200 bg-blue-50 text-center">
           <p className="font-bold text-slate-900 text-lg">Generate floor plans in 30 seconds</p>
           <p className="text-slate-500 text-sm mt-1 mb-4">Free to start — no credit card required.</p>
-          <a
+          <Link
             href="/#generate"
             className="inline-block px-6 py-3 rounded-lg text-sm font-bold text-white"
             style={{ background: "#3B82F6" }}
           >
             Try SplanAI Free →
-          </a>
+          </Link>
         </div>
       </main>
 

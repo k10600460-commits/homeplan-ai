@@ -57,21 +57,21 @@ export default async function BlogPage() {
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-slate-800/60" style={{ background: "#0F172A" }}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="text-xl font-extrabold tracking-tight text-white">
+          <Link href="/" className="text-xl font-extrabold tracking-tight text-white">
             Splan<span className="text-blue-400">AI</span>
-          </a>
+          </Link>
           <nav className="hidden md:flex items-center gap-7 text-sm text-slate-400">
-            <a href="/#how" className="hover:text-white transition-colors">How it works</a>
-            <a href="/#pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="/blog" className="text-white font-semibold">Blog</a>
+            <Link href="/#how" className="hover:text-white transition-colors">How it works</Link>
+            <Link href="/#pricing" className="hover:text-white transition-colors">Pricing</Link>
+            <Link href="/blog" className="text-white font-semibold">Blog</Link>
           </nav>
-          <a
+          <Link
             href="/login"
             className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors"
             style={{ background: "#3B82F6" }}
           >
             Sign in
-          </a>
+          </Link>
         </div>
       </header>
 

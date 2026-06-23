@@ -9,6 +9,7 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://splanai.com"),
   title: "SplanAI — AI Pre-Sale Proposals for Home Builders",
   description:
     "Turn a lot into 3 buyer-ready home concept proposals in 30 seconds. An AI sales tool for home builders — win the deal before the build with a shareable portal and a branded PDF.",
