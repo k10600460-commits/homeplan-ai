@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { getClientIp } from '@/lib/security'
+import { checkRateLimitDB } from '@/lib/rate-limit-db'
+
+// 30 unsubscribe hits/hour/IP — clicked from email; generous but bounded
+const UNSUB_RATE = { limit: 30, windowSec: 3600 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params
+
+  const ip = getClientIp(req)
+  const rl = await checkRateLimitDB(`portal_unsub:ip:${ip}`, UNSUB_RATE)
+  if (!rl.allowed) {
+    return new Response('Too many requests', {
+      status: 429,
+      headers: { 'Retry-After': String(rl.retryAfter) },
+    })
+  }
 
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

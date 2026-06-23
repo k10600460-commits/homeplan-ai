@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { getClientIp } from '@/lib/security'
+import { checkRateLimitDB } from '@/lib/rate-limit-db'
+
+// 60 favorite toggles/hour/IP — generous for real browsing, blocks spam
+const FAVORITE_RATE = { limit: 60, windowSec: 3600 }
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params
+
+  const ip = getClientIp(req)
+  const rl = await checkRateLimitDB(`portal_favorite:ip:${ip}`, FAVORITE_RATE)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+    )
+  }
+
   const { planId, on } = await req.json()
 
   const admin = createServiceClient(

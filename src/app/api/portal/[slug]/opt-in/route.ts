@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { getClientIp } from '@/lib/security'
+import { checkRateLimitDB } from '@/lib/rate-limit-db'
+
+// 10 opt-ins/hour/IP — email capture, tighter anti-spam
+const OPTIN_RATE = { limit: 10, windowSec: 3600 }
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params
+
+  const ip = getClientIp(req)
+  const rl = await checkRateLimitDB(`portal_optin:ip:${ip}`, OPTIN_RATE)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+    )
+  }
+
   const { email } = await req.json()
 
   if (
