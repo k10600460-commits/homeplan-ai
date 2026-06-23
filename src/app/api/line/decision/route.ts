@@ -37,6 +37,11 @@ function html(heading: string, detail: string, color: string, status = 200): Res
   );
 }
 
+// NOTE (accepted risk — per plan, one-tap UX): this GET mutates state. Decision
+// URLs are placed ONLY on Flex URI buttons (never as body text), so LINE does not
+// link-preview / prefetch them, and the idempotent conditional update below makes
+// any stray re-hit safe. If strict prefetch-proofing is ever required, split into
+// GET (confirmation page) + POST (commit with a nonce).
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
   const action = req.nextUrl.searchParams.get("action") ?? "";
