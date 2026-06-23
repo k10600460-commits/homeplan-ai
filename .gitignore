@@ -50,3 +50,6 @@ public/fonts/*.woff2
 
 # Spike output — generated images, local only
 /spike-output/
+
+# Generated business deliverables (pptx proposals) — local only
+/outputs/
