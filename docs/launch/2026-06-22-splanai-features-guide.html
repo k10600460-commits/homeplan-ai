@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>SplanAI 全機能ガイド</title>
+<style>
+  :root{
+    /* brand: navy main, terracotta accent */
+    --blue:#1f3a63; --blue-dark:#142844; --accent:#c15f3c; --accent-dark:#a44a2c;
+    --ink:#1f2937; --muted:#6b7280;
+    --line:#e5e7eb; --bg-soft:#f6f8fb; --green:#2f7d57; --amber:#a44a2c;
+  }
+  *{ box-sizing:border-box; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    font-family:"Inter","Source Sans 3","Hiragino Sans","Hiragino Kaku Gothic ProN",
+      "Yu Gothic","Noto Sans JP",sans-serif;
+    color:var(--ink); margin:0; line-height:1.75; font-size:14px;
+    background:#fff;
+  }
+  @page{ size:Letter; margin:16mm 15mm 18mm 15mm; }
+
+  h1,h2,h3{ line-height:1.4; }
+  p{ margin:0.5em 0; }
+  small{ color:var(--muted); }
+
+  /* ---- page structure ---- */
+  .page{ page-break-after:always; }
+  .page:last-child{ page-break-after:auto; }
+  .nobreak{ break-inside:avoid; }
+  section{ break-inside:avoid; }
+
+  /* ---- cover ---- */
+  .cover{
+    min-height:235mm; display:flex; flex-direction:column; justify-content:center;
+    text-align:center;
+  }
+  .logo{ font-size:54px; font-weight:800; letter-spacing:-1px; }
+  .logo .ai{ color:var(--accent); }
+  .cover .eyebrow{ margin-top:6px; font-size:15px; font-weight:700;
+    letter-spacing:3px; text-transform:uppercase; color:var(--accent-dark); }
+  .cover .tagline{ font-size:19px; color:var(--ink); margin-top:18px; font-weight:600; }
+  .cover .sub{ font-size:15px; color:var(--muted); margin-top:10px; }
+  .cover .doc-title{
+    margin-top:46px; font-size:26px; font-weight:800; color:var(--blue-dark);
+    border-top:2px solid var(--line); border-bottom:2px solid var(--line);
+    padding:20px 0; display:inline-block; min-width:70%;
+  }
+  .cover .for-who{ margin-top:30px; font-size:14px; color:var(--muted); }
+  .cover .date{ margin-top:60px; font-size:13px; color:var(--muted); }
+
+  /* ---- headings ---- */
+  h2.sec{
+    font-size:21px; color:#fff; background:var(--blue); display:block;
+    padding:9px 16px; border-radius:7px; margin:0 0 16px; font-weight:800;
+  }
+  h2.sec .num{ color:var(--accent); opacity:1; font-weight:800; margin-right:8px; }
+  h3{ font-size:16px; color:var(--blue-dark); margin:20px 0 6px;
+      border-left:5px solid var(--accent); padding-left:10px; }
+
+  /* ---- callouts ---- */
+  .lead{
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:10px;
+    padding:14px 18px; margin:14px 0; font-size:14.5px;
+  }
+  .term{
+    background:#fffbeb; border:1px solid #fde68a; border-radius:8px;
+    padding:10px 14px; margin:12px 0; font-size:13px;
+  }
+  .term b{ color:var(--amber); }
+  .note{ font-size:12.5px; color:var(--muted); }
+
+  /* ---- feature cards ---- */
+  .feat{
+    border:1px solid var(--line); border-radius:10px; padding:14px 16px;
+    margin:12px 0; break-inside:avoid;
+  }
+  .feat .head{ display:flex; align-items:baseline; gap:10px; }
+  .feat .icon{
+    font-size:13px; font-weight:800; color:#fff; background:var(--accent);
+    border-radius:6px; padding:2px 9px; white-space:nowrap;
+  }
+  .feat h3{ border:0; padding:0; margin:0; font-size:16px; }
+  .feat .who{ margin-left:auto; font-size:11.5px; color:var(--muted);
+    border:1px solid var(--line); border-radius:20px; padding:1px 10px; }
+  .feat p{ margin:8px 0 0; }
+  .feat ul{ margin:8px 0 0; padding-left:20px; }
+  .feat li{ margin:3px 0; }
+
+  /* ---- tables ---- */
+  table{ width:100%; border-collapse:collapse; margin:14px 0; font-size:12.5px; }
+  th,td{ border:1px solid var(--line); padding:8px 10px; text-align:left;
+    vertical-align:top; }
+  th{ background:var(--blue); color:#fff; font-weight:700; }
+  .price th, .price td{ text-align:center; }
+  .price td.feat-name{ text-align:left; font-weight:600; background:var(--bg-soft); }
+  tbody tr:nth-child(even){ background:#fafafa; }
+  .tier-head{ font-size:14px; }
+  .tier-head .p{ font-weight:800; }
+  .tier-head .amt{ font-size:18px; color:var(--blue); }
+  .yes{ color:var(--green); font-weight:800; }
+  .no{ color:#cbd5e1; font-weight:800; }
+
+  /* ---- steps ---- */
+  .steps{ counter-reset:step; margin:14px 0; }
+  .step{ display:flex; gap:14px; margin:12px 0; break-inside:avoid; }
+  .step .n{
+    flex:0 0 auto; width:34px; height:34px; border-radius:50%;
+    background:var(--blue); color:#fff; font-weight:800; font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .step .b b{ color:var(--blue-dark); }
+
+  .pill{ display:inline-block; background:#eff6ff; color:var(--blue-dark);
+    border:1px solid #bfdbfe; border-radius:20px; padding:1px 10px;
+    font-size:11.5px; margin:2px 3px 2px 0; }
+
+  .footer{ margin-top:30px; padding-top:14px; border-top:1px solid var(--line);
+    font-size:11.5px; color:var(--muted); text-align:center; }
+  .disclaimer{ font-size:11px; color:var(--muted); background:var(--bg-soft);
+    border-radius:8px; padding:12px 16px; margin-top:14px; }
+
+  /* ---- compact tuning for US Letter (shorter than A4): density only, no text changes ---- */
+  @page{ size:Letter; margin:13mm 14mm 13mm 14mm; }
+  body{ font-size:13px; line-height:1.58; }
+  p{ margin:0.35em 0; }
+  h2.sec{ font-size:19px; padding:7px 14px; margin:0 0 11px; }
+  h3{ font-size:15px; margin:14px 0 5px; }
+  .lead{ padding:11px 15px; margin:10px 0; font-size:13px; }
+  .term{ padding:8px 12px; margin:9px 0; font-size:12px; }
+  .feat{ padding:10px 14px; margin:9px 0; }
+  .feat .head h3, .feat h3{ font-size:15px; }
+  .feat p{ margin-top:6px; }
+  .feat ul{ margin-top:6px; padding-left:18px; }
+  .feat li{ margin:2px 0; }
+  table{ margin:10px 0; font-size:11.5px; }
+  th,td{ padding:6px 9px; }
+  .steps{ margin:10px 0; }
+  .step{ margin:9px 0; }
+  .note{ font-size:11.5px; }
+  .disclaimer{ padding:10px 14px; margin-top:11px; }
+  .footer{ margin-top:20px; padding-top:10px; }
+  .cover{ min-height:225mm; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="page">
+  <div class="cover">
+    <div class="logo">Splan<span class="ai">AI</span></div>
+    <div class="eyebrow">Features Guide</div>
+    <div class="tagline">土地・予算・家族構成を入れるだけ。<br>約30秒で「3つの間取りプラン」をPDFで提案。</div>
+    <div class="sub">アメリカの中小ホームビルダー（住宅会社）向け AI 営業ツール</div>
+
+    <div style="text-align:center">
+      <div class="doc-title">全機能ガイド<br><span style="font-size:15px;font-weight:600;color:var(--muted)">— 不動産の知識ゼロでも分かる解説書 —</span></div>
+    </div>
+
+    <div class="for-who">
+      この資料は、アメリカ・日本どちらの不動産にも詳しくない方が、<br>
+      SplanAI が「何をするツールなのか」「何ができるのか」を最後まで理解できることを目的にしています。
+    </div>
+    <div class="date">2026年6月22日版 ・ splanai.com</div>
+  </div>
+</div>
+
+<!-- ============ PAGE 1: そもそも何のツール？ ============ -->
+<div class="page">
+  <section>
+    <h2 class="sec"><span class="num">0</span>はじめに：これは「何の」ツール？</h2>
+
+    <div class="lead">
+      <b>SplanAI（スプランエーアイ）は、アメリカの住宅会社が「家を売る」ための AI 営業ツールです。</b>
+      家を建てたいお客さんに対して、「あなたの土地と予算なら、こんな家が建てられますよ」という
+      具体的な提案書（間取り＋費用＋エリア情報）を、<b>その場で約30秒で</b>作ってあげられます。
+    </div>
+
+    <h3>まず、登場人物を整理します</h3>
+    <table>
+      <tr><th style="width:28%">登場人物</th><th>説明</th></tr>
+      <tr><td><b>ホームビルダー</b><br>（＝SplanAIのお客様）</td>
+          <td>アメリカで注文住宅を建てて売る「住宅会社」のこと。日本でいう工務店・ハウスメーカーに近い存在です。SplanAI を使うのはこの人たち。</td></tr>
+      <tr><td><b>家の買い手</b><br>（＝ビルダーのお客さん）</td>
+          <td>「家を建てたい」と相談に来る一般の人。ビルダーはこの人に提案して契約を取りたい。</td></tr>
+      <tr><td><b>SplanAI</b></td>
+          <td>ビルダーの代わりに「間取りの提案書」を一瞬で作る道具。ビルダーの営業を手伝うソフトです。</td></tr>
+    </table>
+
+    <h3>何が「うれしい」のか（解決する問題）</h3>
+    <p>これまで、家の間取り（＝部屋の配置プラン）を1つ作るには、建築士に頼んで<b>数日〜数週間</b>、
+    場合によってはお金もかかりました。商談中のお客さんに「では持ち帰って図面を…」と言っているうちに、
+    熱が冷めて他社に行かれてしまう ── これがビルダーの悩みです。</p>
+    <p>SplanAI を使うと、お客さんの目の前で土地・予算・家族の人数を入力するだけで、
+    <b>スタイルの違う3つの間取り案を約30秒で</b>提示できます。その場で「これいいね」と
+    会話が進み、商談が前に進みます。</p>
+
+    <div class="term">
+      <b>用語：「フロアプラン（floor plan）」とは？</b><br>
+      建物を真上から見た「間取り図」のこと。寝室・浴室・キッチン・リビングなどがどこにどう配置されるかを示す図です。
+      この資料では「間取り（プラン）」と呼びます。
+    </div>
+    <div class="term">
+      <b>用語：「ロット（lot）」と「スクエアフィート（sq ft）」とは？</b><br>
+      <b>ロット</b>＝家を建てる土地の区画。<b>スクエアフィート（平方フィート）</b>＝アメリカで使う広さの単位で、
+      1平方フィート ≒ 0.093㎡（約9.3万分の1ヘクタール）。例：2,000 sq ft ≒ 186㎡ ≒ 約56坪の家。
+    </div>
+  </section>
+</div>
+
+<!-- ============ PAGE 2: 使い方の流れ ============ -->
+<div class="page">
+  <section>
+    <h2 class="sec"><span class="num">1</span>使い方は「3ステップ」だけ</h2>
+    <p>難しい操作はありません。ビルダーは Web ブラウザで次の3つを行うだけです。</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="n">1</div>
+        <div class="b"><b>3つの数字を入れる</b><br>
+          ① 土地の広さ（平方フィート）　② 予算（ドル）　③ 家族の人数。
+          これだけ。専門知識は不要です。（任意で「ゾーニング＝土地の用途制限」も入力可能）</div>
+      </div>
+      <div class="step">
+        <div class="n">2</div>
+        <div class="b"><b>約30秒待つ</b><br>
+          AI（Claude）が、スタイルの異なる<b>3つの間取り案</b>を自動で考えます。
+          各案には広さ・寝室数・浴室数・概算費用・部屋ごとの面積まで含まれます。</div>
+      </div>
+      <div class="step">
+        <div class="n">3</div>
+        <div class="b"><b>PDFで渡す／リンクで共有する</b><br>
+          きれいな提案書PDFをダウンロードして渡すか、お客さん専用の Web ページ（共有ポータル）の
+          リンクを送ります。お客さんはそこで自由にプランを見比べられます。</div>
+      </div>
+    </div>
+
+    <div class="lead">
+      <b>ポイント：</b>SplanAI が作るのは「間取りのアイデア提案（コンセプト）」です。
+      実際に建築確認を取れる正式な設計図ではなく、<b>商談を前に進めるための“たたき台”</b>として使います。
+      （正直な制約は最後のページにまとめています）
+    </div>
+
+    <div class="term">
+      <b>用語：「ゾーニング（zoning）」とは？</b><br>
+      その土地に「どんな建物を建ててよいか」を定めた行政のルール（用途地域）。
+      例：R1＝一戸建て住宅専用エリア。SplanAI はこの制限を入力すると、それに合った間取りを提案します。
+    </div>
+  </section>
+</div>
+
+<!-- ============ PAGE 3-4: 全機能 ============ -->
+<div class="page">
+  <section>
+    <h2 class="sec"><span class="num">2</span>全機能の解説（1/3）</h2>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能1</span><h3>AI 間取り生成 ── このツールの心臓部</h3>
+        <span class="who">全プラン</span></div>
+      <p>土地・予算・家族構成から、<b>毎回3つの異なる間取り案</b>を AI が生成します。
+      各案には次の情報が入ります：</p>
+      <ul>
+        <li><b>プラン名とスタイル</b>（例：モダンファームハウス、クラフツマン、コンテンポラリーなど）</li>
+        <li><b>延床面積</b>（平方フィート）／ <b>寝室数</b> ／ <b>浴室数</b> ／ <b>階数</b>（1〜2階）／ <b>ガレージ台数</b></li>
+        <li><b>概算費用</b>（予算内に収まるよう調整）</li>
+        <li><b>部屋ごとの面積一覧</b>（主寝室・ウォークインクローゼット・キッチン・大広間・玄関など）</li>
+        <li><b>特徴・セールスポイント</b>（オープンキッチン、主寝室スイートなど）</li>
+      </ul>
+      <p class="note">※ 3案は「スタイル・間取り・設計の方向性」が意図的に違うものになり、すべて予算内に収まるよう作られます。</p>
+    </div>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能2</span><h3>概算コスト見積もり</h3><span class="who">全プラン</span></div>
+      <p>各間取り案に「いくらくらいで建てられそうか」の概算金額が付きます。
+      お客さんが予算感をつかみやすくなり、「この予算ならこの規模」という会話ができます。</p>
+      <p class="note">※ あくまで目安の概算です。正式な工事見積もりではありません。</p>
+    </div>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能3</span><h3>近隣・エリアデータ（周辺環境の自動調査）</h3><span class="who">全プラン</span></div>
+      <p>都市名を入れると、その土地周辺の生活環境データを自動で取得して提案書に添えられます。
+      お客さんが気にする「住みやすさ」を数字で示せます。</p>
+      <ul>
+        <li><b>学校・病院・スーパー</b>：近い順に最大3件（評価・距離つき）</li>
+        <li><b>治安スコア</b>：近くの警察署・消防署の数から算出（High / Moderate / Low）</li>
+        <li><b>地域の家賃・販売価格の相場</b>（平均・中央値）</li>
+      </ul>
+      <p class="note">※ データ元は Google マップと RentCast（不動産相場データ）。相場データは主要都市が対象です。</p>
+    </div>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能4</span><h3>住宅ローン金利・月々の支払い試算</h3><span class="who">全プラン</span></div>
+      <p>アメリカの最新の<b>30年固定住宅ローン金利</b>（米連邦準備制度のFREDデータ）を自動取得し、
+      「頭金〇%・金利〇%なら、月々いくら」という支払いシミュレーションを表示できます。
+      お客さんは頭金の割合や金利のスライダーを動かして、自分ごととして検討できます。</p>
+      <p class="note">※ あくまで試算表示であり、ローンそのものを提供する金融商品ではありません。</p>
+    </div>
+  </section>
+</div>
+
+<div class="page">
+  <section>
+    <h2 class="sec"><span class="num">2</span>全機能の解説（2/3）</h2>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能5</span><h3>提案書PDF（自社ブランドで出力）</h3><span class="who">全プラン</span></div>
+      <p>3つの間取り案を、見やすい<b>提案書PDF</b>として出力できます。プラン名・スタイル・
+      広さ・寝室/浴室数・概算費用・部屋ごとの面積表・特徴がレイアウトされた、そのままお客さんに渡せる体裁です。</p>
+      <p><b>プランによってブランド表示が変わります：</b></p>
+      <ul>
+        <li><b>Free</b>：SplanAI のロゴ入り（「Powered by SplanAI」表記あり）</li>
+        <li><b>Pro</b>：自社のロゴ＋会社名を表示できる（自社の提案書らしくなる）</li>
+        <li><b>Team</b>：完全ホワイトラベル（SplanAI の表記を消し、100% 自社ブランドにできる）</li>
+      </ul>
+      <div class="term" style="margin-top:10px">
+        <b>用語：「ホワイトラベル（white-label）」とは？</b><br>
+        提供元（SplanAI）の名前を消して、自社が作ったかのように見せられる仕組み。
+        お客さんには「外部ツールを使っている」と気づかれず、自社ブランドで通せます。
+      </div>
+    </div>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能6</span><h3>顧客共有ポータル（お客さん専用Webページ）</h3><span class="who">全プラン</span></div>
+      <p>提案を「リンク1本」でお客さんに送れます。お客さんはログイン不要で専用ページを開き、
+      自分のペースでプランを見比べられます。ここがSplanAIの大きな特徴です。</p>
+      <p><b>お客さんがページ上でできること：</b></p>
+      <ul>
+        <li>3つのプランを画像つきで見比べる</li>
+        <li><b>その場でカスタマイズ</b>：広さ・寝室数・浴室数・スタイルを変えると価格が再計算される</li>
+        <li>気に入った構成を保存／お気に入り登録する</li>
+        <li>住宅ローンの月々支払いを自分で試算する</li>
+        <li>周辺環境データを見る／PDFをダウンロードする</li>
+        <li>「事前審査を受ける」ボタン（ビルダーが設定した場合）から次の行動に進む</li>
+      </ul>
+    </div>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能7</span><h3>見込み客の「熱量」トラッキング（インテントシグナル）</h3><span class="who">全プラン</span></div>
+      <p>共有ポータルでお客さんが取った行動を、ビルダーのダッシュボードでリアルタイムに把握できます。
+      「誰が・どのプランに・どれだけ興味を持っているか」が見えるので、追いかけるべき相手が分かります。</p>
+      <ul>
+        <li><b>熱量の自動判定</b>：HOT（熱い）/ WARM（普通）/ COLD（冷めている）</li>
+        <li>閲覧回数・選んだプラン・PDFダウンロード・事前審査クリックなどを記録</li>
+        <li>「次に取るべきアクション」の提案つき</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<div class="page">
+  <section>
+    <h2 class="sec"><span class="num">2</span>全機能の解説（3/3）</h2>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能8</span><h3>フォローアップメールの自動下書き（ナーチャー）</h3><span class="who">Pro / Team</span></div>
+      <p>お客さんを追客するためのフォローメールを、AI が状況に応じて自動で下書きしてくれます。
+      ビルダーは内容を確認・修正して送るだけ。「何を書こう」で止まらずに済みます。</p>
+      <ul>
+        <li>住宅ローン金利が下がったとき　→「今が好機」のお知らせ下書き</li>
+        <li>新しいプラン案を追加したとき　→ 再提案の下書き</li>
+        <li>しばらく反応がないお客さん　→ 再アプローチの下書き</li>
+      </ul>
+    </div>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能9</span><h3>MLS連携（実際の物件データ取り込み）</h3><span class="who">Pro / Team</span></div>
+      <p>ビルダーが持つ MLS のアカウントを接続すると、<b>実在する物件・土地の正確なデータ</b>
+      （住所・土地面積・ゾーニング・売出価格など）を取り込んで、より現実に即した間取り提案ができます。</p>
+      <div class="term" style="margin-top:10px">
+        <b>用語：「MLS」とは？</b><br>
+        Multiple Listing Service の略。アメリカの不動産業者が物件情報を共有する<b>巨大な物件データベース</b>です。
+        日本のレインズに近い存在。利用には各ビルダー自身の MLS 契約が必要です（SplanAI は接続を仲介する仕組み）。
+      </div>
+      <p class="note">※ 接続には Trestle（MLSデータ提供サービス）の認証情報が必要。データは IDX ルール（物件情報の表示規約）に準拠して表示されます。</p>
+    </div>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能10</span><h3>チーム機能（複数メンバーで利用）</h3><span class="who">Team</span></div>
+      <p>会社の営業チームで共同利用できます。オーナーがメンバーをメールで招待し、
+      全員が<b>同じ自社ブランド</b>で提案を作れます。</p>
+      <ul>
+        <li>オーナー＋メンバーで<b>最大15席</b>まで</li>
+        <li>メンバーごとの利用状況（今月の生成回数など）を把握</li>
+        <li>共有リンクや顧客の動きをチームで一元管理</li>
+      </ul>
+    </div>
+
+    <div class="feat">
+      <div class="head"><span class="icon">機能11</span><h3>ダッシュボード（管理画面）</h3><span class="who">全プラン</span></div>
+      <p>これまでの全機能を1画面に集約。契約プランと利用量、共有リンク一覧、お客さんの熱量、
+      フォローメール下書き、自社ブランド設定、チーム管理、MLS接続状況、事前審査リンク設定などを
+      ここから操作・確認できます。</p>
+    </div>
+  </section>
+</div>
+
+<!-- ============ PAGE 5: 料金プラン ============ -->
+<div class="page">
+  <section>
+    <h2 class="sec"><span class="num">3</span>料金プランと機能比較</h2>
+    <p>用途に合わせて4つのプランがあります。Pro・Team は <b>14日間の無料トライアル</b> 付き
+    （登録時にカード情報が必要／途中解約可）。</p>
+
+    <table class="price">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="tier-head"><div class="p">Free</div><div class="amt">$0</div><small>/月</small></th>
+          <th class="tier-head"><div class="p">Pro</div><div class="amt">$49</div><small>/月</small></th>
+          <th class="tier-head"><div class="p">Team</div><div class="amt">$149</div><small>/月</small></th>
+          <th class="tier-head"><div class="p">Custom</div><div class="amt" style="font-size:14px">応相談</div></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="feat-name">月の間取り生成回数</td><td>3回</td><td>100回</td><td>実質無制限<br><small>※公平利用</small></td><td>大容量</td></tr>
+        <tr><td class="feat-name">座席数（利用人数）</td><td>1</td><td>1</td><td>最大15</td><td>応相談</td></tr>
+        <tr><td class="feat-name">提案書PDF</td><td>SplanAIロゴ入り</td><td>自社ロゴ表示</td><td>完全ホワイトラベル</td><td>ホワイトラベル</td></tr>
+        <tr><td class="feat-name">近隣・相場データ</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td class="feat-name">顧客共有ポータル</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td class="feat-name">熱量トラッキング</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td class="feat-name">フォローメール下書き</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td class="feat-name">MLS連携（Trestle）</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td class="feat-name">チームダッシュボード</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td class="feat-name">サポート</td><td>—</td><td>優先サポート</td><td>専任サポート</td><td>優先オンボーディング</td></tr>
+        <tr><td class="feat-name">無料トライアル</td><td>登録のみ<br><small>カード不要</small></td><td>14日間</td><td>14日間</td><td>個別相談</td></tr>
+      </tbody>
+    </table>
+
+    <div class="lead">
+      <b>どれを選べばいい？</b><br>
+      ・まず試したい → <b>Free</b>（カード不要・月3回まで）<br>
+      ・1人で本格的に営業に使う → <b>Pro</b>（月100回＋自社ブランド＋MLS連携）<br>
+      ・チームで使う／完全に自社ブランド化したい → <b>Team</b>（最大15人＋ホワイトラベル）<br>
+      ・従業員50人以上の大手 → <b>Custom</b>（個別見積もり。お問い合わせ：hello@splanai.com）
+    </div>
+    <p class="note">※ 「公平利用（フェアユース）」＝常識的な範囲なら上限を気にせず使えるという意味。極端な大量利用のみ個別に相談となります。</p>
+  </section>
+</div>
+
+<!-- ============ PAGE 6: 制約 + まとめ ============ -->
+<div class="page">
+  <section>
+    <h2 class="sec"><span class="num">4</span>正直にお伝えする「できないこと」</h2>
+    <p>誤解を避けるため、SplanAI が<b>やらないこと</b>も明確にしておきます。</p>
+    <table>
+      <tr><th style="width:40%">できないこと</th><th>補足</th></tr>
+      <tr><td>正式な建築設計図の作成</td><td>提案はあくまで「コンセプト（たたき台）」。建築確認や施工に使う正式図面ではありません。</td></tr>
+      <tr><td>3D・VR・バーチャル内見</td><td>出力は提案書PDFとWebポータルのみ。3Dモデルは生成しません。</td></tr>
+      <tr><td>CAD（DWG等）形式での書き出し</td><td>建築CADデータの出力には対応していません。</td></tr>
+      <tr><td>構造計算・法規適合チェック</td><td>耐震計算や建築基準への適合判定は行いません。</td></tr>
+      <tr><td>正式な工事見積もり</td><td>費用はAIによる概算の目安です。</td></tr>
+      <tr><td>住宅ローンの提供</td><td>支払い試算を「表示」するだけで、ローン商品は提供しません。</td></tr>
+    </table>
+
+    <h2 class="sec" style="margin-top:26px"><span class="num">5</span>まとめ：SplanAI の本質</h2>
+    <div class="lead">
+      SplanAI は、<b>「商談のその場で、具体的な家の提案を出して契約に近づける」</b>ための営業ツールです。<br><br>
+      従来なら数日〜数週間かかった「間取り＋費用＋エリア情報の提案」を、<b>約30秒・3案</b>で用意し、
+      お客さん専用ページで見比べてもらい、その熱量を見ながらフォローまでつなげる ──
+      この一連の流れを、ひとりの営業担当でも回せるようにします。
+    </div>
+
+    <div style="margin-top:14px">
+      <span class="pill">約30秒で3案</span>
+      <span class="pill">予算内に自動調整</span>
+      <span class="pill">周辺環境データ付き</span>
+      <span class="pill">ローン試算</span>
+      <span class="pill">自社ブランドPDF</span>
+      <span class="pill">顧客共有ポータル</span>
+      <span class="pill">熱量トラッキング</span>
+      <span class="pill">フォローメール自動下書き</span>
+      <span class="pill">MLS連携</span>
+      <span class="pill">最大15席のチーム利用</span>
+    </div>
+
+    <div class="disclaimer">
+      免責事項：本資料は SplanAI の機能を分かりやすく説明することを目的とした概要資料です。
+      間取り提案は AI により生成される「予備的なコンセプト」であり、専門的な建築・法律上の助言を構成しません。
+      金額・相場・金利などのデータは変動し、参考値です。料金や仕様は予告なく変更される場合があります。
+    </div>
+
+    <div class="footer">
+      SplanAI ・ splanai.com ・ お問い合わせ：hello@splanai.com<br>
+      © 2026 SplanAI — 2026年6月22日版
+    </div>
+  </section>
+</div>
+
+</body>
+</html>
