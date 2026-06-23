@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { randomBytes } from "crypto";
+import { randomBytes, timingSafeEqual } from "crypto";
 import { buildDigestCarousel, pushMessages, type DigestProposal } from "@/lib/line";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// 16-char unguessable decision token (same scheme as shared_links slugs).
+// 128-bit unguessable decision token. These ride on public GET links with no
+// expiry, so use full crypto entropy (32 hex chars) rather than the shorter
+// shared_links slug scheme.
 function generateToken(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = randomBytes(8);
-  return Array.from(bytes).map(b => chars[b % chars.length]).join("");
+  return randomBytes(16).toString("hex");
 }
 
 interface IncomingProposal {
@@ -28,15 +28,42 @@ function str(v: unknown, max: number): string | null {
   return t ? t.slice(0, max) : null;
 }
 
+// Only accept http(s) URLs for the article link (it becomes a LINE URI button).
+function safeHttpUrl(v: unknown): string | null {
+  const s = str(v, 2000);
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    return u.protocol === "http:" || u.protocol === "https:" ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+// Strict calendar-date check (the regex alone passes 2026-99-99 / 2026-02-30).
+function isValidRunDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
+// Constant-time Bearer comparison (avoids leaking the secret via response timing).
+function bearerOk(header: string | null): boolean {
+  const secret = process.env.RESEARCH_DIGEST_SECRET;
+  if (!secret || !header) return false;
+  const a = Buffer.from(header);
+  const b = Buffer.from(`Bearer ${secret}`);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export async function POST(req: NextRequest) {
   // Dedicated secret (NOT CRON_SECRET) to limit blast radius — this endpoint can
   // only insert proposals + push a LINE digest, so its key is intentionally narrow.
-  const auth = req.headers.get("authorization");
-  if (!process.env.RESEARCH_DIGEST_SECRET || auth !== `Bearer ${process.env.RESEARCH_DIGEST_SECRET}`) {
+  if (!bearerOk(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { run_date?: unknown; summary?: unknown; proposals?: unknown; base_url?: unknown };
+  let body: { run_date?: unknown; summary?: unknown; proposals?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -44,14 +71,15 @@ export async function POST(req: NextRequest) {
   }
 
   const runDate = typeof body.run_date === "string" ? body.run_date : "";
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(runDate)) {
-    return NextResponse.json({ error: "run_date (YYYY-MM-DD) is required" }, { status: 400 });
+  if (!isValidRunDate(runDate)) {
+    return NextResponse.json({ error: "run_date (valid YYYY-MM-DD) is required" }, { status: 400 });
   }
   const summary = str(body.summary, 200);
   const incoming = Array.isArray(body.proposals) ? (body.proposals as IncomingProposal[]) : [];
-  // Decision links target the host this request arrived on (splanai.com in prod);
-  // an explicit base_url in the body overrides it for testing.
-  const baseUrl = (str(body.base_url, 200) ?? new URL(req.url).origin).replace(/\/$/, "");
+  // Decision links always target the host this request arrived on (splanai.com in
+  // prod) — never a caller-supplied value, so the approve buttons can't be pointed
+  // at an arbitrary origin.
+  const baseUrl = new URL(req.url).origin;
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,7 +100,7 @@ export async function POST(req: NextRequest) {
       token: generateToken(),
       run_date: runDate,
       title: str(p.title, 500) ?? "(untitled)",
-      url: str(p.url, 2000),
+      url: safeHttpUrl(p.url),
       why_it_matters: str(p.why_it_matters, 1000),
       action_tag: str(p.action_tag, 100),
       score: Number.isFinite(scoreNum) ? Math.trunc(scoreNum) : null,
