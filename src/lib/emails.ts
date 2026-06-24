@@ -4,6 +4,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "SplanAI <noreply@splanai.com>";
 const REPLY_TO = "hello@splanai.com";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com";
+const CONTENT_OPS_ALERT_TO = process.env.DAILY_BRIEF_TO ?? "hello@splanai.com";
 
 // CAN-SPAM §7(a)(5): valid physical postal address required in all commercial email.
 // Set PHYSICAL_ADDRESS in the environment (Vercel Production, server-only — keep it
@@ -21,6 +22,35 @@ const POSTAL_ADDRESS_LINE = PHYSICAL_ADDRESS.replace(/^\s*SplanAI,\s*/i, "");
 
 function footerHtml(url = APP_URL): string {
   return `<p style="color:#cbd5e1;font-size:12px;margin-top:4px">© 2026 SplanAI · <a href="${url}" style="color:#94a3b8">splanai.com</a><br>${POSTAL_ADDRESS_LINE}</p>`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, c => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  }[c] ?? c));
+}
+
+export async function sendContentOpsAlertEmail(subject: string, lines: string[]) {
+  await resend.emails.send({
+    from: FROM,
+    to: CONTENT_OPS_ALERT_TO,
+    replyTo: REPLY_TO,
+    subject: `[SplanAI ContentOps] ${subject}`,
+    html: `
+<div style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:32px 24px;color:#1e293b">
+  <h1 style="font-size:22px;font-weight:800;margin-bottom:8px">ContentOps Alert</h1>
+  <p style="color:#475569;margin-bottom:16px">${escapeHtml(subject)}</p>
+  <ul style="color:#475569;padding-left:20px;margin-bottom:24px">
+    ${lines.map(line => `<li>${escapeHtml(line)}</li>`).join("")}
+  </ul>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+  ${footerHtml()}
+</div>`,
+  }).catch(console.error);
 }
 
 export async function sendWelcomeEmail(to: string) {

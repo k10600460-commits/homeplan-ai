@@ -25,6 +25,10 @@
       "schedule": "0 5 * * 1,3,5"
     },
     {
+      "path": "/api/cron/seo-publish",
+      "schedule": "30 12 * * *"
+    },
+    {
       "path": "/api/cron/legal-watch",
       "schedule": "0 0 * * 1"
     },
