@@ -62,12 +62,17 @@ export async function GET(req: NextRequest) {
   const todayISO = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
-  const prompt = `You are an SEO content writer for SplanAI (splanai.com) — an AI-powered floor plan generation tool for small and mid-sized US home builders. Builders enter lot size, budget, and family size and receive 3 floor plan proposals as PDFs in ~30 seconds.
+  const prompt = `You are an SEO content writer for SplanAI (splanai.com) — a sales tool for small and mid-sized US home builders. From a lot address, SplanAI creates 3 buyer-ready home concepts (with a rough cost and financing feel and a shareable buyer page) in about 30 seconds. It is a sales tool — not a CRM and not a CAD/design tool.
 
 Write a 1200-1500 word article targeting the keyword: "${keyword}"
 
 Audience: small home builders in the US (not homebuyers).
 Tone: expert, practical, peer-to-peer — like one builder talking to another.
+
+Voice rules (STRICT — follow exactly):
+- Plain English, like a builder talking to another builder. No marketing hype.
+- NEVER use these words/phrases: "AI-powered", "game-changing", "revolutionary", "cutting-edge", "best-in-class", "seamless", "synergy", "disrupt", "leverage" (as a verb), "excited to announce", "in today's fast-paced".
+- Do NOT call SplanAI a CRM. Do NOT claim specific customer counts, deals closed, ROI numbers, or that the plans are permit-ready — SplanAI produces buyer-ready CONCEPTS to start the conversation, not final/permit drawings.
 
 Requirements:
 - H1 title that naturally includes the target keyword
