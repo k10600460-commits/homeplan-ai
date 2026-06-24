@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  BANNED_WORDS,
+  DESCRIPTION_MAX_LENGTH,
+  DESCRIPTION_MIN_LENGTH,
+  validate as validateContentQuality,
+} from "@/lib/content-quality";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,7 +77,7 @@ Tone: expert, practical, peer-to-peer — like one builder talking to another.
 
 Voice rules (STRICT — follow exactly):
 - Plain English, like a builder talking to another builder. No marketing hype.
-- NEVER use these words/phrases: "AI-powered", "game-changing", "revolutionary", "cutting-edge", "best-in-class", "seamless", "synergy", "disrupt", "leverage" (as a verb), "excited to announce", "in today's fast-paced".
+- NEVER use these words/phrases: ${BANNED_WORDS.map(w => `"${w}"`).join(", ")}.
 - Do NOT call SplanAI a CRM. Do NOT claim specific customer counts, deals closed, ROI numbers, or that the plans are permit-ready — SplanAI produces buyer-ready CONCEPTS to start the conversation, not final/permit drawings.
 
 Requirements:
@@ -82,12 +88,12 @@ Requirements:
 - Conclusion with a clear CTA to try SplanAI free at splanai.com
 - Plain Markdown only (no HTML tags)
 
-Also write a meta description of 120-160 characters.
+Also write a meta description of ${DESCRIPTION_MIN_LENGTH}-${DESCRIPTION_MAX_LENGTH} characters.
 
 Today's date: ${todayISO}
 
 Respond in this exact JSON format (raw JSON only, no code blocks, no extra text):
-{"title":"...","description":"120-160 char meta description","content":"...full markdown..."}`;
+{"title":"...","description":"${DESCRIPTION_MIN_LENGTH}-${DESCRIPTION_MAX_LENGTH} char meta description","content":"...full markdown..."}`;
 
   let result: { title: string; description: string; content: string };
   try {
@@ -104,6 +110,12 @@ Respond in this exact JSON format (raw JSON only, no code blocks, no extra text)
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error("[seo-draft] Claude error:", errMsg);
     return NextResponse.json({ ok: false, error: errMsg }, { status: 500 });
+  }
+
+  const issues = validateContentQuality(result.title, result.description, result.content);
+  if (issues.length > 0) {
+    console.warn(`[seo-draft] Draft rejected by quality gate — keyword: "${keyword}" | issues: ${issues.join(", ")}`);
+    return NextResponse.json({ ok: true, status: "quality_rejected", keyword, issues });
   }
 
   // Ensure unique slug

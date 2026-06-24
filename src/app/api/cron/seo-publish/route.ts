@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { validate as validateContentQuality } from "@/lib/content-quality";
+import { sendContentOpsAlertEmail } from "@/lib/emails";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,64 +17,9 @@ export const maxDuration = 60;
 // The social routes (x-post / fb-post) MUST instead re-gate on the
 // America/New_York hour, because their timing matters.
 //
-// Quality gate: an auto-generated draft is only published if it passes the
-// AI-smell / structure checks below. This is what makes "auto-publish" safe —
-// it will NEVER ship a post containing banned hype words or thin structure.
-// (Mirrors the SplanAI voice rules in the Obsidian vault:
-//  SplanAI/60_ContentOps/config/channels.yml -> safety.banned_words.)
-
-// AI-smell / hype words that must never reach the live blog. Word-boundary
-// regexes (NOT bare substrings) to avoid false-positives on legit builder
-// vocabulary. Intentionally EXCLUDES "disrupt(ion)" and "seamless" — both are
-// normal home-building terms (market disruption, seamless gutters) and would
-// wrongly skip good drafts. Mirrors the STRICT voice rules in the seo-draft
-// prompt. TODO(codex): hoist both into ONE shared constant + validate at draft
-// time so the generator can't produce drafts its own gate rejects.
-const BANNED: RegExp[] = [
-  /\bai[- ]powered\b/i,
-  /\bgame[- ]chang/i,
-  /\brevolutioniz/i,
-  /\brevolutionary\b/i,
-  /\bcutting[- ]edge\b/i,
-  /\bbest[- ]in[- ]class\b/i,
-  /\bsynerg/i,
-  /\bleverag/i,
-  /in today's fast-paced/i,
-  /\bunlock the power\b/i,
-  /excited to announce/i,
-  /we're thrilled/i,
-];
-
-function qualityIssues(a: {
-  title: string | null;
-  draft_content: string | null;
-  description: string | null;
-}): string[] {
-  const issues: string[] = [];
-  const body = a.draft_content ?? "";
-  const title = a.title ?? "";
-  const desc = a.description ?? "";
-
-  // Banned/AI-smell words must not appear in the body, the TITLE, or the META
-  // DESCRIPTION — title + description are rendered on the blog and in OG/metadata.
-  // (Per Codex review: a clean body with a "game-changing" title would otherwise pass.)
-  for (const re of BANNED) {
-    if (re.test(body)) issues.push(`banned:${re.source}`);
-    if (re.test(title)) issues.push(`banned-title:${re.source}`);
-    if (re.test(desc)) issues.push(`banned-desc:${re.source}`);
-  }
-  if (body.length < 600) issues.push(`too_short:${body.length}`);
-
-  // The renderer strips a leading H1 that matches the title, so we don't require
-  // an H1; >=3 H2 is the real structure signal (the draft prompt asks for 3-4).
-  const h2 = (body.match(/^##\s+/gm) || []).length;
-  if (h2 < 3) issues.push(`structure:h2_${h2}`);
-
-  if (!desc) issues.push("missing_description");
-  else if (desc.length < 110 || desc.length > 170) issues.push(`description_len:${desc.length}`);
-
-  return issues;
-}
+// Shared quality gate: generation (seo-draft) and publishing both call
+// validate() from the single source of truth (@/lib/content-quality) so the
+// banned-word / length / structure rules can never drift between the two.
 
 export async function GET(req: NextRequest) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -108,13 +55,19 @@ export async function GET(req: NextRequest) {
   let pick: (typeof drafts)[number] | null = null;
   const skipped: { slug: string; issues: string[] }[] = [];
   for (const d of drafts) {
-    const issues = qualityIssues(d);
+    const issues = validateContentQuality(d.title, d.description, d.draft_content);
     if (issues.length === 0) { pick = d; break; }
     skipped.push({ slug: d.slug, issues });
   }
 
   if (!pick) {
-    console.warn("[seo-publish] No clean draft to publish.", JSON.stringify(skipped));
+    const alertLines = [
+      `${skipped.length} draft(s) failed the shared content-quality gate.`,
+      ...skipped.slice(0, 20).map(s => `${s.slug}: ${s.issues.join(", ")}`),
+    ];
+    if (skipped.length > 20) alertLines.push(`...and ${skipped.length - 20} more.`);
+
+    await sendContentOpsAlertEmail("Blog auto-publish blocked: no clean draft", alertLines);
     return NextResponse.json({ ok: true, status: "no_clean_draft", skipped });
   }
 
