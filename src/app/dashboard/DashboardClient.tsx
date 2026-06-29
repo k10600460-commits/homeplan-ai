@@ -164,6 +164,12 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [savingPrequal, setSavingPrequal] = useState(false);
   const [prequalMsg, setPrequalMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // Book-a-meeting CTA (builder scheduling URL surfaced on portals)
+  const [appointmentUrl, setAppointmentUrl] = useState("");
+  const [appointmentSaved, setAppointmentSaved] = useState<string | null>(null);
+  const [savingAppointment, setSavingAppointment] = useState(false);
+  const [appointmentMsg, setAppointmentMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
   // Add-concept modal
   const [addConceptSlug, setAddConceptSlug] = useState<string | null>(null);
   const [addConceptForm, setAddConceptForm] = useState({ lotSize: "", budget: "", familySize: "" });
@@ -418,6 +424,17 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch("/api/profile/appointment")
+      .then(r => r.json())
+      .then((d: { appointmentUrl?: string | null }) => {
+        const url = d.appointmentUrl ?? "";
+        setAppointmentUrl(url);
+        setAppointmentSaved(url || null);
+      })
+      .catch(() => {});
+  }, []);
+
   async function handleSavePrequal() {
     setSavingPrequal(true);
     setPrequalMsg(null);
@@ -438,6 +455,29 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
       setPrequalMsg({ ok: false, text: "Network error." });
     } finally {
       setSavingPrequal(false);
+    }
+  }
+
+  async function handleSaveAppointment() {
+    setSavingAppointment(true);
+    setAppointmentMsg(null);
+    try {
+      const res = await fetch("/api/profile/appointment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: appointmentUrl }),
+      });
+      if (res.ok) {
+        setAppointmentSaved(appointmentUrl || null);
+        setAppointmentMsg({ ok: true, text: "Saved." });
+      } else {
+        const body = await res.json() as { error?: string };
+        setAppointmentMsg({ ok: false, text: body.error ?? "Save failed." });
+      }
+    } catch {
+      setAppointmentMsg({ ok: false, text: "Network error." });
+    } finally {
+      setSavingAppointment(false);
     }
   }
 
@@ -1642,6 +1682,47 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
             {prequalSaved?.url && (
               <p className="text-xs text-emerald-600">
                 Active on all your portals · <a href={prequalSaved.url} target="_blank" rel="noopener noreferrer" className="underline">Preview link</a>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ── Book a Meeting CTA ── */}
+        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">
+            Book a Meeting
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Add your scheduling link (Calendly, etc.). Buyers see a &ldquo;Book a meeting&rdquo; button on every shared proposal — the fastest path from interest to a booked appointment.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1">Scheduling URL <span className="font-normal text-gray-400">(must start with https://)</span></label>
+              <input
+                type="url"
+                value={appointmentUrl}
+                onChange={e => setAppointmentUrl(e.target.value)}
+                placeholder="https://calendly.com/your-name/intro"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSaveAppointment}
+                disabled={savingAppointment || appointmentUrl === (appointmentSaved ?? "")}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors disabled:opacity-40"
+              >
+                {savingAppointment ? "Saving…" : "Save"}
+              </button>
+              {appointmentMsg && (
+                <span className={`text-xs font-semibold ${appointmentMsg.ok ? "text-emerald-600" : "text-red-600"}`}>
+                  {appointmentMsg.text}
+                </span>
+              )}
+            </div>
+            {appointmentSaved && (
+              <p className="text-xs text-emerald-600">
+                Active on all your portals · <a href={appointmentSaved} target="_blank" rel="noopener noreferrer" className="underline">Preview link</a>
               </p>
             )}
           </div>
