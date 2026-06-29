@@ -58,6 +58,13 @@ interface NeighborhoodData {
   hospitals?: PlaceInfo[];
   groceries?: PlaceInfo[];
   safety?: SafetyInfo;
+  commute?: {
+    durationMin: number;
+    distanceMi: number | null;
+    destinationLabel: string;
+    asOf: string;
+    source: string;
+  };
 }
 
 interface MarketData {
@@ -647,8 +654,10 @@ export default function Results() {
 
       if (storedLocation) {
         const loc = JSON.parse(storedLocation) as { city: string; state: string };
+        const storedForm = sessionStorage.getItem("formData");
+        const street = storedForm ? (JSON.parse(storedForm) as { street?: string }).street : undefined;
         setNeighborhoodLoading(true);
-        fetch(`/api/neighborhood?city=${encodeURIComponent(loc.city)}&state=${encodeURIComponent(loc.state)}`)
+        fetch(`/api/neighborhood?city=${encodeURIComponent(loc.city)}&state=${encodeURIComponent(loc.state)}${street ? `&street=${encodeURIComponent(street)}` : ""}`)
           .then(r => r.json())
           .then((data: { neighborhood: NeighborhoodData; market: MarketData }) => {
             setNeighborhood(data.neighborhood);
@@ -1064,6 +1073,30 @@ export default function Results() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                {/* Commute — traffic-aware drive time (live, with as-of freshness) */}
+                {neighborhood?.available && neighborhood.commute && (
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
+                      <span className="text-lg">🚗</span> Commute
+                    </h3>
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-full bg-blue-500 flex flex-col items-center justify-center text-white shrink-0 leading-none">
+                        <span className="text-xl font-extrabold">{neighborhood.commute.durationMin}</span>
+                        <span className="text-[10px] font-semibold mt-0.5">min</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-gray-800">Drive to {neighborhood.commute.destinationLabel}</p>
+                        {neighborhood.commute.distanceMi != null && (
+                          <p className="text-xs text-gray-400 mt-1">{neighborhood.commute.distanceMi} mi · live traffic</p>
+                        )}
+                        <p className="text-xs text-gray-300 mt-0.5">
+                          Source: Google · as of {new Date(neighborhood.commute.asOf).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Safety Score */}
                 {neighborhood?.available && neighborhood.safety && (
