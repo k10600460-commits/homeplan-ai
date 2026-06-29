@@ -23,6 +23,23 @@ const BANNED_TERMS = [
   { label: "we're thrilled", regex: /we're thrilled/i },
 ] as const;
 
+// Fabrication guard: patterns that signal an INVENTED statistic stated as fact.
+// The Haiku generator tends to manufacture authoritative-sounding numbers —
+// "32% of buyers choose competitors", "a NAHB study found 34% more likely",
+// "$1.46M in additional profit". These are unverifiable and forbidden
+// (content_pillars.yml do_not_state + channels.yml banned_claims). Kept
+// deliberately CONSERVATIVE so real macro stats from the approved citable list
+// ("builder confidence was 35 in June 2026 (NAHB)", "~35% of builders cut
+// prices") and clearly illustrative examples ("a $350k budget") are NOT blocked.
+const SUSPECT_STAT_PATTERNS = [
+  { label: "buyer-pct", regex: /\b\d{1,3}\s?%\s+of\s+(?:potential\s+|qualified\s+)?(?:buyers|home\s?buyers|prospects|leads)\b/i },
+  { label: "more-likely-pct", regex: /\b\d{1,3}\s?%\s+(?:more|less)\s+likely\b/i },
+  { label: "fabricated-study", regex: /\b(?:nahb|industry|recent|a)\s+(?:study|survey|report|benchmark)s?\s+(?:found|shows|showed|says|suggests)\b/i },
+  { label: "study-found", regex: /\bstud(?:y|ies)\s+(?:found|show|shows|showed)\b/i },
+  { label: "profit-claim", regex: /\$\s?\d[\d,.]*\s*(?:million|billion|k|thousand)?\s+in\s+(?:additional\s+)?(?:profit|revenue|sales)\b/i },
+  { label: "roi-seeing", regex: /\bROI\b[^.\n]{0,40}\bbuilders\b[^.\n]{0,20}\bseeing\b/i },
+] as const;
+
 export const BANNED_WORDS = BANNED_TERMS.map(({ label }) => label);
 export const BANNED = BANNED_TERMS.map(({ regex }) => regex);
 
@@ -40,6 +57,13 @@ export function validate(
     if (re.test(safeBody)) issues.push(`banned:${re.source}`);
     if (re.test(safeTitle)) issues.push(`banned-title:${re.source}`);
     if (re.test(safeDesc)) issues.push(`banned-desc:${re.source}`);
+  }
+
+  // Invented / unsourced statistics. Blog-only in effect: seo-draft and
+  // seo-publish read every issue, while x-post / fb-post filter to "banned"
+  // prefixes, so social posts are unaffected by this gate.
+  for (const { label, regex } of SUSPECT_STAT_PATTERNS) {
+    if (regex.test(safeBody)) issues.push(`suspect_stat:${label}`);
   }
 
   if (safeBody.length < BODY_MIN_LENGTH) {

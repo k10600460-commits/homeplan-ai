@@ -79,11 +79,22 @@ Voice rules (STRICT — follow exactly):
 - Plain English, like a builder talking to another builder. No marketing hype.
 - NEVER use these words/phrases: ${BANNED_WORDS.map(w => `"${w}"`).join(", ")}.
 - Do NOT call SplanAI a CRM. Do NOT claim specific customer counts, deals closed, ROI numbers, or that the plans are permit-ready — SplanAI produces buyer-ready CONCEPTS to start the conversation, not final/permit drawings.
+- Do NOT invent statistics or cite studies. NEVER write percentages about buyer behaviour (e.g. "32% of buyers choose competitors"), "N% more likely", "$X in additional profit/revenue", or "a study / NAHB report found...". Drafts that contain invented numbers are auto-rejected.
+- If you reference a market statistic, use ONLY one from this approved list, with its source in parentheses exactly as shown. Otherwise stay qualitative — describe the dynamic without inventing a number:
+  - NAHB builder confidence (HMI) was 35 in June 2026, below the break-even 50 line (NAHB, June 2026)
+  - ~62% of builders used sales incentives and ~35% cut prices (NAHB/NAR, June 2026)
+  - US housing starts fell 15.4% month-over-month in May 2026 (U.S. Census Bureau)
+  - regulatory costs make up ~26.4% of a new home's price (NAHB)
+  - ~79% of US home-builder firms have fewer than 10 employees (NAHB)
+  - new construction is ~17.5% custom vs ~73% spec in 2024 (U.S. Census / NAHB)
+  - 30-year fixed mortgage ~6.47% (Freddie Mac, June 2026)
+  - new single-family home sales fell ~6.2% month-over-month in April 2026, with ~9.4 months of supply (U.S. Census)
+- Round, clearly hypothetical examples are fine (e.g. "say a buyer has a $350k budget").
 
 Requirements:
 - H1 title that naturally includes the target keyword
 - Introduction: hook + problem statement (~150 words)
-- 3-4 H2 sections covering the topic in depth with specific examples, numbers, and builder workflows
+- 3-4 H2 sections covering the topic in depth with specific examples and real builder workflows
 - Mention SplanAI 2-3 times naturally as a solution (not spammy)
 - Conclusion with a clear CTA to try SplanAI free at splanai.com
 - Plain Markdown only (no HTML tags)
