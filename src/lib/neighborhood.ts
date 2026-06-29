@@ -78,6 +78,24 @@ export async function geocodeCity(
   return { lat, lng, zipCode, usedReverseGeocode }
 }
 
+// Geocode a full street address (for lot-level features like commute). Returns null if unavailable.
+export async function geocodeAddress(query: string): Promise<{ lat: number; lng: number } | null> {
+  const key = process.env.GOOGLE_MAPS_API_KEY
+  if (!key) return null
+  try {
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${key}`,
+      { cache: 'no-store' },
+    )
+    const data = await res.json() as GoogleGeocodeResponse
+    if (data.status !== 'OK' || !data.results[0]) return null
+    const { lat, lng } = data.results[0].geometry.location
+    return { lat, lng }
+  } catch {
+    return null
+  }
+}
+
 export async function getNearbyPlaces(
   lat: number,
   lng: number,

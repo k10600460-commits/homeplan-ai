@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
 import { checkRateLimitDB } from '@/lib/rate-limit-db'
-import { geocodeCity, getNearbyPlaces, haversineKm, computeSafetyScore, PlaceResult } from '@/lib/neighborhood'
+import { geocodeCity, geocodeAddress, getNearbyPlaces, haversineKm, computeSafetyScore, PlaceResult } from '@/lib/neighborhood'
+import { getCommute } from '@/lib/commute'
 
 // 30 neighborhood lookups per authenticated user per minute
 const NEIGHBORHOOD_RATE = { limit: 30, windowSec: 60 }
@@ -41,6 +42,10 @@ export async function GET(req: NextRequest) {
     if (!/^[a-zA-Z\s\-'.]{1,60}$/.test(city) || !/^[a-zA-Z\s]{1,30}$/.test(state)) {
       return NextResponse.json({ error: 'Invalid location' }, { status: 400 })
     }
+
+    // Optional street for lot-level commute (sanitized; ignored if it fails the charset check)
+    const streetRaw = searchParams.get('street')?.trim()
+    const street = streetRaw && /^[a-zA-Z0-9\s\-'.#,]{1,80}$/.test(streetRaw) ? streetRaw : undefined
 
     const result: {
       neighborhood: Record<string, unknown>
@@ -98,6 +103,25 @@ export async function GET(req: NextRequest) {
             fireStations:   fireStations.length,
             label:          safetyScore >= 8 ? 'High' : safetyScore >= 5 ? 'Moderate' : 'Low',
           },
+        }
+
+        // Commute (lot → city center), traffic-aware with as-of freshness — only when a street is supplied
+        if (street) {
+          const lot = await geocodeAddress(`${street}, ${city}, ${state}, USA`)
+          await recordExternalUsage('google_maps')
+          if (lot) {
+            const commute = await getCommute(lot.lat, lot.lng, coords.lat, coords.lng)
+            await recordExternalUsage('google_maps')
+            if (commute.source === 'google' && commute.durationMin != null) {
+              ;(result.neighborhood as Record<string, unknown>).commute = {
+                durationMin:      commute.durationMin,
+                distanceMi:       commute.distanceMi,
+                destinationLabel: `${city} center`,
+                asOf:             commute.asOf,
+                source:           commute.source,
+              }
+            }
+          }
         }
       } else {
         result.neighborhood = GMAPS_UNAVAILABLE

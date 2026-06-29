@@ -1067,6 +1067,7 @@ interface Props {
   plansUpdatedAt: string | null;
   prequalUrl: string | null;
   prequalLabel: string | null;
+  appointmentUrl: string | null;
 }
 
 interface InquiryForm {
@@ -1076,7 +1077,7 @@ interface InquiryForm {
   message: string;
 }
 
-export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding, financials, neighborhood, market, areaAsOf, favorites: initialFavorites, savedConfigs, previousVisitedAt, plansUpdatedAt, prequalUrl, prequalLabel }: Props) {
+export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding, financials, neighborhood, market, areaAsOf, favorites: initialFavorites, savedConfigs, previousVisitedAt, plansUpdatedAt, prequalUrl, prequalLabel, appointmentUrl }: Props) {
   const isTeam = branding.plan === "team";
   const isPro  = branding.plan === "pro";
   const isBranded = isTeam || isPro;
@@ -1646,6 +1647,22 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
               className="shrink-0 px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors whitespace-nowrap"
             >
               {prequalLabel || 'Get pre-qualified'}
+            </button>
+          </div>
+        )}
+
+        {/* Book a meeting CTA banner */}
+        {appointmentUrl && (
+          <div className="mb-8 rounded-2xl border border-blue-200 bg-blue-50 px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-blue-800">Have questions or ready to move forward?</p>
+              <p className="text-xs text-blue-600 mt-0.5">Book a time to talk through these concepts with your builder.</p>
+            </div>
+            <button
+              onClick={() => window.open(appointmentUrl!, '_blank', 'noopener,noreferrer')}
+              className="shrink-0 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
+            >
+              Book a meeting
             </button>
           </div>
         )}

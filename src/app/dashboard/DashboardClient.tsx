@@ -137,6 +137,19 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [intentSignals, setIntentSignals] = useState<IntentSignal[]>([]);
   const [intentLoading, setIntentLoading] = useState(true);
 
+  // Inbound portal leads (Follow-up lite: status = new/contacted/won/lost)
+  type Lead = {
+    id: string; link_id: string | null; buyer_name: string | null; buyer_email: string | null;
+    buyer_phone: string | null; plan_index: number | null; message: string | null;
+    status: string; note: string | null; created_at: string; updated_at: string | null;
+  };
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
+  const [leadUpdatingId, setLeadUpdatingId] = useState<string | null>(null);
+
+  // Getting-started onboarding banner (dismissible, client-only). Default hidden to avoid SSR flash.
+  const [onbDismissed, setOnbDismissed] = useState(true);
+
   // Nurture drafts (Follow-ups)
   const [nurtureDrafts, setNurtureDrafts] = useState<NurtureDraft[]>([]);
   const [nurtureLoading, setNurtureLoading] = useState(true);
@@ -150,6 +163,12 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [prequalSaved, setPrequalSaved] = useState<{ url: string; label: string } | null>(null);
   const [savingPrequal, setSavingPrequal] = useState(false);
   const [prequalMsg, setPrequalMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Book-a-meeting CTA (builder scheduling URL surfaced on portals)
+  const [appointmentUrl, setAppointmentUrl] = useState("");
+  const [appointmentSaved, setAppointmentSaved] = useState<string | null>(null);
+  const [savingAppointment, setSavingAppointment] = useState(false);
+  const [appointmentMsg, setAppointmentMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Add-concept modal
   const [addConceptSlug, setAddConceptSlug] = useState<string | null>(null);
@@ -379,6 +398,20 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   }, []);
 
   useEffect(() => {
+    fetch("/api/leads")
+      .then(r => r.json())
+      .then((d: { leads?: Lead[] }) => {
+        setLeads(d.leads ?? []);
+        setLeadsLoading(false);
+      })
+      .catch(() => setLeadsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setOnbDismissed(localStorage.getItem("splanai_onboarding_dismissed") === "1");
+  }, []);
+
+  useEffect(() => {
     fetch("/api/profile/prequal")
       .then(r => r.json())
       .then((d: { prequalUrl?: string | null; prequalLabel?: string | null }) => {
@@ -387,6 +420,17 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
         setPrequalUrl(url);
         setPrequalLabel(label);
         setPrequalSaved({ url, label });
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/profile/appointment")
+      .then(r => r.json())
+      .then((d: { appointmentUrl?: string | null }) => {
+        const url = d.appointmentUrl ?? "";
+        setAppointmentUrl(url);
+        setAppointmentSaved(url || null);
       })
       .catch(() => {});
   }, []);
@@ -411,6 +455,29 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
       setPrequalMsg({ ok: false, text: "Network error." });
     } finally {
       setSavingPrequal(false);
+    }
+  }
+
+  async function handleSaveAppointment() {
+    setSavingAppointment(true);
+    setAppointmentMsg(null);
+    try {
+      const res = await fetch("/api/profile/appointment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: appointmentUrl }),
+      });
+      if (res.ok) {
+        setAppointmentSaved(appointmentUrl || null);
+        setAppointmentMsg({ ok: true, text: "Saved." });
+      } else {
+        const body = await res.json() as { error?: string };
+        setAppointmentMsg({ ok: false, text: body.error ?? "Save failed." });
+      }
+    } catch {
+      setAppointmentMsg({ ok: false, text: "Network error." });
+    } finally {
+      setSavingAppointment(false);
     }
   }
 
@@ -440,6 +507,19 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
       if (res.ok) setNurtureDrafts(prev => prev.filter(d => d.id !== draftId));
     } catch { /* ignore */ }
     finally { setNurtureDismissingId(null); }
+  }
+
+  async function handleLeadStatus(leadId: string, status: string) {
+    setLeadUpdatingId(leadId);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, status } : l)));
+    } catch { /* ignore */ }
+    finally { setLeadUpdatingId(null); }
   }
 
   // Check MLS connection status on mount
@@ -659,6 +739,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const kpiTotalViews = sharedLinks.reduce((s, l) => s + l.view_count, 0);
   const kpiHotLeads = intentSignals.filter(s => s.heat === "HOT").length;
   const kpiFollowups = nurtureDrafts.length;
+  const kpiWon = leads.filter(l => l.status === "won").length;
 
   const filteredLinks = sharedLinks
     .filter(l => {
@@ -679,6 +760,12 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const activeLeads = intentSignals.filter(s => s.heat !== "COLD");
   const visibleLeads = showAllLeads ? activeLeads : activeLeads.slice(0, 5);
   const visibleFollowups = showAllFollowups ? nurtureDrafts : nurtureDrafts.slice(0, 5);
+
+  // Onboarding checklist completion (computed from already-fetched data)
+  const onbProposals = sharedLinks.length > 0;
+  const onbBranding  = companyName.trim().length > 0;
+  const onbPrequal   = !!prequalSaved?.url;
+  const onbShow      = !onbDismissed && (!onbProposals || !onbBranding || !onbPrequal);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -834,13 +921,53 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
           </a>
         </div>
 
+        {/* Getting started — dismissible onboarding nudge for new/incomplete accounts */}
+        {onbShow && (
+          <div className="mb-6 rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-gray-900">👋 Get set up — win your next deal in 3 steps</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Most builders send their first branded proposal in a couple of minutes.</p>
+              </div>
+              <button
+                onClick={() => { localStorage.setItem("splanai_onboarding_dismissed", "1"); setOnbDismissed(true); }}
+                aria-label="Dismiss"
+                className="shrink-0 text-gray-300 hover:text-gray-500 text-xl leading-none"
+              >×</button>
+            </div>
+            <ul className="mt-4 space-y-2.5">
+              {[
+                { done: onbProposals, label: "Create your first proposal", hint: "30 seconds — lot + budget → 3 concepts" },
+                { done: onbBranding,  label: "Add your company name & logo", hint: "every proposal & PDF goes out branded as yours (below)" },
+                { done: onbPrequal,   label: "Add your lender pre-qualification link", hint: "buyers get a “Get pre-qualified” button; clicks show as hot leads (below)" },
+              ].map((step, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className={`shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${step.done ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>
+                    {step.done ? "✓" : i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-semibold ${step.done ? "text-gray-400 line-through" : "text-gray-800"}`}>{step.label}</p>
+                    <p className="text-xs text-gray-400">{step.hint}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {!onbProposals && (
+              <a href="/generate" className="mt-4 inline-flex items-center gap-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 transition-colors">
+                Create your first proposal →
+              </a>
+            )}
+          </div>
+        )}
+
         {/* KPI Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
           {([
             { label: "Active Portals",  value: kpiActiveProposals, sub: "shared proposals",   accent: false },
             { label: "Total Views",     value: kpiTotalViews,      sub: "all time",            accent: false },
             { label: "Hot Leads",       value: kpiHotLeads,        sub: "need action",         accent: kpiHotLeads > 0 },
             { label: "Follow-ups",      value: kpiFollowups,       sub: "drafts pending",      accent: kpiFollowups > 0 },
+            { label: "Closed Won",      value: kpiWon,             sub: "from inquiries",      accent: kpiWon > 0 },
           ] as { label: string; value: number; sub: string; accent: boolean }[]).map(k => (
             <div key={k.label} className={`bg-white rounded-2xl border shadow-sm px-4 py-3 ${k.accent ? "border-red-200 bg-red-50" : "border-gray-200"}`}>
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">{k.label}</p>
@@ -1210,6 +1337,67 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
           )}
         </div>
 
+        {/* Inquiries / Leads (Follow-up lite) */}
+        <div className="mb-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Inquiries</h2>
+            {!leadsLoading && leads.length > 0 && (
+              <span className="text-xs text-gray-400">
+                {leads.filter(l => l.status === "new").length} new · {leads.filter(l => l.status === "won").length} won
+              </span>
+            )}
+          </div>
+          {leadsLoading ? (
+            <div className="space-y-2">
+              {[0,1].map(i => <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />)}
+            </div>
+          ) : leads.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">No inquiries yet. When a buyer submits the contact form on a shared proposal, it appears here.</p>
+          ) : (
+            <div className="space-y-3">
+              {leads.map(lead => {
+                const statusCfg: Record<string, string> = {
+                  new:       "bg-blue-50 text-blue-700 border-blue-200",
+                  contacted: "bg-amber-50 text-amber-700 border-amber-200",
+                  won:       "bg-emerald-50 text-emerald-700 border-emerald-200",
+                  lost:      "bg-gray-100 text-gray-500 border-gray-200",
+                };
+                return (
+                  <div key={lead.id} className="px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-sm font-semibold text-gray-900 truncate">{lead.buyer_name || "Buyer"}</span>
+                          {typeof lead.plan_index === "number" && (
+                            <span className="text-xs text-gray-400 shrink-0">Plan {String.fromCharCode(65 + lead.plan_index)}</span>
+                          )}
+                          <span className="text-xs text-gray-400 ml-auto shrink-0">{lead.created_at ? timeAgo(lead.created_at) : ""}</span>
+                        </div>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {lead.buyer_email && <a href={`mailto:${lead.buyer_email}`} className="text-xs text-blue-600 hover:underline truncate">{lead.buyer_email}</a>}
+                          {lead.buyer_phone && <a href={`tel:${lead.buyer_phone}`} className="text-xs text-gray-600 hover:underline">{lead.buyer_phone}</a>}
+                        </div>
+                        {lead.message && <p className="text-xs text-gray-500 mt-1.5 line-clamp-2">{lead.message}</p>}
+                      </div>
+                      <select
+                        value={lead.status}
+                        disabled={leadUpdatingId === lead.id}
+                        onChange={e => handleLeadStatus(lead.id, e.target.value)}
+                        className={`shrink-0 text-xs font-semibold rounded-lg border px-2 py-1 cursor-pointer disabled:opacity-50 ${statusCfg[lead.status] ?? statusCfg.new}`}
+                      >
+                        <option value="new">New</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="won">Won</option>
+                        <option value="lost">Lost</option>
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* ── Settings panels ──────────────────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Subscription */}
@@ -1494,6 +1682,47 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
             {prequalSaved?.url && (
               <p className="text-xs text-emerald-600">
                 Active on all your portals · <a href={prequalSaved.url} target="_blank" rel="noopener noreferrer" className="underline">Preview link</a>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ── Book a Meeting CTA ── */}
+        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">
+            Book a Meeting
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Add your scheduling link (Calendly, etc.). Buyers see a &ldquo;Book a meeting&rdquo; button on every shared proposal — the fastest path from interest to a booked appointment.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1">Scheduling URL <span className="font-normal text-gray-400">(must start with https://)</span></label>
+              <input
+                type="url"
+                value={appointmentUrl}
+                onChange={e => setAppointmentUrl(e.target.value)}
+                placeholder="https://calendly.com/your-name/intro"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-blue-400 transition"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSaveAppointment}
+                disabled={savingAppointment || appointmentUrl === (appointmentSaved ?? "")}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors disabled:opacity-40"
+              >
+                {savingAppointment ? "Saving…" : "Save"}
+              </button>
+              {appointmentMsg && (
+                <span className={`text-xs font-semibold ${appointmentMsg.ok ? "text-emerald-600" : "text-red-600"}`}>
+                  {appointmentMsg.text}
+                </span>
+              )}
+            </div>
+            {appointmentSaved && (
+              <p className="text-xs text-emerald-600">
+                Active on all your portals · <a href={appointmentSaved} target="_blank" rel="noopener noreferrer" className="underline">Preview link</a>
               </p>
             )}
           </div>
