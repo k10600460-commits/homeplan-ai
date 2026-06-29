@@ -147,6 +147,9 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [leadUpdatingId, setLeadUpdatingId] = useState<string | null>(null);
 
+  // Getting-started onboarding banner (dismissible, client-only). Default hidden to avoid SSR flash.
+  const [onbDismissed, setOnbDismissed] = useState(true);
+
   // Nurture drafts (Follow-ups)
   const [nurtureDrafts, setNurtureDrafts] = useState<NurtureDraft[]>([]);
   const [nurtureLoading, setNurtureLoading] = useState(true);
@@ -396,6 +399,10 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
         setLeadsLoading(false);
       })
       .catch(() => setLeadsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setOnbDismissed(localStorage.getItem("splanai_onboarding_dismissed") === "1");
   }, []);
 
   useEffect(() => {
@@ -713,6 +720,12 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const visibleLeads = showAllLeads ? activeLeads : activeLeads.slice(0, 5);
   const visibleFollowups = showAllFollowups ? nurtureDrafts : nurtureDrafts.slice(0, 5);
 
+  // Onboarding checklist completion (computed from already-fetched data)
+  const onbProposals = sharedLinks.length > 0;
+  const onbBranding  = companyName.trim().length > 0;
+  const onbPrequal   = !!prequalSaved?.url;
+  const onbShow      = !onbDismissed && (!onbProposals || !onbBranding || !onbPrequal);
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -866,6 +879,45 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
             New proposal →
           </a>
         </div>
+
+        {/* Getting started — dismissible onboarding nudge for new/incomplete accounts */}
+        {onbShow && (
+          <div className="mb-6 rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-gray-900">👋 Get set up — win your next deal in 3 steps</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Most builders send their first branded proposal in a couple of minutes.</p>
+              </div>
+              <button
+                onClick={() => { localStorage.setItem("splanai_onboarding_dismissed", "1"); setOnbDismissed(true); }}
+                aria-label="Dismiss"
+                className="shrink-0 text-gray-300 hover:text-gray-500 text-xl leading-none"
+              >×</button>
+            </div>
+            <ul className="mt-4 space-y-2.5">
+              {[
+                { done: onbProposals, label: "Create your first proposal", hint: "30 seconds — lot + budget → 3 concepts" },
+                { done: onbBranding,  label: "Add your company name & logo", hint: "every proposal & PDF goes out branded as yours (below)" },
+                { done: onbPrequal,   label: "Add your lender pre-qualification link", hint: "buyers get a “Get pre-qualified” button; clicks show as hot leads (below)" },
+              ].map((step, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className={`shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${step.done ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>
+                    {step.done ? "✓" : i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-semibold ${step.done ? "text-gray-400 line-through" : "text-gray-800"}`}>{step.label}</p>
+                    <p className="text-xs text-gray-400">{step.hint}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {!onbProposals && (
+              <a href="/generate" className="mt-4 inline-flex items-center gap-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 transition-colors">
+                Create your first proposal →
+              </a>
+            )}
+          </div>
+        )}
 
         {/* KPI Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
