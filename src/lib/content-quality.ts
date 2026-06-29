@@ -36,7 +36,7 @@ const SUSPECT_STAT_PATTERNS = [
   { label: "more-likely-pct", regex: /\b\d{1,3}\s?%\s+(?:more|less)\s+likely\b/i },
   { label: "fabricated-study", regex: /\b(?:nahb|industry|recent|a)\s+(?:study|survey|report|benchmark)s?\s+(?:found|shows|showed|says|suggests)\b/i },
   { label: "study-found", regex: /\bstud(?:y|ies)\s+(?:found|show|shows|showed)\b/i },
-  { label: "profit-claim", regex: /\$\s?\d[\d,.]*\s*(?:million|billion|k|thousand)?\s+in\s+(?:additional\s+)?(?:profit|revenue|sales)\b/i },
+  { label: "profit-claim", regex: /\$\s?\d[\d,.]*\s*(?:million|billion|thousand|[kmb])?\s+in\s+(?:additional\s+)?(?:profit|revenue|sales)\b/i },
   { label: "roi-seeing", regex: /\bROI\b[^.\n]{0,40}\bbuilders\b[^.\n]{0,20}\bseeing\b/i },
 ] as const;
 
