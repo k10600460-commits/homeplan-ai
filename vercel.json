@@ -43,6 +43,14 @@
     {
       "path": "/api/cron/x-post",
       "schedule": "0 13,14,18,19 * * *"
+    },
+    {
+      "path": "/api/cron/fb-draft",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/fb-post",
+      "schedule": "0 16,17 * * *"
     }
   ]
 }
