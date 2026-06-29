@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import { ExternalLink, Plus, RefreshCw } from "lucide-react";
 
 export type GrowthCompany = {
   id: string;
@@ -51,6 +51,22 @@ export type GrowthOutreachEvent = {
   body_excerpt: string | null;
   occurred_at: string;
   metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type GrowthProposal = {
+  id: string;
+  company_id: string | null;
+  lead_id: string | null;
+  shared_link_id: string | null;
+  slug: string | null;
+  metro: string | null;
+  lot_descriptor: string | null;
+  status: "draft" | "sent" | "opened" | "engaged";
+  built_at: string;
+  first_opened_at: string | null;
+  open_count: number;
+  last_opened_at: string | null;
   created_at: string;
 };
 
@@ -132,13 +148,16 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
   const [stageFilter, setStageFilter] = useState<"all" | GrowthLead["stage"]>("all");
   const [selectedLeadId, setSelectedLeadId] = useState(initialLeads[0]?.id ?? "");
   const [eventsByLead, setEventsByLead] = useState<Record<string, GrowthOutreachEvent[]>>({});
+  const [proposalsByLead, setProposalsByLead] = useState<Record<string, GrowthProposal[]>>({});
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     loadError ? { ok: false, text: loadError } : null,
   );
   const [savingCompany, setSavingCompany] = useState(false);
   const [savingLead, setSavingLead] = useState(false);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [loadingProposals, setLoadingProposals] = useState(false);
   const [savingEvent, setSavingEvent] = useState(false);
+  const [savingProposal, setSavingProposal] = useState(false);
   const [companyForm, setCompanyForm] = useState({
     name: "",
     website: "",
@@ -165,6 +184,11 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
     sentiment: "",
     note: "",
   });
+  const [proposalForm, setProposalForm] = useState({
+    slug: "",
+    metro: "",
+    lot_descriptor: "",
+  });
 
   const filteredLeads = useMemo(() => {
     if (stageFilter === "all") return leads;
@@ -175,6 +199,7 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
     [filteredLeads, leads, selectedLeadId],
   );
   const selectedLeadEvents = selectedLead ? eventsByLead[selectedLead.id] ?? [] : [];
+  const selectedLeadProposals = selectedLead ? proposalsByLead[selectedLead.id] ?? [] : [];
 
   useEffect(() => {
     if (!selectedLead?.id || eventsByLead[selectedLead.id]) return;
@@ -203,6 +228,34 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
       cancelled = true;
     };
   }, [eventsByLead, selectedLead]);
+
+  useEffect(() => {
+    if (!selectedLead?.id || proposalsByLead[selectedLead.id]) return;
+
+    let cancelled = false;
+
+    async function loadProposals() {
+      if (!selectedLead?.id) return;
+      setLoadingProposals(true);
+      const response = await fetch(`/api/growth/proposals?lead_id=${encodeURIComponent(selectedLead.id)}`);
+      const data = await response.json() as { proposals?: GrowthProposal[]; error?: string };
+
+      if (!cancelled) {
+        if (response.ok) {
+          setProposalsByLead((current) => ({ ...current, [selectedLead.id]: data.proposals ?? [] }));
+        } else {
+          setMessage({ ok: false, text: data.error ?? "Failed to load proposals" });
+        }
+        setLoadingProposals(false);
+      }
+    }
+
+    loadProposals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [proposalsByLead, selectedLead]);
 
   async function handleCreateCompany(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -303,6 +356,39 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
     }
 
     setSavingEvent(false);
+  }
+
+  async function handleLinkProposal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedLead?.id || !proposalForm.slug.trim()) return;
+
+    setSavingProposal(true);
+    setMessage(null);
+
+    const response = await fetch("/api/growth/proposals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lead_id: selectedLead.id,
+        slug: proposalForm.slug,
+        metro: proposalForm.metro,
+        lot_descriptor: proposalForm.lot_descriptor,
+      }),
+    });
+    const data = await response.json() as { proposal?: GrowthProposal; error?: string };
+
+    if (response.ok && data.proposal) {
+      setProposalsByLead((current) => ({
+        ...current,
+        [selectedLead.id]: [data.proposal!, ...(current[selectedLead.id] ?? [])],
+      }));
+      setProposalForm({ slug: "", metro: "", lot_descriptor: "" });
+      setMessage({ ok: true, text: "Demo portal linked" });
+    } else {
+      setMessage({ ok: false, text: data.error ?? "Failed to link demo portal" });
+    }
+
+    setSavingProposal(false);
   }
 
   async function refreshLeads() {
@@ -437,8 +523,52 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
                         {selectedLead ? leadCompany(selectedLead)?.name ?? "Unknown company" : "No lead selected"}
                       </p>
                     </div>
-                    {loadingEvents && <span className="text-xs font-medium text-gray-400">Loading</span>}
+                    {(loadingEvents || loadingProposals) && <span className="text-xs font-medium text-gray-400">Loading</span>}
                   </div>
+
+                  {selectedLead && (
+                    <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Demo portals</h3>
+                        <span className="text-xs font-medium text-gray-400">{selectedLeadProposals.length} linked</span>
+                      </div>
+
+                      {selectedLeadProposals.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-5 text-center text-sm text-gray-400">
+                          No demo portal linked.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {selectedLeadProposals.map((proposal) => (
+                            <div key={proposal.id} className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                  <a
+                                    href={proposal.slug ? `/s/${proposal.slug}` : "#"}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 font-mono text-sm font-semibold text-blue-700 hover:text-blue-900"
+                                  >
+                                    /s/{proposal.slug ?? "-"}
+                                    {proposal.slug && <ExternalLink className="h-3.5 w-3.5" />}
+                                  </a>
+                                  <div className="mt-1 text-xs text-gray-400">
+                                    {[proposal.metro, proposal.lot_descriptor].filter(Boolean).join(" · ") || "No lot context"}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-sm font-bold text-gray-900">{proposal.open_count} opens</div>
+                                  <div className="text-xs text-gray-400">
+                                    {proposal.last_opened_at ? formatDateTime(proposal.last_opened_at) : "Not opened"}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {!selectedLead ? (
                     <div className="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-400">
@@ -472,7 +602,39 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
                   )}
                 </div>
 
-                <form onSubmit={handleCreateEvent} className="xl:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
+                <div className="xl:col-span-2 space-y-4">
+                <form onSubmit={handleLinkProposal} className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
+                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Link demo portal</h3>
+                  <input
+                    value={proposalForm.slug}
+                    onChange={(event) => setProposalForm((current) => ({ ...current, slug: event.target.value }))}
+                    placeholder="Slug or /s/slug"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                    required
+                  />
+                  <input
+                    value={proposalForm.metro}
+                    onChange={(event) => setProposalForm((current) => ({ ...current, metro: event.target.value }))}
+                    placeholder="Metro"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                  <input
+                    value={proposalForm.lot_descriptor}
+                    onChange={(event) => setProposalForm((current) => ({ ...current, lot_descriptor: event.target.value }))}
+                    placeholder="Lot context"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingProposal || !selectedLead || !proposalForm.slug.trim()}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {savingProposal ? "Linking" : "Link portal"}
+                  </button>
+                </form>
+
+                <form onSubmit={handleCreateEvent} className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
                   <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Add touch</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
                     <select
@@ -520,6 +682,7 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
                     {savingEvent ? "Adding" : "Add touch"}
                   </button>
                 </form>
+                </div>
               </div>
             </div>
           </section>
