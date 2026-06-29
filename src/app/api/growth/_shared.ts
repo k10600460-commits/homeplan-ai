@@ -13,6 +13,11 @@ export const EMAIL_STATUSES = ["unverified", "valid", "risky", "invalid"] as con
 export const LEAD_STAGES = ["to_contact", "contacted", "replied", "demo_scheduled", "trial", "won", "lost"] as const;
 export const LEAD_CHANNELS = ["linkedin", "email", "referral", "inbound"] as const;
 export const LEAD_OWNERS = ["shoji", "va"] as const;
+export const CAMPAIGN_CHANNELS = ["linkedin", "email", "referral", "inbound"] as const;
+export const OUTREACH_CHANNELS = ["linkedin", "email", "call", "webinar"] as const;
+export const OUTREACH_TYPES = ["connect_request", "connect_accepted", "dm", "comment", "email_sent", "email_open", "email_reply", "portal_open", "call", "follow_up"] as const;
+export const OUTREACH_DIRECTIONS = ["outbound", "inbound"] as const;
+export const OUTREACH_SENTIMENTS = ["pos", "neutral", "neg"] as const;
 
 export async function requireGrowthMaster() {
   const supabase = await createServerClient();
