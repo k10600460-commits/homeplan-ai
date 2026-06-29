@@ -411,9 +411,14 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
             <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Internal</p>
             <h1 className="text-xl font-bold text-gray-900">Growth CRM</h1>
           </div>
-          <a href="/dashboard" className="text-sm font-semibold text-gray-500 hover:text-gray-900">
-            Dashboard
-          </a>
+          <nav className="flex items-center gap-4 text-sm font-semibold">
+            <a href="/dashboard/growth/metrics" className="text-gray-500 hover:text-gray-900">
+              Metrics
+            </a>
+            <a href="/dashboard" className="text-gray-500 hover:text-gray-900">
+              Dashboard
+            </a>
+          </nav>
         </div>
       </header>
 
