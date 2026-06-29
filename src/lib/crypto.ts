@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;   // GCM standard
@@ -39,4 +39,39 @@ export function decrypt(ciphertext: string): string {
 /** One-way SHA-256 hash for IP logging (never store raw IPs) */
 export function hashIp(ip: string): string {
   return createHash("sha256").update(ip).digest("hex");
+}
+
+export function signPayload(payload: Record<string, unknown>): string {
+  const encodedPayload = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const signature = createHmac("sha256", getKey()).update(encodedPayload).digest("base64url");
+  return `${encodedPayload}.${signature}`;
+}
+
+export function verifySignedPayload(token: string): Record<string, unknown> | null {
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+
+  const [encodedPayload, signature] = parts;
+  if (!encodedPayload || !signature) return null;
+
+  const expected = createHmac("sha256", getKey()).update(encodedPayload).digest();
+  let actual: Buffer;
+  try {
+    actual = Buffer.from(signature, "base64url");
+  } catch {
+    return null;
+  }
+
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+    return null;
+  }
+
+  try {
+    const decoded = Buffer.from(encodedPayload, "base64url").toString("utf8");
+    const payload = JSON.parse(decoded) as unknown;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+    return payload as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
