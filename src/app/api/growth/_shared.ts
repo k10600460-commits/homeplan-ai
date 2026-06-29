@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export const MASTER_USER_ID = "12d6d041-dc0a-4772-8aa7-d71fa2ff43a7";
@@ -18,6 +19,8 @@ export const OUTREACH_CHANNELS = ["linkedin", "email", "call", "webinar"] as con
 export const OUTREACH_TYPES = ["connect_request", "connect_accepted", "dm", "comment", "email_sent", "email_open", "email_reply", "portal_open", "call", "follow_up"] as const;
 export const OUTREACH_DIRECTIONS = ["outbound", "inbound"] as const;
 export const OUTREACH_SENTIMENTS = ["pos", "neutral", "neg"] as const;
+export const SUPPRESSION_REASONS = ["unsubscribe", "bounce_hard", "complaint", "manual", "competitor"] as const;
+export const UNSUBSCRIBE_SOURCES = ["email_link", "reply", "manual"] as const;
 
 export async function requireGrowthMaster() {
   const supabase = await createServerClient();
@@ -51,6 +54,69 @@ export function cleanString(value: unknown, maxLength = 500): string | null {
 export function nullableString(value: unknown, maxLength = 500): string | null | undefined {
   if (value === undefined) return undefined;
   return cleanString(value, maxLength);
+}
+
+export function normalizeGrowthEmail(value: unknown): string | null {
+  const email = cleanString(value, 255)?.toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  return email;
+}
+
+export function normalizeGrowthDomain(value: unknown): string | null {
+  const raw = cleanString(value, 255)?.toLowerCase();
+  if (!raw) return null;
+
+  const domain = raw
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0]
+    .replace(/^@/, "")
+    .replace(/\.$/, "");
+
+  if (!domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) return null;
+  return domain;
+}
+
+export function domainFromGrowthEmail(email: string): string | null {
+  const normalized = normalizeGrowthEmail(email);
+  if (!normalized) return null;
+  return normalized.split("@")[1] ?? null;
+}
+
+export async function isGrowthSuppressed(
+  supabase: SupabaseClient,
+  email: string,
+): Promise<boolean> {
+  const normalizedEmail = normalizeGrowthEmail(email);
+  if (!normalizedEmail) return false;
+
+  const { data: emailMatches, error: emailError } = await supabase
+    .from("growth_suppression_list")
+    .select("id")
+    .ilike("email", normalizedEmail)
+    .limit(1);
+
+  if (emailError) {
+    console.error("[growth/suppression] email check failed:", emailError.message);
+    return true;
+  }
+  if ((emailMatches ?? []).length > 0) return true;
+
+  const domain = domainFromGrowthEmail(normalizedEmail);
+  if (!domain) return false;
+
+  const { data: domainMatches, error: domainError } = await supabase
+    .from("growth_suppression_list")
+    .select("id")
+    .eq("domain", domain)
+    .limit(1);
+
+  if (domainError) {
+    console.error("[growth/suppression] domain check failed:", domainError.message);
+    return true;
+  }
+
+  return (domainMatches ?? []).length > 0;
 }
 
 export async function readJson(req: Request): Promise<Record<string, unknown> | null> {
