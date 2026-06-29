@@ -699,6 +699,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const kpiTotalViews = sharedLinks.reduce((s, l) => s + l.view_count, 0);
   const kpiHotLeads = intentSignals.filter(s => s.heat === "HOT").length;
   const kpiFollowups = nurtureDrafts.length;
+  const kpiWon = leads.filter(l => l.status === "won").length;
 
   const filteredLinks = sharedLinks
     .filter(l => {
@@ -920,12 +921,13 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
         )}
 
         {/* KPI Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
           {([
             { label: "Active Portals",  value: kpiActiveProposals, sub: "shared proposals",   accent: false },
             { label: "Total Views",     value: kpiTotalViews,      sub: "all time",            accent: false },
             { label: "Hot Leads",       value: kpiHotLeads,        sub: "need action",         accent: kpiHotLeads > 0 },
             { label: "Follow-ups",      value: kpiFollowups,       sub: "drafts pending",      accent: kpiFollowups > 0 },
+            { label: "Closed Won",      value: kpiWon,             sub: "from inquiries",      accent: kpiWon > 0 },
           ] as { label: string; value: number; sub: string; accent: boolean }[]).map(k => (
             <div key={k.label} className={`bg-white rounded-2xl border shadow-sm px-4 py-3 ${k.accent ? "border-red-200 bg-red-50" : "border-gray-200"}`}>
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">{k.label}</p>
