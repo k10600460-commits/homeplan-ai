@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 
 export type GrowthCompany = {
@@ -38,6 +38,22 @@ export type GrowthLead = {
   growth_companies: LeadCompany | LeadCompany[] | null;
 };
 
+export type GrowthOutreachEvent = {
+  id: string;
+  lead_id: string;
+  contact_id: string | null;
+  campaign_id: string | null;
+  channel: "linkedin" | "email" | "call" | "webinar";
+  type: "connect_request" | "connect_accepted" | "dm" | "comment" | "email_sent" | "email_open" | "email_reply" | "portal_open" | "call" | "follow_up";
+  direction: "outbound" | "inbound" | null;
+  template_key: string | null;
+  sentiment: "pos" | "neutral" | "neg" | null;
+  body_excerpt: string | null;
+  occurred_at: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
 type Props = {
   initialCompanies: GrowthCompany[];
   initialLeads: GrowthLead[];
@@ -65,11 +81,43 @@ const STAGE_STYLES: Record<GrowthLead["stage"], string> = {
   lost: "bg-slate-100 text-slate-500 border-slate-200",
 };
 
+const TOUCH_CHANNELS = ["linkedin", "email", "call", "webinar"] as const;
+const TOUCH_TYPES = ["connect_request", "connect_accepted", "dm", "comment", "email_sent", "email_open", "email_reply", "portal_open", "call", "follow_up"] as const;
+const TOUCH_SENTIMENTS = ["pos", "neutral", "neg"] as const;
+
+const TOUCH_TYPE_LABELS: Record<GrowthOutreachEvent["type"], string> = {
+  connect_request: "Connect request",
+  connect_accepted: "Connect accepted",
+  dm: "DM",
+  comment: "Comment",
+  email_sent: "Email sent",
+  email_open: "Email open",
+  email_reply: "Email reply",
+  portal_open: "Portal open",
+  call: "Call",
+  follow_up: "Follow up",
+};
+
+const SENTIMENT_LABELS: Record<NonNullable<GrowthOutreachEvent["sentiment"]>, string> = {
+  pos: "Positive",
+  neutral: "Neutral",
+  neg: "Negative",
+};
+
 function formatDate(value: string | null) {
   if (!value) return "-";
   return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+  });
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -82,11 +130,15 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
   const [companies, setCompanies] = useState(initialCompanies);
   const [leads, setLeads] = useState(initialLeads);
   const [stageFilter, setStageFilter] = useState<"all" | GrowthLead["stage"]>("all");
+  const [selectedLeadId, setSelectedLeadId] = useState(initialLeads[0]?.id ?? "");
+  const [eventsByLead, setEventsByLead] = useState<Record<string, GrowthOutreachEvent[]>>({});
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     loadError ? { ok: false, text: loadError } : null,
   );
   const [savingCompany, setSavingCompany] = useState(false);
   const [savingLead, setSavingLead] = useState(false);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [savingEvent, setSavingEvent] = useState(false);
   const [companyForm, setCompanyForm] = useState({
     name: "",
     website: "",
@@ -102,11 +154,55 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
     next_action: "",
     next_action_date: "",
   });
+  const [touchForm, setTouchForm] = useState<{
+    channel: GrowthOutreachEvent["channel"];
+    type: GrowthOutreachEvent["type"];
+    sentiment: "" | NonNullable<GrowthOutreachEvent["sentiment"]>;
+    note: string;
+  }>({
+    channel: "linkedin",
+    type: "dm",
+    sentiment: "",
+    note: "",
+  });
 
   const filteredLeads = useMemo(() => {
     if (stageFilter === "all") return leads;
     return leads.filter((lead) => lead.stage === stageFilter);
   }, [leads, stageFilter]);
+  const selectedLead = useMemo(
+    () => leads.find((lead) => lead.id === selectedLeadId) ?? filteredLeads[0] ?? leads[0] ?? null,
+    [filteredLeads, leads, selectedLeadId],
+  );
+  const selectedLeadEvents = selectedLead ? eventsByLead[selectedLead.id] ?? [] : [];
+
+  useEffect(() => {
+    if (!selectedLead?.id || eventsByLead[selectedLead.id]) return;
+
+    let cancelled = false;
+
+    async function loadEvents() {
+      if (!selectedLead?.id) return;
+      setLoadingEvents(true);
+      const response = await fetch(`/api/growth/events?lead_id=${encodeURIComponent(selectedLead.id)}`);
+      const data = await response.json() as { events?: GrowthOutreachEvent[]; error?: string };
+
+      if (!cancelled) {
+        if (response.ok) {
+          setEventsByLead((current) => ({ ...current, [selectedLead.id]: data.events ?? [] }));
+        } else {
+          setMessage({ ok: false, text: data.error ?? "Failed to load events" });
+        }
+        setLoadingEvents(false);
+      }
+    }
+
+    loadEvents();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [eventsByLead, selectedLead]);
 
   async function handleCreateCompany(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -164,6 +260,7 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
 
     if (response.ok && data.lead) {
       setLeads((current) => [data.lead!, ...current]);
+      setSelectedLeadId(data.lead.id);
       setLeadForm((current) => ({ ...current, stage: "to_contact", next_action: "", next_action_date: "" }));
       setMessage({ ok: true, text: "Lead added" });
     } else {
@@ -171,6 +268,41 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
     }
 
     setSavingLead(false);
+  }
+
+  async function handleCreateEvent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedLead?.id) return;
+
+    setSavingEvent(true);
+    setMessage(null);
+
+    const response = await fetch("/api/growth/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lead_id: selectedLead.id,
+        channel: touchForm.channel,
+        type: touchForm.type,
+        direction: "outbound",
+        sentiment: touchForm.sentiment || undefined,
+        body_excerpt: touchForm.note,
+      }),
+    });
+    const data = await response.json() as { event?: GrowthOutreachEvent; error?: string };
+
+    if (response.ok && data.event) {
+      setEventsByLead((current) => ({
+        ...current,
+        [selectedLead.id]: [...(current[selectedLead.id] ?? []), data.event!],
+      }));
+      setTouchForm((current) => ({ ...current, type: "dm", sentiment: "", note: "" }));
+      setMessage({ ok: true, text: "Touch added" });
+    } else {
+      setMessage({ ok: false, text: data.error ?? "Failed to add touch" });
+    }
+
+    setSavingEvent(false);
   }
 
   async function refreshLeads() {
@@ -266,9 +398,15 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
                     filteredLeads.map((lead) => {
                       const company = leadCompany(lead);
                       return (
-                        <tr key={lead.id} className="bg-white">
+                        <tr key={lead.id} className={lead.id === selectedLead?.id ? "bg-blue-50/50" : "bg-white"}>
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-gray-900">{company?.name ?? "Unknown company"}</div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLeadId(lead.id)}
+                              className="text-left font-semibold text-gray-900 hover:text-blue-700"
+                            >
+                              {company?.name ?? "Unknown company"}
+                            </button>
                             <div className="text-xs text-gray-400">
                               {[company?.metro, company?.state, company?.tier ? `Tier ${company.tier}` : null].filter(Boolean).join(" · ") || "-"}
                             </div>
@@ -287,6 +425,102 @@ export default function GrowthDashboardClient({ initialCompanies, initialLeads, 
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="border-t border-gray-100 p-4">
+              <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+                <div className="xl:col-span-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Timeline</h3>
+                      <p className="mt-1 text-sm font-semibold text-gray-900">
+                        {selectedLead ? leadCompany(selectedLead)?.name ?? "Unknown company" : "No lead selected"}
+                      </p>
+                    </div>
+                    {loadingEvents && <span className="text-xs font-medium text-gray-400">Loading</span>}
+                  </div>
+
+                  {!selectedLead ? (
+                    <div className="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-400">
+                      Select a lead to view touches.
+                    </div>
+                  ) : selectedLeadEvents.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-400">
+                      No touches logged for this lead.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {selectedLeadEvents.map((item) => (
+                        <div key={item.id} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-md bg-gray-100 px-2 py-1 text-[11px] font-bold uppercase text-gray-600">
+                                {item.channel}
+                              </span>
+                              <span className="text-sm font-semibold text-gray-900">{TOUCH_TYPE_LABELS[item.type]}</span>
+                              {item.sentiment && (
+                                <span className="text-xs font-medium text-gray-500">{SENTIMENT_LABELS[item.sentiment]}</span>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-400">{formatDateTime(item.occurred_at)}</span>
+                          </div>
+                          {item.body_excerpt && <p className="mt-2 text-sm leading-6 text-gray-700">{item.body_excerpt}</p>}
+                          {item.template_key && <p className="mt-1 text-xs text-gray-400">Template: {item.template_key}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <form onSubmit={handleCreateEvent} className="xl:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
+                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Add touch</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
+                    <select
+                      value={touchForm.channel}
+                      onChange={(event) => setTouchForm((current) => ({ ...current, channel: event.target.value as GrowthOutreachEvent["channel"] }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400 bg-white text-gray-700"
+                    >
+                      {TOUCH_CHANNELS.map((channel) => (
+                        <option key={channel} value={channel}>{channel}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={touchForm.type}
+                      onChange={(event) => setTouchForm((current) => ({ ...current, type: event.target.value as GrowthOutreachEvent["type"] }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400 bg-white text-gray-700"
+                    >
+                      {TOUCH_TYPES.map((type) => (
+                        <option key={type} value={type}>{TOUCH_TYPE_LABELS[type]}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={touchForm.sentiment}
+                      onChange={(event) => setTouchForm((current) => ({ ...current, sentiment: event.target.value as typeof current.sentiment }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400 bg-white text-gray-700"
+                    >
+                      <option value="">Sentiment</option>
+                      {TOUCH_SENTIMENTS.map((sentiment) => (
+                        <option key={sentiment} value={sentiment}>{SENTIMENT_LABELS[sentiment]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <textarea
+                    value={touchForm.note}
+                    onChange={(event) => setTouchForm((current) => ({ ...current, note: event.target.value }))}
+                    placeholder="Note"
+                    rows={4}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingEvent || !selectedLead}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-black disabled:opacity-60"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {savingEvent ? "Adding" : "Add touch"}
+                  </button>
+                </form>
+              </div>
             </div>
           </section>
 

@@ -1,8 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type GrowthDraftTarget = {
+  growthLeadId?: string | null;
+  contactId?: string | null;
+  campaignId?: string | null;
+  type?: "dm" | "follow_up" | null;
+  templateKey?: string | null;
+  bodyExcerpt?: string | null;
+};
+
+async function logGrowthOutreachEventForDraft(
+  supabase: SupabaseClient,
+  target: GrowthDraftTarget | null,
+) {
+  if (!target?.growthLeadId) return;
+
+  const { data: lead, error: leadError } = await supabase
+    .from("growth_leads")
+    .select("id")
+    .eq("id", target.growthLeadId)
+    .maybeSingle();
+
+  if (leadError || !lead) {
+    if (leadError) console.warn("[sales-dm-draft] Growth lead lookup skipped:", leadError.message);
+    return;
+  }
+
+  const { error: eventError } = await supabase
+    .from("growth_outreach_events")
+    .insert({
+      lead_id: lead.id,
+      contact_id: target.contactId ?? null,
+      campaign_id: target.campaignId ?? null,
+      channel: "linkedin",
+      type: target.type === "follow_up" ? "follow_up" : "dm",
+      direction: "outbound",
+      template_key: target.templateKey ?? null,
+      body_excerpt: target.bodyExcerpt?.slice(0, 2000) ?? null,
+      metadata: { source: "sales-dm-draft" },
+    });
+
+  if (eventError) {
+    console.warn("[sales-dm-draft] Growth outreach event skipped:", eventError.message);
+  }
+}
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -29,6 +74,7 @@ export async function GET(req: NextRequest) {
   // - Generate personalized DM drafts via Claude API
   // - Save to obsidian-vault/YYYY-MM-DD-sales-drafts.md
   // - Notify Shuraemon via daily-brief escalation
+  await logGrowthOutreachEventForDraft(supabase, null);
   console.log("[sales-dm-draft] Skeleton fired — full implementation coming Week 1 post-launch");
 
   return NextResponse.json({ ok: true, status: "skeleton" });
