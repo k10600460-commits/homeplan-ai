@@ -137,6 +137,16 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const [intentSignals, setIntentSignals] = useState<IntentSignal[]>([]);
   const [intentLoading, setIntentLoading] = useState(true);
 
+  // Inbound portal leads (Follow-up lite: status = new/contacted/won/lost)
+  type Lead = {
+    id: string; link_id: string | null; buyer_name: string | null; buyer_email: string | null;
+    buyer_phone: string | null; plan_index: number | null; message: string | null;
+    status: string; note: string | null; created_at: string; updated_at: string | null;
+  };
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
+  const [leadUpdatingId, setLeadUpdatingId] = useState<string | null>(null);
+
   // Nurture drafts (Follow-ups)
   const [nurtureDrafts, setNurtureDrafts] = useState<NurtureDraft[]>([]);
   const [nurtureLoading, setNurtureLoading] = useState(true);
@@ -379,6 +389,16 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   }, []);
 
   useEffect(() => {
+    fetch("/api/leads")
+      .then(r => r.json())
+      .then((d: { leads?: Lead[] }) => {
+        setLeads(d.leads ?? []);
+        setLeadsLoading(false);
+      })
+      .catch(() => setLeadsLoading(false));
+  }, []);
+
+  useEffect(() => {
     fetch("/api/profile/prequal")
       .then(r => r.json())
       .then((d: { prequalUrl?: string | null; prequalLabel?: string | null }) => {
@@ -440,6 +460,19 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
       if (res.ok) setNurtureDrafts(prev => prev.filter(d => d.id !== draftId));
     } catch { /* ignore */ }
     finally { setNurtureDismissingId(null); }
+  }
+
+  async function handleLeadStatus(leadId: string, status: string) {
+    setLeadUpdatingId(leadId);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, status } : l)));
+    } catch { /* ignore */ }
+    finally { setLeadUpdatingId(null); }
   }
 
   // Check MLS connection status on mount
@@ -1207,6 +1240,67 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                 </button>
               )}
             </>
+          )}
+        </div>
+
+        {/* Inquiries / Leads (Follow-up lite) */}
+        <div className="mb-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Inquiries</h2>
+            {!leadsLoading && leads.length > 0 && (
+              <span className="text-xs text-gray-400">
+                {leads.filter(l => l.status === "new").length} new · {leads.filter(l => l.status === "won").length} won
+              </span>
+            )}
+          </div>
+          {leadsLoading ? (
+            <div className="space-y-2">
+              {[0,1].map(i => <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />)}
+            </div>
+          ) : leads.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">No inquiries yet. When a buyer submits the contact form on a shared proposal, it appears here.</p>
+          ) : (
+            <div className="space-y-3">
+              {leads.map(lead => {
+                const statusCfg: Record<string, string> = {
+                  new:       "bg-blue-50 text-blue-700 border-blue-200",
+                  contacted: "bg-amber-50 text-amber-700 border-amber-200",
+                  won:       "bg-emerald-50 text-emerald-700 border-emerald-200",
+                  lost:      "bg-gray-100 text-gray-500 border-gray-200",
+                };
+                return (
+                  <div key={lead.id} className="px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-sm font-semibold text-gray-900 truncate">{lead.buyer_name || "Buyer"}</span>
+                          {typeof lead.plan_index === "number" && (
+                            <span className="text-xs text-gray-400 shrink-0">Plan {String.fromCharCode(65 + lead.plan_index)}</span>
+                          )}
+                          <span className="text-xs text-gray-400 ml-auto shrink-0">{lead.created_at ? timeAgo(lead.created_at) : ""}</span>
+                        </div>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {lead.buyer_email && <a href={`mailto:${lead.buyer_email}`} className="text-xs text-blue-600 hover:underline truncate">{lead.buyer_email}</a>}
+                          {lead.buyer_phone && <a href={`tel:${lead.buyer_phone}`} className="text-xs text-gray-600 hover:underline">{lead.buyer_phone}</a>}
+                        </div>
+                        {lead.message && <p className="text-xs text-gray-500 mt-1.5 line-clamp-2">{lead.message}</p>}
+                      </div>
+                      <select
+                        value={lead.status}
+                        disabled={leadUpdatingId === lead.id}
+                        onChange={e => handleLeadStatus(lead.id, e.target.value)}
+                        className={`shrink-0 text-xs font-semibold rounded-lg border px-2 py-1 cursor-pointer disabled:opacity-50 ${statusCfg[lead.status] ?? statusCfg.new}`}
+                      >
+                        <option value="new">New</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="won">Won</option>
+                        <option value="lost">Lost</option>
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
 
