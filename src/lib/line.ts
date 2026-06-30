@@ -159,3 +159,80 @@ export function buildDigestCarousel(
   const altText = `📊 SplanAI Research ${runDate} — 採用${count}件（LINEで承認/却下/保留）`.slice(0, 390);
   return { type: "flex", altText, contents: { type: "carousel", contents: bubbles } };
 }
+
+// ── Phase 1: information-only research carousel (NO decision buttons) ─────────
+// Used by the daily brief to surface the audited time-sensitive ("時事ネタ")
+// research as read-only Flex bubbles. Unlike buildDigestCarousel above, there is
+// NO footer / approve-reject-hold — the only interactive element is an optional
+// "open article" URI link in the body. buildDigestCarousel + proposalBubble are
+// intentionally kept for Phase 2 (the knowledge-loop approval carousel).
+export interface NewsItem {
+  title: string;
+  url?: string | null;
+  summary?: string | null;
+  whyItMatters?: string | null;
+  tag?: string | null;
+  score?: number | null;
+}
+
+function newsBubble(it: NewsItem, header: { runDate: string } | null): Flex {
+  const body: Flex[] = [
+    { type: "text", text: it.title || "(untitled)", weight: "bold", size: "md", wrap: true, maxLines: 5 },
+  ];
+
+  const meta: string[] = [];
+  if (it.tag) meta.push(it.tag);
+  if (it.score != null) meta.push(`スコア ${it.score}`);
+  if (meta.length) {
+    body.push({ type: "text", text: meta.join(" ・ "), size: "xs", color: "#6b7280", wrap: true, margin: "sm" });
+  }
+  if (it.summary) {
+    body.push({ type: "text", text: it.summary, size: "sm", color: "#374151", wrap: true, margin: "sm" });
+  }
+  if (it.whyItMatters) {
+    body.push({ type: "text", text: it.whyItMatters, size: "sm", color: "#374151", wrap: true, margin: "sm" });
+  }
+  // Article link is a URI button (not body text) so LINE never link-previews /
+  // prefetches it. No footer is added — this carousel is information-only.
+  if (it.url) {
+    body.push(uriButton("link", "🔗 記事を開く", it.url));
+  }
+
+  const bubble: Flex = {
+    type: "bubble",
+    body: { type: "box", layout: "vertical", spacing: "sm", contents: body },
+  };
+
+  if (header) {
+    bubble.header = {
+      type: "box",
+      layout: "vertical",
+      paddingBottom: "sm",
+      contents: [
+        { type: "text", text: `📰 SplanAI 時事ネタ ${header.runDate}`, weight: "bold", size: "sm", color: "#1d4ed8", wrap: true },
+      ],
+    };
+  }
+
+  return bubble;
+}
+
+// Build a single information-only Flex carousel: 1 research item = 1 bubble
+// (max 12). When there are more than 12 items, the first 11 are shown and the
+// 12th bubble notes the remainder. NO approve/reject/hold buttons anywhere.
+export function buildNewsCarousel(items: NewsItem[], runDate: string): Flex {
+  const LIMIT = 12;
+  let shown = items;
+  let overflow = 0;
+  if (items.length > LIMIT) {
+    shown = items.slice(0, LIMIT - 1);
+    overflow = items.length - (LIMIT - 1);
+  }
+  const bubbles: Flex[] = shown.map((it, i) =>
+    newsBubble(it, i === 0 ? { runDate } : null),
+  );
+  if (overflow > 0) bubbles.push(overflowBubble(overflow));
+
+  const altText = `📰 SplanAI 時事ネタ ${runDate}`.slice(0, 390);
+  return { type: "flex", altText, contents: { type: "carousel", contents: bubbles } };
+}
