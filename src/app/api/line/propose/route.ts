@@ -36,6 +36,19 @@ function str(v: unknown, max: number): string | null {
   return typeof v === "string" && v.length > 0 ? v.slice(0, max) : null;
 }
 
+// Only accept http(s) URLs — the value later becomes a LINE URI button in msg5,
+// and LINE rejects an invalid URI, which would fail the whole brief's push.
+function safeHttpUrl(v: unknown): string | null {
+  const s = str(v, 2000);
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    return u.protocol === "http:" || u.protocol === "https:" ? s : null;
+  } catch {
+    return null;
+  }
+}
+
 // POST { proposals: [{ title, why_it_matters?, url?, action_tag?, score?, source? }] }
 // Inserts pending knowledge-loop proposals (source defaults to "knowledge-loop").
 // Idempotent: a proposal whose (source, title) already has ANY prior row —
@@ -64,7 +77,6 @@ export async function POST(req: NextRequest) {
 
   let inserted = 0;
   let skipped = 0;
-  const tokens: string[] = [];
 
   for (const raw of body.proposals as ProposalInput[]) {
     const title = str(raw?.title, 500);
@@ -101,7 +113,7 @@ export async function POST(req: NextRequest) {
       token,
       run_date: runDate,
       title,
-      url: str(raw?.url, 2000),
+      url: safeHttpUrl(raw?.url),
       why_it_matters: str(raw?.why_it_matters, 1000),
       action_tag: str(raw?.action_tag, 100),
       score,
@@ -109,11 +121,20 @@ export async function POST(req: NextRequest) {
       status: "pending",
     });
     if (insErr) {
+      // 23505 = unique_violation: the partial unique index on (source, title)
+      // for knowledge-loop rows lost a race with a concurrent POST. Treat it as
+      // a dedup skip (idempotent), not a hard error.
+      if ((insErr as { code?: string }).code === "23505") {
+        skipped++;
+        continue;
+      }
       return NextResponse.json({ error: insErr.message }, { status: 500 });
     }
     inserted++;
-    tokens.push(token);
   }
 
-  return NextResponse.json({ ok: true, inserted, skipped, tokens });
+  // Intentionally NOT returning the decision tokens: each is a bearer capability
+  // for /api/line/decision (no extra auth), so the proposer never needs it and it
+  // must not leak into the local job's logs. Counts only.
+  return NextResponse.json({ ok: true, inserted, skipped });
 }
