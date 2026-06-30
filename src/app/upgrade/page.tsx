@@ -22,7 +22,7 @@ function UpgradeContent() {
   const [loading, setLoading] = useState(false);
 
   const current = Number(searchParams.get("current") ?? 0);
-  const limit   = Number(searchParams.get("limit") ?? 5);
+  const limit   = Number(searchParams.get("limit") ?? 3);
   const plan    = searchParams.get("plan") ?? "free";
 
   async function handleUpgrade() {

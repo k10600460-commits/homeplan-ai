@@ -16,7 +16,7 @@ const CALENDLY_READY = Boolean(CALENDLY_URL && !CALENDLY_URL.startsWith("<<FILL"
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
   en: {
-    nav: { how: "How it works", pricing: "Pricing", reviews: "Reviews", blog: "Blog", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
+    nav: { how: "How it works", pricing: "Pricing", reviews: "Examples", blog: "Blog", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
     hero: {
       badge: "Featured on Product Hunt",
       headline1: "Close more home-building deals.",
@@ -80,7 +80,7 @@ const T = {
       heading: "The sales layer between your lot and the signed contract.",
       sub: "SplanAI is a sales tool — not a design tool.",
       items: [
-        { icon: "🗺️", title: "Neighborhood Intelligence", desc: "Auto-fetch nearby schools, safety data, and market rents via Google Maps and RentCast." },
+        { icon: "🗺️", title: "Neighborhood Intelligence", desc: "Auto-fetch nearby schools, police/fire stations, and market rents via Google Maps and RentCast." },
         { icon: "📄", title: "Branded PDF in One Click", desc: "Professional proposals with your logo, room breakdown, and cost estimate. Print-ready." },
         { icon: "📡", title: "Real-Time Client Tracking", desc: "Know the moment a client opens the link, see which concept they engaged, and send a ready-made follow-up." },
         { icon: "🎚️", title: "Buyers Configure It Live", desc: "Clients adjust size, beds, baths, and style — price and monthly payment update instantly." },
@@ -103,7 +103,7 @@ const T = {
     },
     faq: [
       { q: "Is MLS integration legal?", a: "Yes. SplanAI connects to MLS data via the IDX policy framework established by the National Association of Realtors (NAR). Your MLS license is linked to your account, all API calls are logged in our audit system, and data is displayed in real time — never stored or redistributed. We comply with all NAR IDX guidelines and individual MLS board rules." },
-      { q: "What data sources do you use?", a: "SplanAI uses Google Maps (neighborhood places & geocoding), RentCast (market rent and sale price data), Anthropic Claude AI (proposal generation), and optionally your MLS license for listing data. All sources are listed on your dashboard." },
+      { q: "What data sources do you use?", a: "SplanAI uses Google Maps (neighborhood places & geocoding), RentCast (market rent and sale price data), the St. Louis Fed (FRED) for current mortgage rates, Anthropic Claude AI (proposal generation), and optionally your MLS license for listing data. All sources are listed on your dashboard." },
       { q: "Is my client data secure?", a: "Yes. All data is stored in a Supabase database with row-level security — only you can access your plans and client links. Shared links expire and can be deactivated anytime. We never sell your data." },
       { q: "Does it work in my state?", a: "SplanAI works nationwide for AI plan generation and market data. Neighborhood data (Google Maps) is available in all 50 states. MLS connectivity depends on your local MLS board — full coverage map coming soon." },
       { q: "Can I cancel anytime?", a: "Absolutely. Cancel from your dashboard in one click — no phone calls, no forms. Your Pro access continues until the end of your billing period." },
@@ -126,7 +126,7 @@ const T = {
     footer: "© 2026 SplanAI. Built for home builders.",
   },
   es: {
-    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Reseñas", blog: "Blog", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
+    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Ejemplos", blog: "Blog", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
     hero: {
       badge: "Destacado en Product Hunt",
       headline1: "Cierra más contratos de construcción.",
@@ -190,7 +190,7 @@ const T = {
       heading: "La capa de ventas entre tu lote y el contrato firmado.",
       sub: "SplanAI es una herramienta de ventas — no de diseño.",
       items: [
-        { icon: "🗺️", title: "Inteligencia de Vecindario", desc: "Escuelas, seguridad y renta del mercado vía Google Maps y RentCast." },
+        { icon: "🗺️", title: "Inteligencia de Vecindario", desc: "Escuelas, estaciones de policía/bomberos y renta del mercado vía Google Maps y RentCast." },
         { icon: "📄", title: "PDF con Tu Marca en Un Clic", desc: "Propuestas profesionales con tu logo, distribución de habitaciones y estimado de costo." },
         { icon: "📡", title: "Seguimiento en Tiempo Real", desc: "Sabe al instante cuando tu cliente abre el enlace, qué concepto le interesa, y envía un seguimiento listo para usar." },
         { icon: "🎚️", title: "El Cliente lo Configura en Vivo", desc: "Ajusta tamaño, recámaras, baños y estilo — el precio y el pago mensual se recalculan al instante." },
@@ -213,7 +213,7 @@ const T = {
     },
     faq: [
       { q: "¿Es legal la integración MLS?", a: "Sí. SplanAI se conecta a datos MLS bajo el marco de política IDX de la NAR. Tu licencia MLS se vincula a tu cuenta, todas las llamadas API se registran, y los datos se muestran en tiempo real — nunca almacenados ni redistribuidos." },
-      { q: "¿Qué fuentes de datos usa?", a: "Google Maps (vecindario y geocodificación), RentCast (datos de mercado de renta), Anthropic Claude AI (generación de propuestas) y opcionalmente tu licencia MLS." },
+      { q: "¿Qué fuentes de datos usa?", a: "Google Maps (vecindario y geocodificación), RentCast (datos de renta y precios de venta del mercado), la Reserva Federal de St. Louis (FRED) para tasas hipotecarias, Anthropic Claude AI (generación de propuestas) y opcionalmente tu licencia MLS para datos de listados." },
       { q: "¿Mis datos de clientes son seguros?", a: "Sí. Todos los datos se almacenan con seguridad de nivel de fila en Supabase — solo tú accedes a tus propuestas y enlaces. Los enlaces compartidos se pueden desactivar en cualquier momento." },
       { q: "¿Funciona en mi estado?", a: "SplanAI funciona en los 50 estados para generación de propuestas y datos de mercado. La conectividad MLS depende de tu junta MLS local." },
       { q: "¿Puedo cancelar en cualquier momento?", a: "Por supuesto. Cancela desde tu panel con un solo clic — sin llamadas telefónicas ni formularios. Tu acceso Pro continúa hasta el final del período de facturación." },
@@ -803,6 +803,7 @@ export default function Home() {
             {[
               { name: "Google Maps", icon: "🗺️", sub: "Places & Geocoding" },
               { name: "RentCast", icon: "📊", sub: "Market Data" },
+              { name: "FRED", icon: "🏦", sub: "Mortgage Rates" },
               { name: "Anthropic Claude", icon: "✦", sub: "AI Generation" },
               { name: "Stripe", icon: "💳", sub: "Payments" },
               { name: "Supabase", icon: "🗄️", sub: "Database" },
