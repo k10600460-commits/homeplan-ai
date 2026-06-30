@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import Anthropic from "@anthropic-ai/sdk";
 import { google } from "googleapis";
-import { buildNewsCarousel, pushMessages } from "@/lib/line";
+import { buildNewsCarousel, buildDigestCarousel, pushMessages, type DigestProposal } from "@/lib/line";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1184,7 +1184,29 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
         )
       : null;
 
-    const messages = [msg1, msg2, msg3, msg4].filter(Boolean) as object[];
+    // msg5 (Phase 2): knowledge-loop approval carousel. Reads only the pending
+    // proposals that the local launchd job (splanai-kloop-propose) inserted with
+    // source='knowledge-loop'. These are the ONLY bubbles that carry approve/
+    // reject/hold buttons (info-only research msg4 has none). Omitted when there
+    // is nothing pending so the brief still fits LINE's 5-message ceiling.
+    let msg5: object | null = null;
+    const { data: kloopRows } = await supabase
+      .from("line_proposals")
+      .select("token, title, url, why_it_matters, action_tag, score")
+      .eq("source", "knowledge-loop")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(12);
+    if (kloopRows && kloopRows.length > 0) {
+      msg5 = buildDigestCarousel(
+        kloopRows as DigestProposal[],
+        process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com",
+        todayJST,
+        null,
+      );
+    }
+
+    const messages = [msg1, msg2, msg3, msg4, msg5].filter(Boolean) as object[];
     const line = await pushMessages(messages);
     linePushed = line.ok;
     if (!line.ok) {
