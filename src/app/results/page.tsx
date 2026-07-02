@@ -137,54 +137,53 @@ function MortgageCalculator({
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5 flex items-center gap-2">
+      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-5 flex items-center gap-2">
         <span className="text-lg">🏦</span> Mortgage Calculator
       </h3>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="space-y-5 mb-6">
         {/* Down payment */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Down Payment</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="range" min={3} max={50} step={1} value={downPct}
-              onChange={e => onDownPct(Number(e.target.value))}
-              className="flex-1 accent-blue-600"
-            />
-            <span className="text-sm font-bold text-gray-800 w-10 text-right">{downPct}%</span>
+          <div className="flex items-baseline justify-between mb-2">
+            <label className="text-xs font-semibold text-gray-600">Down Payment</label>
+            <span className="text-sm font-bold text-gray-900">
+              {downPct}% <span className="font-medium text-gray-400">·</span> {fmt(result.downAmount)}
+            </span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">{fmt(result.downAmount)}</p>
+          <input
+            type="range" min={3} max={50} step={1} value={downPct}
+            onChange={e => onDownPct(Number(e.target.value))}
+            className="w-full accent-blue-600"
+          />
         </div>
 
         {/* Interest rate */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 block mb-1.5">
-            Interest Rate
-            {rateAsOf && (
-              <span className="ml-2 font-normal text-gray-300 text-[10px]">
-                30yr avg as of {new Date(rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-            )}
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="range" min={3} max={12} step={0.1} value={ratePct}
-              onChange={e => onRatePct(Number(e.target.value))}
-              className="flex-1 accent-blue-600"
-            />
-            <span className="text-sm font-bold text-gray-800 w-12 text-right">{ratePct.toFixed(1)}%</span>
+          <div className="flex items-baseline justify-between mb-2">
+            <label className="text-xs font-semibold text-gray-600">Interest Rate</label>
+            <span className="text-sm font-bold text-gray-900">{ratePct.toFixed(1)}%</span>
           </div>
+          <input
+            type="range" min={3} max={12} step={0.1} value={ratePct}
+            onChange={e => onRatePct(Number(e.target.value))}
+            className="w-full accent-blue-600"
+          />
+          {rateAsOf && (
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              30yr avg as of {new Date(rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+          )}
         </div>
 
         {/* Loan term */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Loan Term</label>
-          <div className="flex gap-2">
+          <label className="text-xs font-semibold text-gray-600 block mb-2">Loan Term</label>
+          <div className="grid grid-cols-3 gap-2">
             {[15, 20, 30].map(y => (
               <button
                 key={y}
                 onClick={() => onTermYears(y)}
-                className={`flex-1 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
+                className={`py-2 rounded-lg text-sm font-semibold border transition-colors ${
                   termYears === y
                     ? "bg-blue-600 text-white border-blue-600"
                     : "border-gray-200 text-gray-600 hover:border-blue-400"
@@ -216,7 +215,7 @@ function MortgageCalculator({
           <p className="text-xs text-gray-500 mt-0.5">Total Cost</p>
         </div>
       </div>
-      <p className="text-xs text-gray-300 mt-2 text-right">Estimate only · Taxes & insurance not included</p>
+      <p className="text-xs text-gray-400 mt-2 text-right">Estimate only · Taxes & insurance not included</p>
     </div>
   );
 }

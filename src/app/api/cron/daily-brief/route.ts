@@ -3,8 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import Anthropic from "@anthropic-ai/sdk";
 import { google } from "googleapis";
-import { randomBytes } from "crypto";
-import { buildDigestCarousel, pushMessages, type DigestProposal } from "@/lib/line";
+import { buildNewsCarousel, buildDigestCarousel, pushMessages, type DigestProposal } from "@/lib/line";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1024,55 +1023,194 @@ Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the 
     await supabase.from("daily_brief_log").insert(logPayload);
   }
 
-  // ── 6b. LINE: push the audited research as an approve/reject/hold carousel ──
+  // ── 6b. LINE: push the comprehensive daily report (Phase 1) ─────────────────
   // In-process push (no self-HTTP to /api/line/*) so the Vercel WAF bot-challenge
   // never applies to delivery. Best-effort: any LINE failure is logged and never
-  // affects the email or the run log. Replaces the old standalone research routine
-  // (which delivered a duplicate Gmail draft + a WAF-blocked digest POST).
+  // affects the email or the run log. Phase 1 = info-only daily report (KPI +
+  // last night's X/FB posts + today's published blog, all translated to Japanese,
+  // + a NO-button research carousel). Approve/reject buttons are intentionally NOT
+  // shown here — that is Phase 2 (knowledge-loop). The richer email above remains
+  // the detailed source of truth and is untouched.
   let linePushed = false;
   try {
-    const items = researchResult?.items ?? [];
-    if (items.length > 0) {
-      // Idempotent per day: clear prior undecided daily-research rows for today
-      // so a re-run never stacks duplicate proposals.
-      await supabase
-        .from("line_proposals")
-        .delete()
-        .eq("run_date", todayJST)
-        .eq("source", "daily-research")
-        .is("decided_at", null);
+    // Posted content is pulled by post time (NOT run_date) over a 20h window so
+    // the 07:00 JST brief captures everything published the previous night —
+    // blog 21:30 / X 22:10 & 03:40 / FB 01:20 JST — without re-reporting the day
+    // before. Uses the verified columns: posted_at / published_at (timestamptz).
+    const since20h = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString();
 
-      const proposalRows = items.map(it => ({
-        token: randomBytes(16).toString("hex"),
-        run_date: todayJST,
-        title: (it.title ?? "(untitled)").slice(0, 500),
-        url: typeof it.url === "string" ? it.url.slice(0, 2000) : null,
-        why_it_matters: (it.whyItMatters ?? "").slice(0, 1000) || null,
-        action_tag: (it.tag ?? "").slice(0, 100) || null,
-        score: Number.isFinite(it.scores?.total) ? Math.trunc(it.scores.total) : null,
-        source: "daily-research",
-        status: "pending",
-      }));
+    const [xPostedRes, fbPostedRes, blogPublishedRes] = await Promise.all([
+      supabase
+        .from("x_post_draft")
+        .select("angle, draft_text, posted_at")
+        .eq("status", "posted")
+        .gte("posted_at", since20h)
+        .order("posted_at", { ascending: true }),
+      supabase
+        .from("fb_post_draft")
+        .select("message, posted_at")
+        .eq("status", "posted")
+        .gte("posted_at", since20h)
+        .order("posted_at", { ascending: true }),
+      supabase
+        .from("seo_articles")
+        .select("title, slug, draft_content, published_at")
+        .eq("status", "published")
+        .gte("published_at", since20h)
+        .order("published_at", { ascending: false })
+        .limit(1),
+    ]);
 
-      const { data: insertedProposals } = await supabase
-        .from("line_proposals")
-        .insert(proposalRows)
-        .select("token, title, url, why_it_matters, action_tag, score");
+    const xPosted = (xPostedRes.data ?? []) as Array<{ angle: string | null; draft_text: string | null }>;
+    const fbPosted = (fbPostedRes.data ?? []) as Array<{ message: string | null }>;
+    const blog = (blogPublishedRes.data?.[0] ?? null) as { title: string | null; slug: string | null; draft_content: string | null } | null;
 
-      if (insertedProposals && insertedProposals.length > 0) {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com";
-        const carousel = buildDigestCarousel(
-          insertedProposals as DigestProposal[],
-          baseUrl,
-          todayJST,
-          null,
-        );
-        const line = await pushMessages([carousel]);
-        linePushed = line.ok;
-        if (!line.ok) {
-          console.error("[daily-brief] LINE push failed:", line.status, line.body.slice(0, 200));
+    // ── Translation (Anthropic Haiku, best-effort) ───────────────────────────
+    // Short posts (each X + FB) are translated together in ONE request returning
+    // strict JSON [{"i":0,"ja":"..."}]; the blog body is a separate full-text
+    // request. Never throws — on missing key / failure the original text is used
+    // with a "(翻訳失敗)" marker so the brief is never blocked.
+    const shortOriginals: string[] = [
+      ...xPosted.map(x => x.draft_text ?? ""),
+      ...(fbPosted[0]?.message != null ? [fbPosted[0].message] : []),
+    ];
+    const shortJa: string[] = shortOriginals.map(o => `${o}\n(翻訳失敗)`);
+
+    if (anthropicKey && shortOriginals.length > 0) {
+      try {
+        const anthropicLine = new Anthropic({ apiKey: anthropicKey });
+        const numbered = shortOriginals.map((o, i) => `[${i}] ${o}`).join("\n\n");
+        const tmsg = await anthropicLine.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1500,
+          messages: [{
+            role: "user",
+            content: `次の英語の投稿文をそれぞれ自然な日本語に全文翻訳してください。出力は厳格なJSON配列のみ（説明・マークダウン・コードフェンス禁止）。形式: [{"i":0,"ja":"訳文"}]。各原文は番号[i]付き。\n\n${numbered}`,
+          }],
+        });
+        const raw = tmsg.content.map(b => (b.type === "text" ? b.text : "")).join("\n");
+        const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "");
+        const arrMatch = cleaned.match(/\[[\s\S]*\]/);
+        if (arrMatch) {
+          const parsed = JSON.parse(arrMatch[0]) as Array<{ i: number; ja: string }>;
+          for (const r of parsed) {
+            if (typeof r?.i === "number" && r.i >= 0 && r.i < shortJa.length && typeof r.ja === "string" && r.ja.trim()) {
+              shortJa[r.i] = r.ja.trim();
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[daily-brief] LINE short translation error:", err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    const xJa = xPosted.map((_, i) => shortJa[i]);
+    const fbJa = fbPosted[0]?.message != null ? shortJa[xPosted.length] : null;
+
+    let blogJa: string | null = null;
+    if (blog?.draft_content) {
+      blogJa = `${blog.draft_content}\n(翻訳失敗)`;
+      if (anthropicKey) {
+        try {
+          const anthropicBlog = new Anthropic({ apiKey: anthropicKey });
+          const bmsg = await anthropicBlog.messages.create({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 4000,
+            messages: [{
+              role: "user",
+              content: `次の英語のブログ記事本文を自然な日本語に全文翻訳してください。出力は訳文のみ（説明・前置き・マークダウンの追加禁止、本文の構造は保持）。\n\n${blog.draft_content}`,
+            }],
+          });
+          const btext = bmsg.content.map(b => (b.type === "text" ? b.text : "")).join("\n").trim();
+          if (btext) blogJa = btext;
+        } catch (err) {
+          console.error("[daily-brief] LINE blog translation error:", err instanceof Error ? err.message : String(err));
         }
       }
+    }
+
+    // ── Assemble messages (only present sections · max 4) ────────────────────
+    // msg1: KPI summary (always sent).
+    const msg1 = {
+      type: "text",
+      text:
+        `📊 SplanAI デイリー ${todayJST}\n` +
+        `MRR $${mrr}（前日 ${mrrDelta >= 0 ? `+$${mrrDelta}` : `-$${Math.abs(mrrDelta)}`}）\n` +
+        `新規登録 ${newSignups}｜ポータル閲覧 ${portalViewCount}（uniq ${uniquePortalCount}）｜生成 ${newGenerations}\n` +
+        `アウトリーチ 送信${outreachSent}/返信${outreachReplied}\n` +
+        `🔥ホットリード ${(hotLeads ?? []).length}件｜⚠️エスカレ ${escalations?.length ?? 0}件`,
+    };
+
+    // msg2: last night's auto-posts (original → Japanese). "なし" line if empty.
+    let msg2: { type: "text"; text: string };
+    if (xPosted.length === 0 && fbPosted.length === 0) {
+      msg2 = { type: "text", text: "📣 昨夜の自動投稿なし" };
+    } else {
+      const parts: string[] = ["📣 昨夜の自動投稿"];
+      xPosted.forEach((x, i) => {
+        parts.push(`【X/${x.angle ?? "post"}】${x.draft_text ?? ""}\n→ ${xJa[i]}`);
+      });
+      if (fbPosted[0]?.message != null) {
+        parts.push(`【FB】${fbPosted[0].message}\n→ ${fbJa}`);
+      }
+      msg2 = { type: "text", text: parts.join("\n\n") };
+    }
+
+    // msg3: today's published blog (translated). Truncated at 4800 chars (LINE
+    // text limit 5000) with a "continue →" link. Omitted when nothing published.
+    let msg3: { type: "text"; text: string } | null = null;
+    if (blog && blogJa) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com";
+      let blogText = `📝 本日公開ブログ\n${blog.title ?? ""}\n\n${blogJa}`;
+      if (blogText.length > 5000) {
+        blogText = `${blogText.slice(0, 4800)}\n\n…（続き→ ${appUrl}/blog/${blog.slug ?? ""}）`;
+      }
+      msg3 = { type: "text", text: blogText };
+    }
+
+    // msg4: information-only research carousel (NO approve/reject). Omitted empty.
+    const researchItems = researchResult?.items ?? [];
+    const msg4 = researchItems.length > 0
+      ? buildNewsCarousel(
+          researchItems.map(it => ({
+            title: it.title,
+            url: it.url,
+            summary: it.summary,
+            whyItMatters: it.whyItMatters,
+            tag: it.tag,
+            score: Number.isFinite(it.scores?.total) ? it.scores.total : null,
+          })),
+          todayJST,
+        )
+      : null;
+
+    // msg5 (Phase 2): knowledge-loop approval carousel. Reads only the pending
+    // proposals that the local launchd job (splanai-kloop-propose) inserted with
+    // source='knowledge-loop'. These are the ONLY bubbles that carry approve/
+    // reject/hold buttons (info-only research msg4 has none). Omitted when there
+    // is nothing pending so the brief still fits LINE's 5-message ceiling.
+    let msg5: object | null = null;
+    const { data: kloopRows } = await supabase
+      .from("line_proposals")
+      .select("token, title, url, why_it_matters, action_tag, score")
+      .eq("source", "knowledge-loop")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(12);
+    if (kloopRows && kloopRows.length > 0) {
+      msg5 = buildDigestCarousel(
+        kloopRows as DigestProposal[],
+        process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com",
+        todayJST,
+        null,
+      );
+    }
+
+    const messages = [msg1, msg2, msg3, msg4, msg5].filter(Boolean) as object[];
+    const line = await pushMessages(messages);
+    linePushed = line.ok;
+    if (!line.ok) {
+      console.error("[daily-brief] LINE push failed:", line.status, line.body.slice(0, 200));
     }
   } catch (err) {
     console.error("[daily-brief] LINE block error:", err instanceof Error ? err.message : String(err));

@@ -26,7 +26,7 @@
     },
     {
       "path": "/api/cron/seo-draft",
-      "schedule": "0 5 * * 1,3,5"
+      "schedule": "0 5 * * *"
     },
     {
       "path": "/api/cron/seo-publish",

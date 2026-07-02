@@ -169,7 +169,7 @@ export default function PrivacyPage() {
                   <p className="font-semibold text-slate-800">Google Maps Platform</p>
                   <p className="text-sm leading-relaxed mt-1">
                     Used to geocode city/state inputs and retrieve nearby places (schools, hospitals,
-                    grocery stores, safety data). When you enter a city and state, that location
+                    grocery stores, police and fire stations). When you enter a city and state, that location
                     string is sent to Google&rsquo;s API. We do not send any personal account information
                     to Google. <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Privacy Policy</a>
                   </p>

@@ -16,7 +16,7 @@ const CALENDLY_READY = Boolean(CALENDLY_URL && !CALENDLY_URL.startsWith("<<FILL"
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
   en: {
-    nav: { how: "How it works", pricing: "Pricing", reviews: "Reviews", blog: "Blog", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
+    nav: { how: "How it works", pricing: "Pricing", reviews: "Examples", blog: "Blog", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
     hero: {
       badge: "Featured on Product Hunt",
       headline1: "Close more home-building deals.",
@@ -80,7 +80,7 @@ const T = {
       heading: "The sales layer between your lot and the signed contract.",
       sub: "SplanAI is a sales tool — not a design tool.",
       items: [
-        { icon: "🗺️", title: "Neighborhood Intelligence", desc: "Auto-fetch nearby schools, safety data, and market rents via Google Maps and RentCast." },
+        { icon: "🗺️", title: "Neighborhood Intelligence", desc: "Auto-fetch nearby schools, police/fire stations, and market rents via Google Maps and RentCast." },
         { icon: "📄", title: "Branded PDF in One Click", desc: "Professional proposals with your logo, room breakdown, and cost estimate. Print-ready." },
         { icon: "📡", title: "Real-Time Client Tracking", desc: "Know the moment a client opens the link, see which concept they engaged, and send a ready-made follow-up." },
         { icon: "🎚️", title: "Buyers Configure It Live", desc: "Clients adjust size, beds, baths, and style — price and monthly payment update instantly." },
@@ -103,7 +103,7 @@ const T = {
     },
     faq: [
       { q: "Is MLS integration legal?", a: "Yes. SplanAI connects to MLS data via the IDX policy framework established by the National Association of Realtors (NAR). Your MLS license is linked to your account, all API calls are logged in our audit system, and data is displayed in real time — never stored or redistributed. We comply with all NAR IDX guidelines and individual MLS board rules." },
-      { q: "What data sources do you use?", a: "SplanAI uses Google Maps (neighborhood places & geocoding), RentCast (market rent and sale price data), Anthropic Claude AI (proposal generation), and optionally your MLS license for listing data. All sources are listed on your dashboard." },
+      { q: "What data sources do you use?", a: "SplanAI uses Google Maps (neighborhood places & geocoding), RentCast (market rent and sale price data), the St. Louis Fed (FRED) for current mortgage rates, Anthropic Claude AI (proposal generation), and optionally your MLS license for listing data. All sources are listed on your dashboard." },
       { q: "Is my client data secure?", a: "Yes. All data is stored in a Supabase database with row-level security — only you can access your plans and client links. Shared links expire and can be deactivated anytime. We never sell your data." },
       { q: "Does it work in my state?", a: "SplanAI works nationwide for AI plan generation and market data. Neighborhood data (Google Maps) is available in all 50 states. MLS connectivity depends on your local MLS board — full coverage map coming soon." },
       { q: "Can I cancel anytime?", a: "Absolutely. Cancel from your dashboard in one click — no phone calls, no forms. Your Pro access continues until the end of your billing period." },
@@ -124,9 +124,44 @@ const T = {
     },
     ctaBanner: { heading: "Ready to close more deals?", sub: "Be one of the first builders to close deals with AI-generated proposals.", cta: "Start Free — No Credit Card" },
     footer: "© 2026 SplanAI. Built for home builders.",
+    faqHeading: "Frequently Asked Questions",
+    reassure: ["No credit card to start free", "14-day trial on Pro & Team", "Cancel anytime, no questions"],
+    customPrice: "For 50+ employees",
+    customPriceSub: "Volume pricing · Talk to us",
+    wyg: {
+      eyebrow: "What you get",
+      heading: "30 seconds. 3 proposals. Ready to close.",
+      sub: "Actual output from a live SplanAI session — generated with real AI and real market data.",
+      note: "Built by a solo founder. No design agency. No fluff.",
+      sec: "~30 sec",
+      s1Title: "AI generates 3 distinct home concept proposals",
+      estRange: "Est. range — finishes-dependent.",
+      sqft: "sq ft",
+      s1Foot: "Actual AI output — matches live portal at /s/nfhkewvz",
+      s2Title: "Share a live client portal — one click",
+      s2Body: "Your client gets a personal portal with all 3 plans — each with a proportional floor-plan diagram, a cost range, and an interactive mortgage calculator they can adjust. They can request pre-qualification, book a meeting, or tap \"I'm interested\" — and you get an instant email notification. You also see the moment they open it.",
+      s2Cta: "See a live portal example →",
+      s3aTitle: "Download branded PDF",
+      s3aBody: "Professional PDF with your logo, full room breakdown, cost range and mortgage estimate, and neighborhood data. Print-ready for client meetings.",
+      s3bTitle: "MLS-enriched plans",
+      s3bBody: "Connect your own MLS license via Trestle to auto-fill real lot size & zoning into every concept plan. NAR/IDX-compliant — every data call is audit-logged. Requires your own MLS license.",
+    },
+    modal: {
+      redirecting: "Redirecting…",
+      freeTitle: "You've used your 3 free plans this month",
+      freeBody: "Your free plan includes 3 floor plan generations per month. Upgrade to Pro for 100/mo, your own branding, and MLS data.",
+      freeCta: "Start Pro Trial — $49/mo",
+      proTitle: "You've hit your 100/mo limit",
+      proBody: "Team plan gives you unlimited generations (fair use), up to 15 seats, and white-label PDFs.",
+      proCta: "Upgrade to Team — $149/mo",
+      proSecondary: "Generating at higher volume? Talk to us →",
+      otherTitle: "Generation limit reached",
+      otherBody: "Contact us to discuss a custom plan sized to your team.",
+      otherCta: "Talk to us →",
+    },
   },
   es: {
-    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Reseñas", blog: "Blog", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
+    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Ejemplos", blog: "Blog", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
     hero: {
       badge: "Destacado en Product Hunt",
       headline1: "Cierra más contratos de construcción.",
@@ -190,7 +225,7 @@ const T = {
       heading: "La capa de ventas entre tu lote y el contrato firmado.",
       sub: "SplanAI es una herramienta de ventas — no de diseño.",
       items: [
-        { icon: "🗺️", title: "Inteligencia de Vecindario", desc: "Escuelas, seguridad y renta del mercado vía Google Maps y RentCast." },
+        { icon: "🗺️", title: "Inteligencia de Vecindario", desc: "Escuelas, estaciones de policía/bomberos y renta del mercado vía Google Maps y RentCast." },
         { icon: "📄", title: "PDF con Tu Marca en Un Clic", desc: "Propuestas profesionales con tu logo, distribución de habitaciones y estimado de costo." },
         { icon: "📡", title: "Seguimiento en Tiempo Real", desc: "Sabe al instante cuando tu cliente abre el enlace, qué concepto le interesa, y envía un seguimiento listo para usar." },
         { icon: "🎚️", title: "El Cliente lo Configura en Vivo", desc: "Ajusta tamaño, recámaras, baños y estilo — el precio y el pago mensual se recalculan al instante." },
@@ -213,7 +248,7 @@ const T = {
     },
     faq: [
       { q: "¿Es legal la integración MLS?", a: "Sí. SplanAI se conecta a datos MLS bajo el marco de política IDX de la NAR. Tu licencia MLS se vincula a tu cuenta, todas las llamadas API se registran, y los datos se muestran en tiempo real — nunca almacenados ni redistribuidos." },
-      { q: "¿Qué fuentes de datos usa?", a: "Google Maps (vecindario y geocodificación), RentCast (datos de mercado de renta), Anthropic Claude AI (generación de propuestas) y opcionalmente tu licencia MLS." },
+      { q: "¿Qué fuentes de datos usa?", a: "Google Maps (vecindario y geocodificación), RentCast (datos de renta y precios de venta del mercado), la Reserva Federal de St. Louis (FRED) para tasas hipotecarias, Anthropic Claude AI (generación de propuestas) y opcionalmente tu licencia MLS para datos de listados." },
       { q: "¿Mis datos de clientes son seguros?", a: "Sí. Todos los datos se almacenan con seguridad de nivel de fila en Supabase — solo tú accedes a tus propuestas y enlaces. Los enlaces compartidos se pueden desactivar en cualquier momento." },
       { q: "¿Funciona en mi estado?", a: "SplanAI funciona en los 50 estados para generación de propuestas y datos de mercado. La conectividad MLS depende de tu junta MLS local." },
       { q: "¿Puedo cancelar en cualquier momento?", a: "Por supuesto. Cancela desde tu panel con un solo clic — sin llamadas telefónicas ni formularios. Tu acceso Pro continúa hasta el final del período de facturación." },
@@ -234,6 +269,41 @@ const T = {
     },
     ctaBanner: { heading: "¿Listo para cerrar más contratos?", sub: "Sé uno de los primeros constructores en cerrar contratos con propuestas de IA.", cta: "Empieza Gratis — Sin Tarjeta" },
     footer: "© 2026 SplanAI. Construido para constructores.",
+    faqHeading: "Preguntas frecuentes",
+    reassure: ["Sin tarjeta para empezar gratis", "Prueba de 14 días en Pro y Equipo", "Cancela cuando quieras, sin preguntas"],
+    customPrice: "Para equipos de 50+ empleados",
+    customPriceSub: "Precio por volumen · Hablemos",
+    wyg: {
+      eyebrow: "Lo que obtienes",
+      heading: "30 segundos. 3 propuestas. Listo para cerrar.",
+      sub: "Resultado real de una sesión en vivo de SplanAI — generado con IA real y datos de mercado reales.",
+      note: "Hecho por un fundador en solitario. Sin agencia de diseño. Sin rodeos.",
+      sec: "~30 seg",
+      s1Title: "La IA genera 3 propuestas de concepto distintas",
+      estRange: "Rango est. — depende de los acabados.",
+      sqft: "pies²",
+      s1Foot: "Resultado real de IA — coincide con el portal en vivo en /s/nfhkewvz",
+      s2Title: "Comparte un portal de cliente en vivo — un clic",
+      s2Body: "Tu cliente recibe un portal personal con las 3 propuestas — cada una con un diagrama proporcional del plano, un rango de costos y una calculadora hipotecaria interactiva que puede ajustar. Puede solicitar precalificación hipotecaria, agendar una reunión o hacer clic en \"Me interesa\" — y recibes una notificación por email al instante. También ves exactamente cuándo abre el portal.",
+      s2Cta: "Ver un portal en vivo de ejemplo →",
+      s3aTitle: "Descarga un PDF con tu marca",
+      s3aBody: "PDF profesional con tu logo, desglose completo de habitaciones, rango de costo y estimado de hipoteca, y datos del vecindario. Listo para imprimir para reuniones con clientes.",
+      s3bTitle: "Planes enriquecidos con MLS",
+      s3bBody: "Conecta tu propia licencia MLS vía Trestle para autocompletar el tamaño real del lote y la zonificación en cada concepto. Cumple con NAR/IDX — cada consulta queda registrada en auditoría. Requiere tu propia licencia MLS.",
+    },
+    modal: {
+      redirecting: "Redirigiendo…",
+      freeTitle: "Has usado tus 3 propuestas gratuitas de este mes",
+      freeBody: "Tu plan gratuito incluye 3 propuestas al mes. Actualiza a Pro para obtener 100 propuestas al mes, tu propia marca y datos MLS.",
+      freeCta: "Iniciar prueba de Pro — $49/mes",
+      proTitle: "Alcanzaste tu límite de 100/mes",
+      proBody: "El plan Equipo te da propuestas ilimitadas (uso justo), hasta 15 usuarios y PDFs con solo tu marca.",
+      proCta: "Actualizar a Equipo — $149/mes",
+      proSecondary: "¿Generas a mayor volumen? Hablemos →",
+      otherTitle: "Límite de generación alcanzado",
+      otherBody: "Contáctanos para hablar de un plan a medida para tu equipo.",
+      otherCta: "Hablemos →",
+    },
   },
 } as const;
 
@@ -731,7 +801,7 @@ export default function Home() {
           <div className="flex items-center gap-3 ml-auto shrink-0">
             <button
               onClick={() => setLang(lang === "en" ? "es" : "en")}
-              className="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs font-semibold text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs font-semibold text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-colors"
             >
               <span className="text-base leading-none">{lang === "en" ? "🇲🇽" : "🇺🇸"}</span>
               {lang === "en" ? "ES" : "EN"}
@@ -803,6 +873,7 @@ export default function Home() {
             {[
               { name: "Google Maps", icon: "🗺️", sub: "Places & Geocoding" },
               { name: "RentCast", icon: "📊", sub: "Market Data" },
+              { name: "FRED", icon: "🏦", sub: "Mortgage Rates" },
               { name: "Anthropic Claude", icon: "✦", sub: "AI Generation" },
               { name: "Stripe", icon: "💳", sub: "Payments" },
               { name: "Supabase", icon: "🗄️", sub: "Database" },
@@ -1164,8 +1235,8 @@ export default function Home() {
             <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-600/60 hover:-translate-y-1 transition-all" style={{ background: "#0F172A" }}>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.custom.label}</p>
-                <p className="text-2xl font-extrabold text-white mt-2">For 50+ employees</p>
-                <p className="text-sm text-slate-500 mt-1">Volume pricing · Talk to us</p>
+                <p className="text-2xl font-extrabold text-white mt-2">{t.customPrice}</p>
+                <p className="text-sm text-slate-500 mt-1">{t.customPriceSub}</p>
               </div>
               <ul className="flex flex-col gap-3 flex-1">
                 {t.pricing.custom.features.map((f, i) => (
@@ -1186,7 +1257,7 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
-            {["No credit card to start free", "14-day trial on Pro & Team", "Cancel anytime, no questions"].map(item => (
+            {t.reassure.map(item => (
               <span key={item} className="flex items-center gap-1.5 text-sm text-slate-300">
                 <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -1210,7 +1281,7 @@ export default function Home() {
       <section className="py-20 px-6 bg-white">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>Frequently Asked Questions</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.faqHeading}</h2>
           </div>
           <div className="space-y-4">
             {t.faq.map((item) => (
@@ -1252,16 +1323,10 @@ export default function Home() {
       <section id="reviews" className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <AnimateIn className="text-center mb-12">
-            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">What you get</p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>
-              30 seconds. 3 proposals. Ready to close.
-            </h2>
-            <p className="text-slate-500 max-w-xl mx-auto">
-              Actual output from a live SplanAI session — generated with real AI and real market data.
-            </p>
-            <p className="mt-2 text-xs text-slate-400 max-w-sm mx-auto">
-              Built by a solo founder. No design agency. No fluff.
-            </p>
+            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">{t.wyg.eyebrow}</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.wyg.heading}</h2>
+            <p className="text-slate-500 max-w-xl mx-auto">{t.wyg.sub}</p>
+            <p className="mt-2 text-xs text-slate-400 max-w-sm mx-auto">{t.wyg.note}</p>
           </AnimateIn>
 
           {/* Step 1 — 3 AI-generated plans */}
@@ -1269,8 +1334,8 @@ export default function Home() {
             <div className="rounded-2xl border-2 border-slate-100 overflow-hidden">
               <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100 bg-slate-50">
                 <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
-                <p className="font-bold text-slate-800 text-sm">AI generates 3 distinct home concept proposals</p>
-                <span className="ml-auto text-xs text-slate-400 font-mono shrink-0">~30 sec</span>
+                <p className="font-bold text-slate-800 text-sm">{t.wyg.s1Title}</p>
+                <span className="ml-auto text-xs text-slate-400 font-mono shrink-0">{t.wyg.sec}</span>
               </div>
               <div className="p-5">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1287,13 +1352,13 @@ export default function Home() {
                         <p className="text-xl font-extrabold text-slate-900 mt-2">
                           ${(p.cost / 1000).toFixed(0)}K–${Math.round(p.cost * 1.1 / 1000)}K
                         </p>
-                        <p className="text-xs text-slate-400 italic">Est. range — finishes-dependent.</p>
-                        <p className="text-xs text-slate-400 mt-1">{p.sqft} sq ft</p>
+                        <p className="text-xs text-slate-400 italic">{t.wyg.estRange}</p>
+                        <p className="text-xs text-slate-400 mt-1">{p.sqft} {t.wyg.sqft}</p>
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-slate-400 text-right">Actual AI output — matches live portal at /s/nfhkewvz</p>
+                <p className="mt-2 text-xs text-slate-400 text-right">{t.wyg.s1Foot}</p>
               </div>
             </div>
           </AnimateIn>
@@ -1303,17 +1368,17 @@ export default function Home() {
             <div className="rounded-2xl border-2 border-slate-100 overflow-hidden">
               <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100 bg-slate-50">
                 <span className="w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center shrink-0">2</span>
-                <p className="font-bold text-slate-800 text-sm">Share a live client portal — one click</p>
+                <p className="font-bold text-slate-800 text-sm">{t.wyg.s2Title}</p>
               </div>
               <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <p className="text-sm text-slate-600 leading-relaxed flex-1">Your client gets a personal portal with all 3 plans — each with a proportional floor-plan diagram, a cost range, and an interactive mortgage calculator they can adjust. They can tap &ldquo;I&rsquo;m interested&rdquo; and you get an instant email notification. You also see the moment they open it.</p>
+                <p className="text-sm text-slate-600 leading-relaxed flex-1">{t.wyg.s2Body}</p>
                 <a href="/s/nfhkewvz" target="_blank" rel="noopener noreferrer"
                   className="shrink-0 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-colors"
                   style={{ background: "#10B981" }}
                   onMouseEnter={e => (e.currentTarget.style.background = "#059669")}
                   onMouseLeave={e => (e.currentTarget.style.background = "#10B981")}
                 >
-                  See a live portal example →
+                  {t.wyg.s2Cta}
                 </a>
               </div>
             </div>
@@ -1325,19 +1390,19 @@ export default function Home() {
               <div className="rounded-2xl border-2 border-slate-100 overflow-hidden">
                 <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100 bg-slate-50">
                   <span className="w-6 h-6 rounded-full bg-violet-500 text-white text-xs font-bold flex items-center justify-center shrink-0">3</span>
-                  <p className="font-bold text-slate-800 text-sm">Download branded PDF</p>
+                  <p className="font-bold text-slate-800 text-sm">{t.wyg.s3aTitle}</p>
                 </div>
                 <div className="p-5">
-                  <p className="text-sm text-slate-600">Professional PDF with your logo, full room breakdown, cost range and mortgage estimate, and neighborhood data. Print-ready for client meetings.</p>
+                  <p className="text-sm text-slate-600">{t.wyg.s3aBody}</p>
                 </div>
               </div>
               <div className="rounded-2xl border-2 border-amber-100 overflow-hidden">
                 <div className="flex items-center gap-3 px-5 py-3.5 border-b border-amber-100" style={{ background: "#FFFBEB" }}>
                   <span className="w-6 h-6 rounded-full text-slate-900 text-xs font-bold flex items-center justify-center shrink-0" style={{ background: "#F59E0B" }}>PRO</span>
-                  <p className="font-bold text-slate-800 text-sm">MLS-enriched plans</p>
+                  <p className="font-bold text-slate-800 text-sm">{t.wyg.s3bTitle}</p>
                 </div>
                 <div className="p-5">
-                  <p className="text-sm text-slate-600">Connect your own MLS license via Trestle to auto-fill real lot size &amp; zoning into every concept plan. NAR/IDX-compliant — every data call is audit-logged. Requires your own MLS license.</p>
+                  <p className="text-sm text-slate-600">{t.wyg.s3bBody}</p>
                 </div>
               </div>
             </div>
@@ -1400,8 +1465,8 @@ export default function Home() {
             {limitModal.plan === 'free' ? (
               <>
                 <div className="text-3xl mb-3">🚀</div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">You've used your 3 free plans this month</h2>
-                <p className="text-gray-500 mb-6 text-sm leading-relaxed">Your free plan includes 3 floor plan generations per month. Upgrade to Pro for 100/mo, your own branding, and MLS data.</p>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">{t.modal.freeTitle}</h2>
+                <p className="text-gray-500 mb-6 text-sm leading-relaxed">{t.modal.freeBody}</p>
                 <button
                   onClick={() => handleUpgradeFromModal('pro')}
                   disabled={upgradeLoading}
@@ -1410,14 +1475,14 @@ export default function Home() {
                   onMouseEnter={e => { if (!upgradeLoading) (e.currentTarget as HTMLButtonElement).style.background = "#2563EB"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#3B82F6"; }}
                 >
-                  {upgradeLoading ? 'Redirecting…' : 'Start Pro Trial — $49/mo'}
+                  {upgradeLoading ? t.modal.redirecting : t.modal.freeCta}
                 </button>
               </>
             ) : limitModal.plan === 'pro' ? (
               <>
                 <div className="text-3xl mb-3">📊</div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">You&rsquo;ve hit your 100/mo limit</h2>
-                <p className="text-gray-500 mb-4 text-sm leading-relaxed">Team plan gives you unlimited generations (fair use), up to 15 seats, and white-label PDFs.</p>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">{t.modal.proTitle}</h2>
+                <p className="text-gray-500 mb-4 text-sm leading-relaxed">{t.modal.proBody}</p>
                 <button
                   onClick={() => handleUpgradeFromModal('team')}
                   disabled={upgradeLoading}
@@ -1426,19 +1491,19 @@ export default function Home() {
                   onMouseEnter={e => { if (!upgradeLoading) (e.currentTarget as HTMLButtonElement).style.background = "#D97706"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#F59E0B"; }}
                 >
-                  {upgradeLoading ? 'Redirecting…' : 'Upgrade to Team — $149/mo'}
+                  {upgradeLoading ? t.modal.redirecting : t.modal.proCta}
                 </button>
                 <a href="mailto:hello@splanai.com" className="block text-center text-sm text-gray-400 hover:text-gray-700 transition-colors">
-                  Generating at higher volume? Talk to us →
+                  {t.modal.proSecondary}
                 </a>
               </>
             ) : (
               <>
                 <div className="text-3xl mb-3">📬</div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Generation limit reached</h2>
-                <p className="text-gray-500 mb-6 text-sm leading-relaxed">Contact us to discuss a custom plan sized to your team.</p>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">{t.modal.otherTitle}</h2>
+                <p className="text-gray-500 mb-6 text-sm leading-relaxed">{t.modal.otherBody}</p>
                 <a href="mailto:hello@splanai.com" className="block text-center py-3 rounded-xl font-bold text-blue-600 border border-blue-600 hover:bg-blue-50 transition-colors">
-                  Talk to us →
+                  {t.modal.otherCta}
                 </a>
               </>
             )}
