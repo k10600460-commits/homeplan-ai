@@ -34,12 +34,37 @@ function escapeHtml(value: string): string {
   }[c] ?? c));
 }
 
+// SECURITY: strip CR/LF and other control characters from any value placed in
+// an email HEADER (subject / replyTo / to / from-name) — prevents header
+// injection ("buyer@x.com\r\nBcc: victim@...").
+export function sanitizeEmailHeader(value: string): string {
+  // eslint-disable-next-line no-control-regex
+  return value.replace(/[\r\n\x00-\x1f\x7f]+/g, " ").trim();
+}
+
+// SECURITY: user-supplied values embedded in href attributes must not be able
+// to smuggle a scheme (javascript:, data:, ...). Only values matching these
+// strict shapes are linked with the fixed mailto:/tel: scheme; anything else
+// returns null and the caller renders plain (escaped) text instead.
+const SAFE_EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const SAFE_TEL_RE = /^\+?[0-9()\-.\s]{3,30}$/;
+
+export function safeMailtoHref(email: string | null | undefined): string | null {
+  if (!email || !SAFE_EMAIL_RE.test(email)) return null;
+  return `mailto:${email}`;
+}
+
+export function safeTelHref(phone: string | null | undefined): string | null {
+  if (!phone || !SAFE_TEL_RE.test(phone)) return null;
+  return `tel:${phone.replace(/[^\d+]/g, "")}`;
+}
+
 export async function sendContentOpsAlertEmail(subject: string, lines: string[]) {
   await resend.emails.send({
     from: FROM,
     to: CONTENT_OPS_ALERT_TO,
     replyTo: REPLY_TO,
-    subject: `[SplanAI ContentOps] ${subject}`,
+    subject: `[SplanAI ContentOps] ${sanitizeEmailHeader(subject)}`,
     html: `
 <div style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:32px 24px;color:#1e293b">
   <h1 style="font-size:22px;font-weight:800;margin-bottom:8px">ContentOps Alert</h1>
@@ -163,23 +188,38 @@ export interface InquiryData {
 export async function sendInquiryNotificationEmail(to: string, data: InquiryData) {
   const planLabel = data.planIndex != null ? `Plan ${data.planIndex + 1}` : "a plan";
   const contactLine = [data.buyerEmail, data.buyerPhone].filter(Boolean).join(" · ");
+  // SECURITY: buyerName / buyerEmail / buyerPhone / message come from the PUBLIC
+  // portal inquiry form — escape everything before embedding in HTML so a buyer
+  // cannot inject markup (fake links / phishing copy) into the builder's inbox.
+  const safeName = data.buyerName ? escapeHtml(data.buyerName) : null;
+  const safeEmail = data.buyerEmail ? escapeHtml(data.buyerEmail) : null;
+  const safePhone = data.buyerPhone ? escapeHtml(data.buyerPhone) : null;
+  const safeMessage = data.message ? escapeHtml(data.message) : null;
+  // SECURITY: buyerEmail goes into the Reply-To HEADER — CRLF-sanitize and only
+  // use it when it is a plain well-formed address; otherwise fall back.
+  const headerEmail = data.buyerEmail ? sanitizeEmailHeader(data.buyerEmail) : null;
+  const replyTo = headerEmail && safeMailtoHref(headerEmail) ? headerEmail : REPLY_TO;
+  // SECURITY: user input inside href must not smuggle a scheme — link only
+  // strictly-shaped values, otherwise render plain escaped text with no anchor.
+  const mailHref = safeMailtoHref(data.buyerEmail);
+  const telHref = safeTelHref(data.buyerPhone);
   await resend.emails.send({
     from: FROM,
     to,
-    replyTo: data.buyerEmail ?? REPLY_TO,
+    replyTo,
     subject: `New inquiry on your SplanAI proposal`,
     html: `
 <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
   <h1 style="font-size:22px;font-weight:800;margin-bottom:4px">New Inquiry 🏠</h1>
   <p style="color:#475569;margin-bottom:24px">A potential buyer expressed interest in <strong>${planLabel}</strong> on your SplanAI proposal.</p>
   <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
-    ${data.buyerName ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px;width:110px">Name</td><td style="padding:8px 0;font-weight:600">${data.buyerName}</td></tr>` : ""}
-    ${data.buyerEmail ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px">Email</td><td style="padding:8px 0"><a href="mailto:${data.buyerEmail}" style="color:#3b82f6">${data.buyerEmail}</a></td></tr>` : ""}
-    ${data.buyerPhone ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px">Phone</td><td style="padding:8px 0"><a href="tel:${data.buyerPhone}" style="color:#3b82f6">${data.buyerPhone}</a></td></tr>` : ""}
+    ${safeName ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px;width:110px">Name</td><td style="padding:8px 0;font-weight:600">${safeName}</td></tr>` : ""}
+    ${safeEmail ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px">Email</td><td style="padding:8px 0">${mailHref ? `<a href="${mailHref}" style="color:#3b82f6">${safeEmail}</a>` : safeEmail}</td></tr>` : ""}
+    ${safePhone ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px">Phone</td><td style="padding:8px 0">${telHref ? `<a href="${telHref}" style="color:#3b82f6">${safePhone}</a>` : safePhone}</td></tr>` : ""}
     <tr><td style="padding:8px 0;color:#94a3b8;font-size:13px">Interested in</td><td style="padding:8px 0;font-weight:600">${planLabel}</td></tr>
-    ${data.message ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px;vertical-align:top">Message</td><td style="padding:8px 0;color:#475569">${data.message}</td></tr>` : ""}
+    ${safeMessage ? `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px;vertical-align:top">Message</td><td style="padding:8px 0;color:#475569">${safeMessage}</td></tr>` : ""}
   </table>
-  ${contactLine ? `<a href="mailto:${data.buyerEmail ?? ""}" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Reply to Buyer →</a>` : ""}
+  ${contactLine && mailHref ? `<a href="${mailHref}" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Reply to Buyer →</a>` : ""}
   <p style="margin-top:24px;color:#94a3b8;font-size:13px">View the proposal: <a href="${data.portalUrl}" style="color:#3b82f6">${data.portalUrl}</a></p>
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
   ${footerHtml()}
@@ -196,7 +236,7 @@ export async function sendTeamInviteEmail(to: string, ownerEmail: string, invite
     html: `
 <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
   <h1 style="font-size:24px;font-weight:800;margin-bottom:8px">You're invited to Splan<span style="color:#3b82f6">AI</span> Team 🏠</h1>
-  <p style="color:#475569;margin-bottom:24px"><strong>${ownerEmail}</strong> has invited you to join their SplanAI Team — AI floor plan generation for home builders.</p>
+  <p style="color:#475569;margin-bottom:24px"><strong>${escapeHtml(ownerEmail)}</strong> has invited you to join their SplanAI Team — AI floor plan generation for home builders.</p>
   <p style="margin-bottom:8px"><strong>With Team access you get:</strong></p>
   <ul style="color:#475569;padding-left:20px;margin-bottom:24px">
     <li>Unlimited AI floor plan generations</li>

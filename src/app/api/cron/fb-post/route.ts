@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { validate as validateContentQuality } from "@/lib/content-quality";
+import { suspectStat, validate as validateContentQuality } from "@/lib/content-quality";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,14 +56,18 @@ function facebookUrl(id: string): string {
   return `https://www.facebook.com/${id}`;
 }
 
-function bannedIssuesForFacebook(text: string): string[] {
+function qualityIssuesForFacebook(text: string): string[] {
   // validate() is blog-oriented. For Facebook, reuse it as the banned-term source
-  // and ignore blog-only length / description / structure issues.
-  return validateContentQuality(
+  // (ignoring blog-only length / description / structure issues) and add the
+  // fabrication gate: invented customer results / stats and unverified
+  // "Just shipped" launch claims must never reach the Page.
+  const banned = validateContentQuality(
     "Facebook post",
     "Plain SplanAI Facebook Page post for home builders, checked only for banned terms.",
     text,
   ).filter(issue => issue.startsWith("banned"));
+
+  return [...banned, ...suspectStat(text)];
 }
 
 async function recordFailure(
@@ -186,7 +190,7 @@ export async function GET(req: NextRequest) {
   const skipped: { id: string; issues: string[] }[] = [];
 
   for (const draft of drafts as FbPostDraft[]) {
-    const issues = bannedIssuesForFacebook(draft.message);
+    const issues = qualityIssuesForFacebook(draft.message);
 
     if (issues.length === 0) {
       pick = draft;
@@ -194,6 +198,22 @@ export async function GET(req: NextRequest) {
     }
 
     skipped.push({ id: draft.id, issues });
+  }
+
+  // Fail-loud: blocked drafts are logged, recorded on the row (last_error),
+  // and reported in the response — never silently dropped.
+  if (skipped.length > 0) {
+    console.warn(`[fb-post] Quality gate blocked ${skipped.length} draft(s): ${JSON.stringify(skipped)}`);
+    for (const s of skipped) {
+      await supabase
+        .from("fb_post_draft")
+        .update({
+          last_error: `quality_gate: ${s.issues.join(", ")}`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", s.id)
+        .eq("status", "draft");
+    }
   }
 
   if (!pick) {

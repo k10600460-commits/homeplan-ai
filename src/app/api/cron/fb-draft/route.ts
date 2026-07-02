@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import {
   BANNED_WORDS,
+  suspectStat,
   validate as validateContentQuality,
 } from "@/lib/content-quality";
 
@@ -26,12 +27,14 @@ function getNewYorkDate(now = new Date()): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-function bannedIssuesForFacebook(text: string): string[] {
-  return validateContentQuality(
+function qualityIssuesForFacebook(text: string): string[] {
+  const banned = validateContentQuality(
     "Facebook post",
     "Plain SplanAI Facebook Page post for home builders, checked only for banned terms.",
     text,
   ).filter(issue => issue.startsWith("banned"));
+
+  return [...banned, ...suspectStat(text)];
 }
 
 async function hasDraftForDate(
@@ -86,14 +89,21 @@ Tone: educational founder tone — practical, plain English, peer-to-peer, like 
 
 Voice rules (STRICT — follow exactly):
 - Plain English. No marketing hype.
+- Write as the solo founder in first person ("I"). Refer to the product in third person as "SplanAI" — never "we".
 - 3 to 5 sentences.
 - Facebook-appropriate: a little more developed than an X post, but still concise.
-- No hashtags.
+- ZERO hashtags.
 - Gently pull the reader toward the blog or site without sounding pushy.
-- NEVER use these words/phrases: ${BANNED_WORDS.map(w => `"${w}"`).join(", ")}.
+- NEVER use these words/phrases: ${BANNED_WORDS.map(w => `"${w}"`).join(", ")}, "seamless", "effortless", "unlock", "empower".
 - Do NOT call SplanAI a CRM.
 - Do NOT claim specific customer counts, deals closed, ROI numbers, or that plans are permit-ready.
 - SplanAI produces buyer-ready concepts to start the conversation, not final/permit drawings.
+
+Truthfulness rules (STRICT — a post that breaks any of these is auto-rejected before publishing):
+- NEVER invent customer results, metrics, or adoption numbers. No "one builder went from X to Y", no "cut N hours to M", no "N% faster/more". SplanAI has NO citable customer results yet.
+- NEVER claim a feature was "just shipped" / "just launched" / "now live". Do not announce launches at all — a human announces launches.
+- NEVER cite a study, survey, or statistic unless it comes from a real named source, named in the post.
+- No fake testimonials, no invented quotes, no implied traction.
 
 Today's New York date: ${runDate}
 
@@ -124,7 +134,7 @@ Respond in this exact JSON format (raw JSON only, no code blocks, no extra text)
     return NextResponse.json({ ok: true, status: "empty_message", run_date: runDate });
   }
 
-  const issues = bannedIssuesForFacebook(message);
+  const issues = qualityIssuesForFacebook(message);
   if (issues.length > 0) {
     console.warn(`[fb-draft] Draft rejected by quality gate — run_date: ${runDate} | issues: ${issues.join(", ")}`);
     return NextResponse.json({ ok: true, status: "quality_rejected", run_date: runDate, issues });

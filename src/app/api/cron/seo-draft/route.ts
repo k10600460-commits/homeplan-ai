@@ -121,6 +121,8 @@ Voice rules (STRICT — follow exactly):
 - NEVER use these words/phrases: ${BANNED_WORDS.map(w => `"${w}"`).join(", ")}.
 - Do NOT call SplanAI a CRM. Do NOT claim specific customer counts, deals closed, ROI numbers, or that the plans are permit-ready — SplanAI produces buyer-ready CONCEPTS to start the conversation, not final/permit drawings.
 - Do NOT invent statistics or cite studies. NEVER write percentages about buyer behaviour (e.g. "32% of buyers choose competitors"), "N% more likely", "$X in additional profit/revenue", or "a study / NAHB report found...". Drafts that contain invented numbers are auto-rejected.
+- NEVER invent customer results ("one builder went from X to Y", "cut N hours to M", "N% faster"). SplanAI has NO citable customer results yet.
+- NEVER claim a feature was "just shipped" / "just launched" / "now live". Do not announce launches.
 - If you reference a market statistic, use ONLY one from this approved list, with its source in parentheses exactly as shown. Otherwise stay qualitative — describe the dynamic without inventing a number:
   - NAHB builder confidence (HMI) was 35 in June 2026, below the break-even 50 line (NAHB, June 2026)
   - ~62% of builders used sales incentives and ~35% cut prices (NAHB/NAR, June 2026)

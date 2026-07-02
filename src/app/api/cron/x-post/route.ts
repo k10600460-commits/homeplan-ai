@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { validate as validateContentQuality } from "@/lib/content-quality";
+import { suspectStat, validate as validateContentQuality } from "@/lib/content-quality";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,14 +80,18 @@ function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function bannedIssuesForX(text: string): string[] {
+function qualityIssuesForX(text: string): string[] {
   // validate() is blog-oriented. For X, reuse it as the banned-term source
-  // and ignore blog-only length / description / structure issues.
-  return validateContentQuality(
+  // (ignoring blog-only length / description / structure issues) and add the
+  // fabrication gate: invented customer results / stats and unverified
+  // "Just shipped" launch claims must never reach the timeline.
+  const banned = validateContentQuality(
     "X post",
     "Plain SplanAI social post for home builders, checked only for banned terms.",
     text,
   ).filter(issue => issue.startsWith("banned"));
+
+  return [...banned, ...suspectStat(text)];
 }
 
 async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
@@ -277,7 +281,7 @@ export async function GET(req: NextRequest) {
   const skipped: { id: string; issues: string[] }[] = [];
 
   for (const draft of drafts as XPostDraft[]) {
-    const issues = bannedIssuesForX(draft.draft_text);
+    const issues = qualityIssuesForX(draft.draft_text);
 
     if (draft.draft_text.length > 280) {
       issues.push(`too_long:${draft.draft_text.length}`);
@@ -293,6 +297,19 @@ export async function GET(req: NextRequest) {
     }
 
     skipped.push({ id: draft.id, issues });
+  }
+
+  // Fail-loud: blocked drafts are logged, recorded on the row (last_error),
+  // and reported in the response — never silently dropped.
+  if (skipped.length > 0) {
+    console.warn(`[x-post] Quality gate blocked ${skipped.length} draft(s): ${JSON.stringify(skipped)}`);
+    for (const s of skipped) {
+      await supabase
+        .from("x_post_draft")
+        .update({ last_error: `quality_gate: ${s.issues.join(", ")}` })
+        .eq("id", s.id)
+        .eq("status", "draft");
+    }
   }
 
   if (!pick) {

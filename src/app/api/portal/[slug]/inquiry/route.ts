@@ -115,8 +115,10 @@ export async function POST(
     .eq("id", builderUserId)
     .maybeSingle();
 
+  // Fire-and-forget (M4): the lead is already saved — a Resend outage must not
+  // surface a 500 to the buyer (which triggers resubmits → duplicate leads).
   if (profile?.email) {
-    await sendInquiryNotificationEmail(profile.email, {
+    sendInquiryNotificationEmail(profile.email, {
       buyerName,
       buyerEmail,
       buyerPhone,
@@ -124,7 +126,7 @@ export async function POST(
       message,
       portalSlug: slug,
       portalUrl:  `${APP_URL}/s/${slug}`,
-    });
+    }).catch(err => console.error("[inquiry] notification email failed:", err));
   }
 
   return NextResponse.json({ ok: true });

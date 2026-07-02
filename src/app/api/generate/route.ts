@@ -5,6 +5,10 @@ import { checkUsageLimit, recordApiUsage } from "@/lib/usage";
 import { validateGenerateInput, ValidationError } from "@/lib/security";
 import { checkRateLimitDB } from "@/lib/rate-limit-db";
 
+// Claude generation takes ~30s in practice; pin the function ceiling so the
+// route doesn't die on a plan-default timeout mid-generation (M2).
+export const maxDuration = 60;
+
 // 10 Claude generations per authenticated user per minute
 const GENERATE_RATE = { limit: 10, windowSec: 60 };
 
@@ -188,7 +192,9 @@ Ensure all 3 plans are different architectural styles and each fits within the $
     })();
 
     // ── First-plan follow-up email (non-blocking) ─────────────
-    if (usageCheck.current === 1 && user.email) {
+    // usageCheck.current is the count BEFORE this request, so 0 means this
+    // request generated the user's FIRST plan (M3: `=== 1` fired on the 2nd).
+    if (usageCheck.current === 0 && user.email) {
       import("@/lib/emails").then(({ sendFirstPlanFollowupEmail }) => {
         sendFirstPlanFollowupEmail(user.email!).catch(console.error);
       });
