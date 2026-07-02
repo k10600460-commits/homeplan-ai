@@ -31,6 +31,10 @@ const OPEN_EVENT_TYPE = "view";
 const ENGAGED_EVENT_TYPES = ["pdf_download", "plan_selected", "prequal_click"];
 const EVENT_CAP = 1000; // PostgREST row cap; if hit, watermark stops at the last row
 const EPOCH = "1970-01-01T00:00:00Z"; // first run backfills full history
+// (codex review) The scan window's upper bound trails "now" by this lag so an
+// event whose INSERT committed slightly after our query can never fall behind
+// an advanced watermark.
+const SAFETY_LAG_MS = 30 * 1000;
 
 const STATUS_RANK: Record<string, number> = { draft: 0, sent: 1, opened: 2, engaged: 3 };
 
@@ -113,6 +117,7 @@ async function loadLinkStats(supabase: SupabaseClient, linkId: string): Promise<
 async function runSync(supabase: SupabaseClient) {
   const runStart = new Date();
   const runStartIso = runStart.toISOString();
+  const windowEnd = new Date(runStart.getTime() - SAFETY_LAG_MS).toISOString();
 
   // 0. Watermark
   const { data: state, error: stateError } = await supabase
@@ -141,20 +146,20 @@ async function runSync(supabase: SupabaseClient) {
   };
 
   if (proposals.length === 0) {
-    await saveState(runStartIso);
+    await saveState(windowEnd);
     return { proposals: 0, new_events: 0 };
   }
 
   const linkIds = [...new Set(proposals.map(p => p.shared_link_id))];
 
-  // 2. New view events on growth-linked portals in (lastChecked, runStart]
+  // 2. New view events on growth-linked portals in (lastChecked, now - safety lag]
   const { data: eventData, error: eventsError } = await supabase
     .from("link_events")
     .select("id, link_id, created_at")
     .in("link_id", linkIds)
     .eq("event_type", OPEN_EVENT_TYPE)
     .gt("created_at", lastChecked)
-    .lte("created_at", runStartIso)
+    .lte("created_at", windowEnd)
     .order("created_at", { ascending: true })
     .limit(EVENT_CAP);
   if (eventsError) throw new Error(`link_events read failed: ${eventsError.message}`);
@@ -162,10 +167,10 @@ async function runSync(supabase: SupabaseClient) {
   const events = (eventData ?? []) as EventRow[];
   // If the cap was hit, only advance to the last processed row so the remainder
   // is picked up next run instead of being silently skipped.
-  const nextWatermark = events.length === EVENT_CAP ? events[events.length - 1].created_at : runStartIso;
+  const nextWatermark = events.length === EVENT_CAP ? events[events.length - 1].created_at : windowEnd;
 
   if (events.length === 0) {
-    await saveState(runStartIso);
+    await saveState(windowEnd);
     return { proposals: proposals.length, new_events: 0 };
   }
 
@@ -224,6 +229,9 @@ async function runSync(supabase: SupabaseClient) {
   const companyOf = (p: ProposalRow): string | null =>
     p.company_id ?? (p.lead_id ? leadById.get(p.lead_id)?.company_id ?? null : null);
 
+  // (codex review) Fallback is limited to an EXPLICIT primary contact
+  // (is_primary=true). Companies with several contacts and no designated
+  // primary get no contact rollup rather than an arbitrary one.
   const companyIds = [...new Set(proposals.map(companyOf).filter((v): v is string => !!v))];
   let fallbackContacts: ContactRow[] = [];
   if (companyIds.length > 0) {
@@ -231,7 +239,7 @@ async function runSync(supabase: SupabaseClient) {
       .from("growth_contacts")
       .select("id, company_id, is_primary")
       .in("company_id", companyIds)
-      .order("is_primary", { ascending: false })
+      .eq("is_primary", true)
       .order("created_at", { ascending: true });
     if (error) throw new Error(`growth_contacts read failed: ${error.message}`);
     fallbackContacts = (data ?? []) as ContactRow[];

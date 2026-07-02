@@ -26,6 +26,14 @@ const SUPPRESS_MS = 60 * 60 * 1000; // 1 push per shared_link per hour
 const FIRST_RUN_LOOKBACK_MS = 60 * 60 * 1000; // no state row yet → scan last hour only
 const PRUNE_MS = 24 * 60 * 60 * 1000; // drop suppression stamps older than 24h
 const EVENT_CAP = 1000; // PostgREST row cap; if hit, watermark stops at the last row
+// (codex review) The scan window's upper bound trails "now" by this lag so an
+// event whose INSERT committed slightly after our query (created_at < now but
+// not yet visible) can never fall behind an advanced watermark.
+const SAFETY_LAG_MS = 30 * 1000;
+// Overlap note (codex review): with a 15-min schedule and maxDuration=60s two
+// scheduled runs cannot coexist; only a manual dashboard trigger could overlap
+// one, worst case duplicating a single LINE alert (no data corruption — state
+// writes are last-wins upserts). Accepted residual risk; no advisory lock.
 
 type LinkRow = { id: string; slug: string; client_name: string | null; builder_name: string | null };
 
@@ -75,6 +83,7 @@ async function fetchCompanyNames(
 async function runAlert(supabase: SupabaseClient) {
   const runStart = new Date();
   const runStartIso = runStart.toISOString();
+  const windowEnd = new Date(runStart.getTime() - SAFETY_LAG_MS).toISOString();
 
   // 1. Watermark + per-link suppression stamps
   const { data: state, error: stateError } = await supabase
@@ -90,13 +99,13 @@ async function runAlert(supabase: SupabaseClient) {
   const meta = (state?.meta ?? {}) as { last_alerts?: Record<string, string> };
   const lastAlerts: Record<string, string> = { ...(meta.last_alerts ?? {}) };
 
-  // 2. New portal opens in (lastChecked, runStart]
+  // 2. New portal opens in (lastChecked, now - safety lag]
   const { data: events, error: eventsError } = await supabase
     .from("link_events")
     .select("link_id, created_at")
     .eq("event_type", OPEN_EVENT_TYPE)
     .gt("created_at", lastChecked)
-    .lte("created_at", runStartIso)
+    .lte("created_at", windowEnd)
     .order("created_at", { ascending: true })
     .limit(EVENT_CAP);
   if (eventsError) throw new Error(`link_events read failed: ${eventsError.message}`);
@@ -105,7 +114,7 @@ async function runAlert(supabase: SupabaseClient) {
   // If the cap was hit, only advance to the last processed row so the remainder
   // is picked up next run instead of being silently skipped.
   const nextWatermark =
-    eventRows.length === EVENT_CAP ? eventRows[eventRows.length - 1].created_at : runStartIso;
+    eventRows.length === EVENT_CAP ? eventRows[eventRows.length - 1].created_at : windowEnd;
 
   const saveState = async () => {
     const { error } = await supabase.from("alert_state").upsert(

@@ -15,7 +15,10 @@ export const LEAD_STAGES = ["to_contact", "contacted", "replied", "demo_schedule
 export const LEAD_CHANNELS = ["linkedin", "email", "referral", "inbound"] as const;
 export const LEAD_OWNERS = ["shoji", "va"] as const;
 export const CAMPAIGN_CHANNELS = ["linkedin", "email", "referral", "inbound"] as const;
-export const OUTREACH_CHANNELS = ["linkedin", "email", "call", "webinar"] as const;
+// 'portal' (codex review): kept in sync with the widened DB check in
+// 20260703_growth_portal_open_sync.sql — outreach-sync appends portal_open
+// events with channel='portal'.
+export const OUTREACH_CHANNELS = ["linkedin", "email", "call", "webinar", "portal"] as const;
 export const OUTREACH_TYPES = ["connect_request", "connect_accepted", "dm", "comment", "email_sent", "email_open", "email_reply", "portal_open", "call", "follow_up"] as const;
 export const OUTREACH_DIRECTIONS = ["outbound", "inbound"] as const;
 export const OUTREACH_SENTIMENTS = ["pos", "neutral", "neg"] as const;
