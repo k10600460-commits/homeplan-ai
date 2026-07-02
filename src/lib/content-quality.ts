@@ -38,10 +38,82 @@ const SUSPECT_STAT_PATTERNS = [
   { label: "study-found", regex: /\bstud(?:y|ies)\s+(?:found|show|shows|showed)\b/i },
   { label: "profit-claim", regex: /\$\s?\d[\d,.]*\s*(?:million|billion|thousand|[kmb])?\s+in\s+(?:additional\s+)?(?:profit|revenue|sales)\b/i },
   { label: "roi-seeing", regex: /\bROI\b[^.\n]{0,40}\bbuilders\b[^.\n]{0,20}\bseeing\b/i },
+  // ── Customer-outcome fabrications actually posted to X (audit 2026-07-02) ──
+  // "One builder went from 3 to 12 concepts per week"
+  { label: "from-x-to-y", regex: /\bfrom\s+\d[\d,.]*\s*(?:hours?|hrs?|h|days?|weeks?|minutes?|mins?|concepts?|leads?|deals?|proposals?|clients?|%)?\s*(?:\/\s*\w+|per\s+\w+)?\s+(?:down\s+)?to\s+(?:just\s+)?\d/i },
+  // "40h→4h", "40 hours -> 4 hours"
+  { label: "arrow-metric", regex: /\d[\d,.]*\s*(?:hours?|hrs?|h|%|x|days?|min(?:ute)?s?|weeks?)?\s*(?:→|->|⇒)\s*\d/i },
+  // "SplanAI cut that to 4 hours", "cuts it down to 30 minutes"
+  { label: "cut-to", regex: /\bcuts?\s+(?:that|it|this|them)\s*(?:down\s+)?to\s+(?:just\s+)?\d/i },
+  // "35% faster", "40% more deals"
+  { label: "pct-outcome", regex: /\b\d{1,3}\s?%\s+(?:faster|slower|more|fewer|less|higher|lower|better)\b/i },
+  // "3x more deals", "10x faster"
+  { label: "x-times-outcome", regex: /\b\d+(?:\.\d+)?\s?x\s+(?:more|faster|higher|better|fewer)\b/i },
+  // "One builder / a customer / our client ... <number>" — anecdotal customer result
+  { label: "customer-outcome", regex: /\b(?:one|a|our|another)\s+(?:builders?|customers?|users?|clients?)\s+[^.!?\n]{0,80}\d/i },
 ] as const;
+
+// Unverified-launch claims ("Just shipped: instant cost estimation overlay").
+// NEVER excusable by a source marker or allowlist — a real launch is announced
+// by a human, not by the Haiku generator.
+const SHIPPED_CLAIM_PATTERNS = [
+  { label: "just-shipped", regex: /\bjust\s+(?:shipped|launched|released|rolled\s+out|went\s+live)\b/i },
+  { label: "we-shipped", regex: /\b(?:we|i)\s+(?:shipped|launched|released|rolled\s+out)\b/i },
+  { label: "now-live", regex: /\b(?:now\s+live|is\s+live\s+now|new\s+feature\s*:)\b/i },
+] as const;
+
+// A statistic is allowed when its sentence carries an explicit approved-source
+// parenthetical, e.g. "(NAHB, June 2026)" — matches the citable list used by
+// the seo-draft prompt.
+const SOURCE_MARKER =
+  /\((?:source:\s*)?(?:NAHB|NAR|U\.?S\.?\s?Census(?:\s?Bureau)?|Census\s?Bureau|Freddie\s?Mac|Fannie\s?Mae|Bureau\s+of\s+Labor\s+Statistics|BLS|HUD|Federal\s+Reserve)[^)]*\)/i;
 
 export const BANNED_WORDS = BANNED_TERMS.map(({ label }) => label);
 export const BANNED = BANNED_TERMS.map(({ regex }) => regex);
+
+export type SuspectStatOptions = {
+  // Extra caller-approved snippets (e.g. citable_stats entries). A sentence
+  // containing/matching an allowlist entry is exempt from the STAT patterns
+  // (but never from the SHIPPED patterns).
+  allowlist?: ReadonlyArray<string | RegExp>;
+};
+
+// Fail-loud fabrication gate for ANY outbound copy (X / FB / blog).
+// Returns [] when clean, otherwise "suspect_stat:<label>" / "unverified_claim:<label>"
+// issues. Sentence-scoped so one sourced macro stat doesn't excuse the rest of
+// the text, and one fabricated line is caught even in a long clean article.
+export function suspectStat(
+  text: string | null | undefined,
+  options?: SuspectStatOptions,
+): string[] {
+  const safeText = text ?? "";
+  if (!safeText.trim()) return [];
+
+  const allowlist = options?.allowlist ?? [];
+  const issues = new Set<string>();
+  // Rough sentence split: terminal punctuation or newlines.
+  const sentences = safeText.split(/(?<=[.!?])\s+|\n+/);
+
+  for (const sentence of sentences) {
+    // Launch claims are never excusable.
+    for (const { label, regex } of SHIPPED_CLAIM_PATTERNS) {
+      if (regex.test(sentence)) issues.add(`unverified_claim:${label}`);
+    }
+
+    const sourced =
+      SOURCE_MARKER.test(sentence) ||
+      allowlist.some(entry =>
+        typeof entry === "string" ? sentence.includes(entry) : entry.test(sentence),
+      );
+    if (sourced) continue;
+
+    for (const { label, regex } of SUSPECT_STAT_PATTERNS) {
+      if (regex.test(sentence)) issues.add(`suspect_stat:${label}`);
+    }
+  }
+
+  return [...issues];
+}
 
 export function validate(
   title: string | null | undefined,
@@ -59,12 +131,10 @@ export function validate(
     if (re.test(safeDesc)) issues.push(`banned-desc:${re.source}`);
   }
 
-  // Invented / unsourced statistics. Blog-only in effect: seo-draft and
-  // seo-publish read every issue, while x-post / fb-post filter to "banned"
-  // prefixes, so social posts are unaffected by this gate.
-  for (const { label, regex } of SUSPECT_STAT_PATTERNS) {
-    if (regex.test(safeBody)) issues.push(`suspect_stat:${label}`);
-  }
+  // Invented / unsourced statistics and unverified launch claims. Applied to
+  // every channel: seo-draft / seo-publish read every issue, and x-post /
+  // fb-post also call suspectStat() directly on the post text.
+  issues.push(...suspectStat(safeBody));
 
   if (safeBody.length < BODY_MIN_LENGTH) {
     issues.push(`too_short:${safeBody.length}`);
