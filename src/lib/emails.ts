@@ -285,11 +285,13 @@ export async function sendTeamInviteEmail(to: string, ownerEmail: string, invite
   }).catch(console.error);
 }
 
-// ── Pulse weekly digest (P-A) — TEMPLATE ONLY, intentionally NOT wired ────────
-// Sending for /pulse subscribers is OFF by decision: /api/pulse/subscribe only
-// stores opt-ins in pulse_subscribers. Before any send goes live a human must
-// approve it (double opt-in + CAN-SPAM review), then a cron can render this
-// template and hand it to resend. Nothing imports this function today.
+// ── Pulse weekly digest (P-A) — wired to /api/cron/pulse-digest, SEND OFF ─────
+// Sending for /pulse subscribers stays OFF by decision: the cron builds every
+// digest from pulse_subscribers × the latest pulse_snapshots row and stops
+// right before the Resend call unless PULSE_DIGEST_ENABLED === 'true' (env is
+// intentionally unset everywhere → OFF; it logs "would send N" instead).
+// Before flipping the flag a human must approve double opt-in + CAN-SPAM
+// review. unsubscribeUrl → GET /api/pulse/unsubscribe?token=<HMAC> (live).
 export function buildPulseDigestEmail(params: {
   /** null = all-metros digest */
   metroName: string | null;
