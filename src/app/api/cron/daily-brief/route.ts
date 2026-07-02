@@ -1164,13 +1164,18 @@ Voice rules (STRICT):
         .select("job, last_ok, last_error");
       if (hbError) throw new Error(hbError.message);
       const rows = (hbRows ?? []) as Array<{ job: string; last_ok: string | null; last_error: string | null }>;
-      const STALE_MS = 24 * 60 * 60 * 1000;
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      // Per-job staleness: weekly crons must not trip the daily 24h rule every
+      // day (alert fatigue). Threshold = cadence + 1 day grace; default 24h.
+      const STALE_MS_BY_JOB: Record<string, number> = {
+        "pulse-refresh": 8 * DAY_MS, // weekly (Thu 18:00 UTC, vercel.json)
+      };
       const issues: string[] = [];
       for (const r of [...rows].sort((a, b) => a.job.localeCompare(b.job))) {
         const ageMs = r.last_ok ? Date.now() - new Date(r.last_ok).getTime() : null;
         const parts: string[] = [];
         if (ageMs == null) parts.push("成功実績なし");
-        else if (ageMs > STALE_MS) parts.push(`last ok ${Math.floor(ageMs / 3_600_000)}h前`);
+        else if (ageMs > (STALE_MS_BY_JOB[r.job] ?? DAY_MS)) parts.push(`last ok ${Math.floor(ageMs / 3_600_000)}h前`);
         if (r.last_error) parts.push(`ERR ${r.last_error.replace(/\s+/g, " ").slice(0, 60)}`);
         if (parts.length > 0) issues.push(`・${r.job}: ${parts.join(" / ")}`);
       }
