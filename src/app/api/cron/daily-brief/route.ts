@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import Anthropic from "@anthropic-ai/sdk";
 import { google } from "googleapis";
 import { buildNewsCarousel, buildDigestCarousel, pushMessages, type DigestProposal } from "@/lib/line";
+import { BANNED_WORDS } from "@/lib/content-quality";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -870,9 +871,20 @@ For each lead or support email, write:
 Generate 2 X (Twitter) post ideas for SplanAI today.
 - Post 1 angle: "${primaryAngle}"
 - Post 2 angle: "${secondaryAngle}"
-Angles: roi=ROI/numbers for builders, feature=product feature highlight, use_case=builder workflow, market_insight=housing market data, social_proof=traction/testimonial, founder=personal founder story, behind_scenes=build-in-public
+Angles: roi=the time/cost economics of proposals for builders (qualitative — describe the dynamic, no invented numbers), feature=product feature highlight (existing features only), use_case=builder workflow, market_insight=housing market data (only with a real named source), social_proof=what builders say about the PROBLEM (never invented testimonials or traction numbers), founder=personal founder story, behind_scenes=build-in-public (what I'm actually working on)
 
-Rules: max 280 chars each, no hashtag spam (max 2), no emoji spam, write in the voice of a solo founder talking to home builders.
+Truthfulness rules (STRICT — a post that breaks any of these is auto-rejected before publishing):
+- NEVER invent customer results, metrics, or adoption numbers. No "one builder went from X to Y", no "cut N hours to M", no "N% faster/more", no customer counts, deals closed, or ROI numbers. SplanAI has NO citable customer results yet.
+- NEVER claim a feature was "just shipped" / "just launched" / "now live". Do not announce launches at all — a human announces launches.
+- NEVER cite a study, survey, or statistic unless it comes from a real named source you were given, with the source named in the post.
+- No fake testimonials, no invented quotes, no implied traction.
+
+Voice rules (STRICT):
+- Write as the solo founder in first person ("I"). Refer to the product in third person as "SplanAI" — never "we".
+- ZERO hashtags. No emoji spam.
+- Plain English, builder-to-builder tone. No marketing hype.
+- NEVER use these words/phrases: ${BANNED_WORDS.map(w => `"${w}"`).join(", ")}, "seamless", "effortless", "unlock", "empower".
+- Max 280 chars each.
 
 ## Response format (JSON only, no markdown):
 {
