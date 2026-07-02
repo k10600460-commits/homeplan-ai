@@ -67,6 +67,10 @@
     {
       "path": "/api/cron/outreach-sync",
       "schedule": "10 21 * * *"
+    },
+    {
+      "path": "/api/cron/pulse-refresh",
+      "schedule": "0 18 * * 4"
     }
   ]
 }

@@ -7,6 +7,7 @@ SplanAI is built for owner-operator custom and semi-custom builders (most US hom
 ## Main pages
 
 - [Home](https://splanai.com/): What SplanAI does, how proposal generation works, and plans.
+- [Builder Market Pulse](https://splanai.com/pulse): Free weekly data hub for small home builders — the Freddie Mac PMMS 30-year fixed rate (via FRED, series MORTGAGE30US) turned into monthly-payment tables for $300k–$800k homes at 20% down, plus U.S. Census Bureau single-family building-permit counts for ten metros: Raleigh, Nashville, Austin, Dallas–Fort Worth, Charlotte, Boise, Phoenix, Atlanta, Tampa, and Jacksonville (each at /pulse/<metro>). Every figure names its source and as-of date; unsourced values show n/a.
 - [Blog](https://splanai.com/blog): Practical articles for home builders on pre-sale proposals, buyer communication, and running a small building business. New articles are listed in the sitemap.
 - [Sitemap](https://splanai.com/sitemap.xml): Full list of published pages and blog articles.
 
