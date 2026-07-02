@@ -59,6 +59,14 @@
     {
       "path": "/api/cron/content-feedback",
       "schedule": "25 22 * * *"
+    },
+    {
+      "path": "/api/cron/hot-lead-alert",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/outreach-sync",
+      "schedule": "0 21 * * *"
     }
   ]
 }
