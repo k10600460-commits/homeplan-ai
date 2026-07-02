@@ -131,6 +131,12 @@ export async function getLatestPulseSnapshot(): Promise<PulseSnapshot | null> {
   }
 }
 
+// ── Unsubscribe token (shared by /api/cron/pulse-digest + /api/pulse/unsubscribe)
+// Token = crypto.signPayload({ email, purpose }) — an HMAC-SHA256-signed payload
+// bound to the subscriber email. Stateless: no DB column needed; deleting the
+// pulse_subscribers row IS the unsubscribe.
+export const PULSE_UNSUB_TOKEN_PURPOSE = "pulse-unsub";
+
 // ── Subscription validation (POST /api/pulse/subscribe) ──────────────────────
 // Same strict shape as emails.ts SAFE_EMAIL_RE.
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
