@@ -77,6 +77,7 @@ interface Props {
   subscription: Subscription | null;
   isNewSignup?: boolean;
   newSignupPlan?: "team" | "pro";
+  checkoutSuccess?: boolean;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -112,7 +113,7 @@ function formatDateTime(iso: string | null) {
 // ── MLS connection state ──────────────────────────────────────────────────────
 type MlsStatus = "idle" | "connected" | "connecting" | "error";
 
-export default function DashboardClient({ user, subscription, isNewSignup = false, newSignupPlan }: Props) {
+export default function DashboardClient({ user, subscription, isNewSignup = false, newSignupPlan, checkoutSuccess = false }: Props) {
   const router = useRouter();
   const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -162,6 +163,10 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
 
   // Getting-started onboarding banner (dismissible, client-only). Default hidden to avoid SSR flash.
   const [onbDismissed, setOnbDismissed] = useState(true);
+
+  // Post-checkout "next 3 steps" guide — shown once when Stripe redirects back
+  // with /dashboard?checkout=success. Session-only (dismiss or navigate away).
+  const [showCheckoutGuide, setShowCheckoutGuide] = useState(checkoutSuccess);
 
   // Nurture drafts (Follow-ups)
   const [nurtureDrafts, setNurtureDrafts] = useState<NurtureDraft[]>([]);
@@ -745,6 +750,17 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Clean ?checkout=success out of the URL (banner state already captured).
+  // ref guard prevents double-fire under React StrictMode.
+  const checkoutGuideFiredRef = useRef(false);
+  useEffect(() => {
+    if (!checkoutSuccess || checkoutGuideFiredRef.current) return;
+    checkoutGuideFiredRef.current = true;
+    track("checkout_success");
+    window.history.replaceState({}, "", "/dashboard");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const statusInfo = STATUS_LABELS[subscription?.status ?? "inactive"] ?? STATUS_LABELS.inactive;
 
   // KPI values — computed from already-fetched data (no extra API calls)
@@ -827,7 +843,15 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   const onbProposals = sharedLinks.length > 0;
   const onbBranding  = companyName.trim().length > 0;
   const onbPrequal   = !!prequalSaved?.url;
-  const onbShow      = !onbDismissed && (!onbProposals || !onbBranding || !onbPrequal);
+  // Suppressed while the post-checkout guide is up — one checklist at a time.
+  const onbShow      = !showCheckoutGuide && !onbDismissed && (!onbProposals || !onbBranding || !onbPrequal);
+
+  // Post-checkout guide steps (same live completion data, zero extra fetches)
+  const checkoutSteps = [
+    { done: onbProposals, label: "Create your first proposal", hint: "type the lot address, set a budget — 3 concepts in about 30 seconds", href: "/generate" },
+    { done: !!logoPreview, label: "Add your logo", hint: "every PDF and client portal goes out under your brand", href: "#builder-profile" },
+    { done: mlsStatus === "connected", label: "Connect your MLS", hint: "Pro & Team — real lot data flows into your proposals", href: "#connect-data" },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -982,6 +1006,44 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
             New proposal →
           </a>
         </div>
+
+        {/* Post-checkout welcome — next 3 steps so nobody gets lost after paying */}
+        {showCheckoutGuide && (
+          <div className="mb-6 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-gray-900">✓ Payment confirmed — you&apos;re all set</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Three steps to your first branded proposal. Most builders finish the first one today.</p>
+              </div>
+              <button
+                onClick={() => setShowCheckoutGuide(false)}
+                aria-label="Dismiss"
+                className="shrink-0 text-gray-300 hover:text-gray-500 text-xl leading-none"
+              >×</button>
+            </div>
+            <ul className="mt-4 space-y-2.5">
+              {checkoutSteps.map((step, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className={`shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${step.done ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>
+                    {step.done ? "✓" : i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm font-semibold ${step.done ? "text-gray-400 line-through" : "text-gray-800"}`}>{step.label}</p>
+                    <p className="text-xs text-gray-400">{step.hint}</p>
+                  </div>
+                  {!step.done && i > 0 && (
+                    <a href={step.href} className="shrink-0 text-xs font-semibold text-emerald-700 hover:text-emerald-900 pt-0.5">Set up →</a>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {!onbProposals && (
+              <a href="/generate" className="mt-4 inline-flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 transition-colors">
+                Create your first proposal →
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Getting started — dismissible onboarding nudge for new/incomplete accounts */}
         {onbShow && (
@@ -1197,12 +1259,24 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
           {filteredLinks.length === 0 ? (
             <div className="px-6 py-8 text-center">
               {sharedLinks.length === 0 ? (
-                <>
-                  <p className="text-sm text-gray-400 mb-3">No shared portals yet.</p>
-                  <a href="/generate" className="inline-block px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
-                    Generate your first proposal →
+                /* First-run guide card — no proposals yet */
+                <div className="py-2">
+                  <p className="text-base font-bold text-gray-900 mb-1">Create your first proposal</p>
+                  <p className="text-sm text-gray-500 mb-4 max-w-sm mx-auto">
+                    Type the lot address, set a budget — you&apos;ll have 3 concepts to share in about 30 seconds.
+                  </p>
+                  <a href="/generate" className="inline-block px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
+                    New proposal →
                   </a>
-                </>
+                  <div className="mt-6 flex items-center justify-center gap-x-4 gap-y-2 flex-wrap text-xs">
+                    {checkoutSteps.map((s, i) => (
+                      <span key={i} className={`inline-flex items-center gap-1.5 ${s.done ? "text-emerald-600" : "text-gray-400"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${s.done ? "bg-emerald-500" : "bg-gray-300"}`} />
+                        {i + 1}. {s.label}{i === 2 ? " (Pro & Team)" : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               ) : (
                 <p className="text-sm text-gray-400">No results match your filter.</p>
               )}
@@ -1607,7 +1681,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
         </div>
 
         {/* Connect Data Sources */}
-        <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div id="connect-data" className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 scroll-mt-20">
           <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">
             Connect Data Sources
           </h2>
@@ -1876,7 +1950,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
 
         {/* ── Branding Settings (Pro + Team) ── */}
         {(userPlan === "pro" || userPlan === "team") && (
-          <div className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div id="builder-profile" className="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 scroll-mt-20">
             <div className="flex items-center gap-2 mb-5">
               <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Builder Profile</h2>
               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
