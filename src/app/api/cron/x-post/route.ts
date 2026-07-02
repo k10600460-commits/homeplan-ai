@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { suspectStat, validate as validateContentQuality } from "@/lib/content-quality";
+import { recordHeartbeat, recordHeartbeatFromResponse } from "@/lib/heartbeat";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -215,7 +216,7 @@ async function postTweetWithRetry(
   throw lastError;
 }
 
-export async function GET(req: NextRequest) {
+async function xPostHandler(req: NextRequest) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -448,4 +449,17 @@ export async function GET(req: NextRequest) {
     refreshed_token: access.refreshed,
     skipped,
   });
+}
+
+// R5 cron heartbeat — thin wrapper only; the handler above is unchanged.
+// 2xx → last_ok, 5xx/throw → last_error (4xx probes ignored, see heartbeat.ts).
+export async function GET(req: NextRequest) {
+  try {
+    const res = await xPostHandler(req);
+    await recordHeartbeatFromResponse("x-post", res);
+    return res;
+  } catch (err) {
+    await recordHeartbeat("x-post", { ok: false, error: toErrorMessage(err) });
+    throw err;
+  }
 }
