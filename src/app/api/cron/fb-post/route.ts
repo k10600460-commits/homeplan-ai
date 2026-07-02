@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { suspectStat, validate as validateContentQuality } from "@/lib/content-quality";
+import { recordHeartbeat, recordHeartbeatFromResponse } from "@/lib/heartbeat";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -131,7 +132,7 @@ async function postToFacebookWithRetry(message: string): Promise<{ id: string }>
   throw lastError;
 }
 
-export async function GET(req: NextRequest) {
+async function fbPostHandler(req: NextRequest) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -306,4 +307,17 @@ export async function GET(req: NextRequest) {
     post_url: facebookUrl(posted.id),
     skipped,
   });
+}
+
+// R5 cron heartbeat — thin wrapper only; the handler above is unchanged.
+// 2xx → last_ok, 5xx/throw → last_error (4xx probes ignored, see heartbeat.ts).
+export async function GET(req: NextRequest) {
+  try {
+    const res = await fbPostHandler(req);
+    await recordHeartbeatFromResponse("fb-post", res);
+    return res;
+  } catch (err) {
+    await recordHeartbeat("fb-post", { ok: false, error: toErrorMessage(err) });
+    throw err;
+  }
 }

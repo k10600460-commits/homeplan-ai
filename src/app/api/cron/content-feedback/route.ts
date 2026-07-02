@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { recordHeartbeat, recordHeartbeatFromResponse } from "@/lib/heartbeat";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -421,7 +422,7 @@ function pickWinnersLosers(x: XItem[], fb: FbItem[], blog: BlogItem[]) {
 }
 
 // ── Handler ──────────────────────────────────────────────────────────────────
-export async function GET(req: NextRequest) {
+async function contentFeedbackHandler(req: NextRequest) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -520,4 +521,20 @@ export async function GET(req: NextRequest) {
     winners,
     next_angle_ja,
   });
+}
+
+// R5 cron heartbeat — thin wrapper only; the handler above is unchanged.
+// 2xx → last_ok, 5xx/throw → last_error (4xx probes ignored, see heartbeat.ts).
+export async function GET(req: NextRequest) {
+  try {
+    const res = await contentFeedbackHandler(req);
+    await recordHeartbeatFromResponse("content-feedback", res);
+    return res;
+  } catch (err) {
+    await recordHeartbeat("content-feedback", {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 }
