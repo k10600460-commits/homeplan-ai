@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { track } from "@vercel/analytics";
-import { calcMonthly } from "@/lib/price-calculator";
+import { calcMonthly, calcMonthlyExact } from "@/lib/price-calculator";
 
 // Rough national ballparks for the optional taxes-&-insurance line.
 // Clearly labeled as estimates in the UI — property tax and insurance
@@ -66,7 +66,11 @@ export default function PaymentCalculatorClient() {
   const downAmount = price * (downPct / 100);
   const loanAmount = price - downAmount;
   const monthlyPI = hasPrice ? calcMonthly(price, downPct, ratePct, termYears) : 0;
-  const totalInterest = hasPrice ? monthlyPI * termYears * 12 - loanAmount : 0;
+  // Totals from the unrounded monthly — per-month rounding would otherwise
+  // compound across the term and show phantom interest on a 0% loan (codex review).
+  const totalInterest = hasPrice
+    ? Math.max(0, calcMonthlyExact(price, downPct, ratePct, termYears) * termYears * 12 - loanAmount)
+    : 0;
   const taxInsMonthly = hasPrice
     ? (price * (PROPERTY_TAX_PCT_PER_YEAR / 100)) / 12 + INSURANCE_USD_PER_YEAR / 12
     : 0;

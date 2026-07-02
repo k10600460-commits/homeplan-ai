@@ -35,7 +35,10 @@ export function computeConfigPrice(plan: PlanBase, cfg: ConfigState): number {
   return Math.max(150000, Math.round(raw / 500) * 500)
 }
 
-export function calcMonthly(
+// Unrounded amortized monthly payment. Use this when deriving totals
+// (total interest / total of payments) so per-month rounding doesn't
+// compound across the term — e.g. a 0% loan must show $0 interest.
+export function calcMonthlyExact(
   homePrice: number,
   downPct: number,
   ratePct: number,
@@ -44,6 +47,16 @@ export function calcMonthly(
   const principal = homePrice * (1 - downPct / 100)
   const r = ratePct / 100 / 12
   const n = termYears * 12
-  if (r === 0) return Math.round(principal / n)
-  return Math.round((principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1))
+  if (n <= 0) return 0
+  if (r === 0) return principal / n
+  return (principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1)
+}
+
+export function calcMonthly(
+  homePrice: number,
+  downPct: number,
+  ratePct: number,
+  termYears: number,
+): number {
+  return Math.round(calcMonthlyExact(homePrice, downPct, ratePct, termYears))
 }

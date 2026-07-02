@@ -76,7 +76,7 @@ function roundTo(n: number, step: number): number {
 
 function lotNoteFor(sqft: number): string {
   if (sqft < 2_000) {
-    return "That's very small even by urban infill standards. Before anything else, confirm it's actually a buildable lot of record — some parcels this size are remnants that can't be built on at all.";
+    return "That's very small even by urban infill standards. Before anything else, confirm it's actually a buildable lot of record — parcels this size are sometimes leftover slivers that may not qualify.";
   }
   if (sqft < 5_000) {
     return "Compact infill territory. On lots like this the buildable envelope is usually decided by setbacks and lot-coverage rules, not by the raw square footage — the local zoning sheet matters more than the number.";
@@ -107,7 +107,7 @@ function fitNoteFor(lotSqft: number, maxHouseSqft: number): string {
 function stateNoteFor(state?: string): string {
   const code = normalizeState(state);
   const where = code ? `In ${code}, like everywhere in the US,` : "Everywhere in the US,";
-  return `${where} zoning is set city by city and county by county — the same lot can be buildable in one jurisdiction and a dead end in the next. Nothing here replaces a call to the local planning department.`;
+  return `${where} zoning is set city by city and county by county — the same lot can be straightforward in one jurisdiction and a much harder conversation in the next. Nothing here replaces a call to the local planning department.`;
 }
 
 const VERIFY_CHECKLIST = [
