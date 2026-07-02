@@ -16,10 +16,11 @@ const cases: Array<[string, string]> = [
   ["arts and crafts bungalow",           "craftsman"],
   // transitional beats traditional
   ["transitional tudor",                 "transitional"],
+  // ranch / colonial have dedicated keys (real storage photos, 5f08740)
+  ["hill country ranch",                 "ranch"],
+  ["georgian colonial",                  "colonial"],
   // traditional keywords
   ["european cottage",                   "traditional"],
-  ["hill country ranch",                 "traditional"],
-  ["georgian colonial",                  "traditional"],
   ["santa barbara style",                "traditional"],
   ["mediterranean villa",                "traditional"],
   // contemporary keywords
