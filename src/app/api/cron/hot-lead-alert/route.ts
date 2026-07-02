@@ -217,10 +217,27 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     const message = toErrorMessage(err);
     console.error("[hot-lead-alert] FAILED:", message);
+    // Fail-loud: every failure is a red cron run + log line + heartbeat
+    // last_error (listed in the daily-brief Cron health section). The LINE
+    // error notice fires on the FIRST failure only (previous heartbeat had no
+    // last_error) so a persistent breakage doesn't push every 15 minutes.
+    let alreadyFailing = false;
+    try {
+      const { data: hb } = await supabase
+        .from("cron_heartbeats")
+        .select("last_error")
+        .eq("job", JOB)
+        .maybeSingle();
+      alreadyFailing = !!hb?.last_error;
+    } catch {
+      // heartbeat table unreadable — treat as first failure (stay loud)
+    }
     await recordHeartbeat(JOB, { ok: false, error: message });
-    // Fail-loud: surface on LINE too (best-effort — if LINE itself is down this
-    // cannot deliver, but the heartbeat + 500 + daily-brief health line remain).
-    await pushMessages([{ type: "text", text: `⚠ hot-lead-alert 失敗\n${message.slice(0, 300)}` }]);
+    if (!alreadyFailing) {
+      // Best-effort — if LINE itself is the failure this cannot deliver, but
+      // the heartbeat + 500 + daily-brief health line remain.
+      await pushMessages([{ type: "text", text: `⚠ hot-lead-alert 失敗\n${message.slice(0, 300)}` }]);
+    }
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
