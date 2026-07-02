@@ -1,0 +1,21 @@
+# SplanAI
+
+> SplanAI is an AI pre-sale proposal tool for small US home builders. It turns a lot (address, size, budget) into 3 buyer-ready home concept proposals in about 30 seconds — concept directions, a price range, and a monthly-payment view — delivered as a shareable client portal and a branded PDF. The concepts are for pre-sale conversations, not permit-ready plans.
+
+SplanAI is built for owner-operator custom and semi-custom builders (most US home-builder firms have fewer than 10 employees) who compete against national builders' polished presentations without an in-house designer or marketing team.
+
+## Main pages
+
+- [Home](https://splanai.com/): What SplanAI does, how proposal generation works, and plans.
+- [Blog](https://splanai.com/blog): Practical articles for home builders on pre-sale proposals, buyer communication, and running a small building business. New articles are listed in the sitemap.
+- [Sitemap](https://splanai.com/sitemap.xml): Full list of published pages and blog articles.
+
+## Legal
+
+- [Terms of Service](https://splanai.com/terms)
+- [Privacy Policy](https://splanai.com/privacy)
+
+## Contact
+
+- Email: hello@splanai.com
+- X (Twitter): https://x.com/SplanAI
