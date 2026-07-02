@@ -1,5 +1,6 @@
 import { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
+import { PULSE_METROS } from "@/data/pulse-metros";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: base, lastModified: new Date(), changeFrequency: "weekly", priority: 1.0 },
     { url: `${base}/blog`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    { url: `${base}/pulse`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    ...PULSE_METROS.map((m) => ({
+      url: `${base}/pulse/${m.slug}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
     { url: `${base}/terms`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
     { url: `${base}/privacy`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
   ];

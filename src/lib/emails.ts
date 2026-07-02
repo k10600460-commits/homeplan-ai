@@ -284,3 +284,34 @@ export async function sendTeamInviteEmail(to: string, ownerEmail: string, invite
 </div>`,
   }).catch(console.error);
 }
+
+// ── Pulse weekly digest (P-A) — TEMPLATE ONLY, intentionally NOT wired ────────
+// Sending for /pulse subscribers is OFF by decision: /api/pulse/subscribe only
+// stores opt-ins in pulse_subscribers. Before any send goes live a human must
+// approve it (double opt-in + CAN-SPAM review), then a cron can render this
+// template and hand it to resend. Nothing imports this function today.
+export function buildPulseDigestEmail(params: {
+  /** null = all-metros digest */
+  metroName: string | null;
+  ratePct: number;
+  rateAsOf: string; // ISO date of the PMMS observation
+  /** Pre-formatted, already-sourced permit line(s); null renders nothing. */
+  permitsLine: string | null;
+  unsubscribeUrl: string;
+}): { subject: string; html: string } {
+  const scope = params.metroName ? `${params.metroName} ` : "";
+  const subject = sanitizeEmailHeader(
+    `${scope}builder market pulse — 30yr fixed at ${params.ratePct.toFixed(2)}%`,
+  );
+  const html = `
+<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
+  <h1 style="font-size:20px;font-weight:800;margin-bottom:8px">${escapeHtml(scope)}Builder Market Pulse</h1>
+  <p style="color:#475569;margin-bottom:16px">30-year fixed average: <strong>${escapeHtml(params.ratePct.toFixed(2))}%</strong> (Freddie Mac PMMS via FRED, as of ${escapeHtml(params.rateAsOf)}).</p>
+  ${params.permitsLine ? `<p style="color:#475569;margin-bottom:16px">${escapeHtml(params.permitsLine)}</p>` : ""}
+  <p style="color:#475569;margin-bottom:24px">Payment tables and sources: <a href="${APP_URL}/pulse" style="color:#3b82f6">splanai.com/pulse</a></p>
+  <p style="margin-top:24px;color:#94a3b8;font-size:13px"><a href="${params.unsubscribeUrl}" style="color:#94a3b8">Unsubscribe</a></p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+  ${footerHtml()}
+</div>`;
+  return { subject, html };
+}
