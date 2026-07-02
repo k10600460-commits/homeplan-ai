@@ -33,7 +33,7 @@ export default function PaymentCalculatorClient() {
   const [buildBudget, setBuildBudget] = useState("");
   const [downPct, setDownPct] = useState(20);
   const [termYears, setTermYears] = useState(30);
-  const [ratePct, setRatePct] = useState(6.5);
+  const [rateInput, setRateInput] = useState("6.5");
   const [rateMeta, setRateMeta] = useState<RateMeta | null>(null);
   const rateEdited = useRef(false);
 
@@ -47,7 +47,7 @@ export default function PaymentCalculatorClient() {
       .then((d: { rate: number; asOf: string; source: "fred" | "fallback" }) => {
         if (cancelled || rateEdited.current) return;
         if (typeof d.rate === "number" && Number.isFinite(d.rate) && d.rate > 0) {
-          setRatePct(d.rate);
+          setRateInput(String(d.rate));
           setRateMeta({ asOf: d.asOf, source: d.source });
         }
       })
@@ -59,6 +59,9 @@ export default function PaymentCalculatorClient() {
 
   const price = mode === "total" ? toNum(homePrice) : toNum(lotBudget) + toNum(buildBudget);
   const hasPrice = price > 0;
+
+  const parsedRate = Number(rateInput);
+  const ratePct = Number.isFinite(parsedRate) && parsedRate >= 0 ? parsedRate : 0;
 
   const downAmount = price * (downPct / 100);
   const loanAmount = price - downAmount;
@@ -209,11 +212,10 @@ export default function PaymentCalculatorClient() {
               min={0}
               max={20}
               step={0.05}
-              value={ratePct}
+              value={rateInput}
               onChange={(e) => {
                 rateEdited.current = true;
-                const v = Number(e.target.value);
-                setRatePct(Number.isFinite(v) && v >= 0 ? v : 0);
+                setRateInput(e.target.value);
               }}
               className={inputCls}
             />
