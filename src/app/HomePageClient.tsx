@@ -24,6 +24,7 @@ const T = {
       sub: "Enter lot details → get 3 buyer-ready home concept proposals in 30 seconds. Share a live portal. Close faster.",
       ctaPrimary: "Generate Plans Free →",
       ctaSecondary: "See how it works",
+      tryDemo: "Not ready to sign up? Try a sample proposal first — no email needed →",
       stat1: { value: "30 sec", label: "to generate" },
       stat2: { value: "3 plans", label: "per session" },
       stat3: { value: "14-day", label: "free trial" },
@@ -169,6 +170,7 @@ const T = {
       sub: "Ingresa los datos del lote → obtén 3 propuestas de concepto listas para el cliente en 30 segundos. Comparte un portal en vivo. Cierra más rápido.",
       ctaPrimary: "Genera Propuestas Gratis →",
       ctaSecondary: "Cómo funciona",
+      tryDemo: "¿Aún no quieres registrarte? Prueba una propuesta de ejemplo — sin correo →",
       stat1: { value: "30 seg", label: "para generar" },
       stat2: { value: "3 propuestas", label: "por sesión" },
       stat3: { value: "14 días", label: "de prueba" },
@@ -845,6 +847,11 @@ export default function Home() {
                   {t.hero.ctaSecondary}
                 </a>
               </div>
+              <p className="-mt-6 mb-10 text-center lg:text-left">
+                <a href="/try" className="text-sm text-slate-400 hover:text-blue-300 underline underline-offset-4 transition-colors"
+                  onClick={() => track("cta_click", { button: "hero_try_demo" })}
+                >{t.hero.tryDemo}</a>
+              </p>
               <div className="flex items-center gap-8 justify-center lg:justify-start">
                 {[t.hero.stat1, t.hero.stat2, t.hero.stat3].map((s, i) => (
                   <div key={i} className="text-center lg:text-left">
