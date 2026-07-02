@@ -96,6 +96,19 @@ function formatDate(iso: string | null) {
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://homeplan-ai.vercel.app";
 
+// ── Follow-up lite (rule-based, display-only — nothing is ever auto-sent) ────
+// Suggest a bump when: opened >= MIN_OPENS AND quiet >= QUIET_DAYS AND the lead
+// hasn't been contacted / won / lost yet (i.e. no reply and no outcome).
+const FOLLOWUP_MIN_OPENS = 2;
+const FOLLOWUP_QUIET_DAYS = 3;
+
+function formatDateTime(iso: string | null) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+  });
+}
+
 // ── MLS connection state ──────────────────────────────────────────────────────
 type MlsStatus = "idle" | "connected" | "connecting" | "error";
 
@@ -757,6 +770,55 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
     );
 
   const visibleLinks = showAllLinks ? filteredLinks : filteredLinks.slice(0, 5);
+
+  // ── Portal Engagement rows (computed from already-fetched data — no extra API) ──
+  // Union of intent signals (precise link_events counts) and shared links (covers
+  // portals with zero events). Includes COLD links so quiet-but-engaged portals
+  // (the "bump" case) stay visible.
+  type EngagementRow = {
+    linkId: string; slug: string; label: string; isActive: boolean;
+    opens: number; lastOpened: string | null; leadStatus: string | null;
+    followUp: boolean; quietDays: number;
+  };
+  // leads arrive sorted created_at desc → first hit per link = latest lead status
+  const latestLeadStatus = new Map<string, string>();
+  for (const l of leads) {
+    if (l.link_id && !latestLeadStatus.has(l.link_id)) latestLeadStatus.set(l.link_id, l.status);
+  }
+  const engagementMap = new Map<string, EngagementRow>();
+  for (const s of intentSignals) {
+    engagementMap.set(s.link_id, {
+      linkId: s.link_id, slug: s.slug, label: s.label, isActive: true,
+      opens: s.views, lastOpened: s.last_seen,
+      leadStatus: latestLeadStatus.get(s.link_id) ?? null,
+      followUp: false, quietDays: 0,
+    });
+  }
+  for (const l of sharedLinks) {
+    const existing = engagementMap.get(l.id);
+    if (existing) { existing.isActive = l.is_active; continue; }
+    engagementMap.set(l.id, {
+      linkId: l.id, slug: l.slug, label: l.client_name?.trim() || l.slug, isActive: l.is_active,
+      opens: l.view_count, lastOpened: l.view_count > 0 ? l.updated_at : null,
+      leadStatus: latestLeadStatus.get(l.id) ?? null,
+      followUp: false, quietDays: 0,
+    });
+  }
+  const engagementRows = Array.from(engagementMap.values());
+  for (const r of engagementRows) {
+    if (!r.lastOpened) continue;
+    r.quietDays = Math.floor((Date.now() - new Date(r.lastOpened).getTime()) / 86_400_000);
+    r.followUp =
+      r.isActive &&
+      r.opens >= FOLLOWUP_MIN_OPENS &&
+      r.quietDays >= FOLLOWUP_QUIET_DAYS &&
+      (r.leadStatus === null || r.leadStatus === "new");
+  }
+  engagementRows.sort((a, b) =>
+    Number(b.followUp) - Number(a.followUp) ||
+    (b.lastOpened ?? "").localeCompare(a.lastOpened ?? "")
+  );
+  const followUpDueCount = engagementRows.filter(r => r.followUp).length;
   const activeLeads = intentSignals.filter(s => s.heat !== "COLD");
   const visibleLeads = showAllLeads ? activeLeads : activeLeads.slice(0, 5);
   const visibleFollowups = showAllFollowups ? nurtureDrafts : nurtureDrafts.slice(0, 5);
@@ -1188,6 +1250,90 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
               )}
             </>
           )}
+        </div>
+
+        {/* Portal Engagement — who opened which portal, how often, and who needs a bump */}
+        <div className="mb-6 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Portal Engagement</h2>
+            {!intentLoading && !leadsLoading && followUpDueCount > 0 && (
+              <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-0.5 shrink-0">
+                {followUpDueCount} follow-up{followUpDueCount !== 1 ? "s" : ""} suggested
+              </span>
+            )}
+          </div>
+          {intentLoading || leadsLoading ? (
+            <div className="p-4 space-y-2">
+              {[0, 1, 2].map(i => <div key={i} className="h-10 rounded-lg bg-gray-100 animate-pulse" />)}
+            </div>
+          ) : engagementRows.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">No portals yet. Share a proposal to start tracking opens.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-100">
+                    <th className="px-4 py-2 font-semibold">Portal</th>
+                    <th className="px-4 py-2 font-semibold">Opens</th>
+                    <th className="px-4 py-2 font-semibold">Last opened</th>
+                    <th className="px-4 py-2 font-semibold">Lead</th>
+                    <th className="px-4 py-2 font-semibold">Next step</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {engagementRows.map(r => {
+                    const leadCfg: Record<string, string> = {
+                      new:       "bg-blue-50 text-blue-700",
+                      contacted: "bg-amber-50 text-amber-700",
+                      won:       "bg-emerald-50 text-emerald-700",
+                      lost:      "bg-gray-100 text-gray-500",
+                    };
+                    return (
+                      <tr key={r.linkId} className={r.followUp ? "bg-amber-50/50" : undefined}>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <a href={`/s/${r.slug}`} target="_blank" rel="noopener noreferrer"
+                              className="font-mono text-xs text-blue-600 hover:underline shrink-0">/s/{r.slug}</a>
+                            {r.label !== r.slug && <span className="text-xs text-gray-500 truncate">{r.label}</span>}
+                            {!r.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 font-semibold shrink-0">inactive</span>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 font-semibold text-gray-900">{r.opens}</td>
+                        <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
+                          {formatDateTime(r.lastOpened)}
+                          {r.lastOpened && <span className="text-gray-400"> · {timeAgo(r.lastOpened)}</span>}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {r.leadStatus ? (
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${leadCfg[r.leadStatus] ?? leadCfg.new}`}>
+                              {r.leadStatus}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {r.followUp ? (
+                            <div className="min-w-0">
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">Follow up?</span>
+                              <p className="text-[11px] text-amber-700 mt-1">
+                                Opened {r.opens}× but quiet for {r.quietDays}d — send a quick check-in.
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="px-4 py-2.5 border-t border-gray-100 text-[11px] text-gray-400">
+            “Follow up?” = opened {FOLLOWUP_MIN_OPENS}+ times, quiet for {FOLLOWUP_QUIET_DAYS}+ days, and no reply or outcome yet. Suggestions only — nothing is sent automatically.
+          </p>
         </div>
 
         {/* Buyer Activity */}
