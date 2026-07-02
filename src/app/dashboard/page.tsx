@@ -5,7 +5,7 @@ import DashboardClient from "./DashboardClient";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ new_signup?: string; plan?: string }>;
+  searchParams: Promise<{ new_signup?: string; plan?: string; checkout?: string }>;
 }) {
   const supabase = await createClient();
 
@@ -15,7 +15,7 @@ export default async function DashboardPage({
 
   if (!user) redirect("/login");
 
-  const { new_signup, plan } = await searchParams;
+  const { new_signup, plan, checkout } = await searchParams;
 
   // Fetch subscription status
   const { data: subscription } = await supabase
@@ -33,6 +33,7 @@ export default async function DashboardPage({
       user={{ id: user.id, email: user.email ?? "" }}
       isNewSignup={new_signup === "1"}
       newSignupPlan={plan === "team" || plan === "pro" ? plan : undefined}
+      checkoutSuccess={checkout === "success"}
       subscription={
         subscription
           ? {

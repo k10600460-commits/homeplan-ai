@@ -102,6 +102,38 @@ export async function sendWelcomeEmail(to: string) {
   }).catch(console.error);
 }
 
+// Post-checkout welcome (paid plans) — template only, NOT WIRED ANYWHERE.
+// Do not call this from checkout/webhook code without explicit approval from
+// Shoji (sending = external communication, human sign-off required).
+// SECURITY: nothing user-supplied is interpolated below (`plan` is a closed
+// union, all copy is static). If a name/company is ever added, run it through
+// escapeHtml() for the body and sanitizeEmailHeader() for any header field.
+export async function sendCheckoutWelcomeEmail(to: string, plan: "pro" | "team" = "pro") {
+  const planLabel = plan === "team" ? "Team" : "Pro";
+  await resend.emails.send({
+    from: FROM,
+    to,
+    replyTo: REPLY_TO,
+    subject: `You're in — 3 steps to your first proposal`,
+    html: `
+<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1e293b">
+  <p style="color:#475569;margin-bottom:16px">Hi,</p>
+  <p style="color:#475569;margin-bottom:16px">Shoji here — I build SplanAI. Thanks for going ${planLabel}.</p>
+  <p style="color:#475569;margin-bottom:8px">Three steps and you're getting real value out of it:</p>
+  <ol style="color:#475569;padding-left:20px;margin-bottom:24px">
+    <li style="margin-bottom:8px"><strong>Create your first proposal.</strong> Type the lot address, set a budget. Three concepts come back in about 30 seconds.</li>
+    <li style="margin-bottom:8px"><strong>Add your logo.</strong> Every PDF and client portal goes out under your brand, not ours.</li>
+    <li><strong>Connect your MLS.</strong> Real lot data flows straight into your proposals.</li>
+  </ol>
+  <a href="${APP_URL}/generate" style="display:inline-block;background:#3b82f6;color:white;padding:14px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px">Create your first proposal →</a>
+  <p style="margin-top:24px;color:#475569">Stuck anywhere, or something feels off? Reply to this email — I read every one.</p>
+  <p style="color:#475569">— Shoji</p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+  ${footerHtml()}
+</div>`,
+  }).catch(console.error);
+}
+
 export async function sendTrialReminderEmail(to: string, trialEndDate: string, plan: "pro" | "team" = "pro") {
   const planLabel = plan === "team" ? "Team" : "Pro";
   const price = plan === "team" ? "$149/month" : "$49/month";
