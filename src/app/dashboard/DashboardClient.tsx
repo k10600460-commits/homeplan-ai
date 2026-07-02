@@ -103,6 +103,12 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://homeplan-ai.vercel.a
 const FOLLOWUP_MIN_OPENS = 2;
 const FOLLOWUP_QUIET_DAYS = 3;
 
+// Post-checkout activation polling (codex review P1): Stripe can redirect back
+// before the webhook has upserted the subscription — re-check the plan a few
+// times before telling the user their paid features are ready.
+const CHECKOUT_POLL_MS = 3000;
+const CHECKOUT_POLL_MAX = 8; // ~25s total
+
 function formatDateTime(iso: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("en-US", {
@@ -167,6 +173,11 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   // Post-checkout "next 3 steps" guide — shown once when Stripe redirects back
   // with /dashboard?checkout=success. Session-only (dismiss or navigate away).
   const [showCheckoutGuide, setShowCheckoutGuide] = useState(checkoutSuccess);
+  // Guide phase (codex review P1): never claim the plan is active before the
+  // webhook has written the subscription. pending → poll → ready | slow.
+  const [checkoutGuidePhase, setCheckoutGuidePhase] = useState<"pending" | "ready" | "slow">(
+    subscription?.isActive ? "ready" : "pending"
+  );
 
   // Nurture drafts (Follow-ups)
   const [nurtureDrafts, setNurtureDrafts] = useState<NurtureDraft[]>([]);
@@ -264,9 +275,11 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
     }
   }, [supabase, user.id]);
 
-  // Load plan + branding + members
-  useEffect(() => {
-    fetch("/api/team/plan")
+  // Load plan + branding + members. Resolves with the fetched plan so the
+  // post-checkout activation poller can reuse it (single source of truth).
+  // Setters run inside .then() (async) — never synchronously in an effect body.
+  const loadPlanProfile = useCallback((): Promise<"free" | "pro" | "team" | null> => {
+    return fetch("/api/team/plan")
       .then(r => r.json())
       .then((d: { plan: "free" | "pro" | "team"; companyName: string; logoSignedUrl: string | null; phone: string; website: string; licenseNumber: string; tagline: string }) => {
         setUserPlan(d.plan);
@@ -278,9 +291,15 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
         setWebsite(d.website ?? "");   setWebsiteInput(d.website ?? "");
         setLicenseNumber(d.licenseNumber ?? ""); setLicenseInput(d.licenseNumber ?? "");
         setTagline(d.tagline ?? "");   setTaglineInput(d.tagline ?? "");
+        return d.plan;
       })
-      .catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      .catch(() => null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    loadPlanProfile();
+  }, [loadPlanProfile]);
 
   function loadTeamMembers() {
     fetch("/api/team/members")
@@ -752,12 +771,44 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
 
   // Clean ?checkout=success out of the URL (banner state already captured).
   // ref guard prevents double-fire under React StrictMode.
+  // Event name is deliberately neutral (codex review P2): this fires on any
+  // arrival with the param — the paid-conversion truth stays server-side.
   const checkoutGuideFiredRef = useRef(false);
   useEffect(() => {
     if (!checkoutSuccess || checkoutGuideFiredRef.current) return;
     checkoutGuideFiredRef.current = true;
-    track("checkout_success");
+    track("checkout_returned");
     window.history.replaceState({}, "", "/dashboard");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Post-checkout activation poll (codex review P1). While the webhook is
+  // still writing the subscription, the guide stays in "pending"; once
+  // /api/team/plan reports a paid plan we flip to "ready" and refresh the
+  // server props so the subscription-gated UI (MLS connect) unlocks too.
+  // Cleanup cancels the chain (also handles the StrictMode double-mount).
+  useEffect(() => {
+    if (!checkoutSuccess || subscription?.isActive) return;
+    let cancelled = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      attempts += 1;
+      const plan = await loadPlanProfile();
+      if (cancelled) return;
+      if (plan === "pro" || plan === "team") {
+        setCheckoutGuidePhase("ready");
+        router.refresh();
+        return;
+      }
+      if (attempts >= CHECKOUT_POLL_MAX) {
+        setCheckoutGuidePhase("slow");
+        return;
+      }
+      timer = setTimeout(tick, CHECKOUT_POLL_MS);
+    };
+    timer = setTimeout(tick, 1500);
+    return () => { cancelled = true; clearTimeout(timer); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1012,8 +1063,16 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
           <div className="mb-6 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-sm font-bold text-gray-900">✓ Payment confirmed — you&apos;re all set</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Three steps to your first branded proposal. Most builders finish the first one today.</p>
+                <h2 className="text-sm font-bold text-gray-900">
+                  {checkoutGuidePhase === "ready" && "✓ You're all set"}
+                  {checkoutGuidePhase === "pending" && "✓ Checkout complete — setting up your account…"}
+                  {checkoutGuidePhase === "slow" && "✓ Checkout complete — your plan is still activating"}
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {checkoutGuidePhase === "ready" && "Three steps to your first branded proposal. Most builders finish the first one today."}
+                  {checkoutGuidePhase === "pending" && "Your payment went through. Activating your plan usually takes a few seconds."}
+                  {checkoutGuidePhase === "slow" && "This can take a minute or two. Refresh this page if the logo and MLS steps stay locked."}
+                </p>
               </div>
               <button
                 onClick={() => setShowCheckoutGuide(false)}
@@ -1031,8 +1090,12 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                     <p className={`text-sm font-semibold ${step.done ? "text-gray-400 line-through" : "text-gray-800"}`}>{step.label}</p>
                     <p className="text-xs text-gray-400">{step.hint}</p>
                   </div>
-                  {!step.done && i > 0 && (
+                  {/* Paid-only steps unlock once activation is confirmed */}
+                  {!step.done && i > 0 && checkoutGuidePhase === "ready" && (
                     <a href={step.href} className="shrink-0 text-xs font-semibold text-emerald-700 hover:text-emerald-900 pt-0.5">Set up →</a>
+                  )}
+                  {!step.done && i > 0 && checkoutGuidePhase === "pending" && (
+                    <span className="shrink-0 text-xs text-gray-300 pt-0.5">activating…</span>
                   )}
                 </li>
               ))}
