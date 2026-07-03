@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { suspectStat, validate as validateContentQuality } from "@/lib/content-quality";
+import {
+  checkLinkIntegrity,
+  extractSplanaiPaths,
+  suspectStat,
+  validate as validateContentQuality,
+} from "@/lib/content-quality";
 import { recordHeartbeat, recordHeartbeatFromResponse } from "@/lib/heartbeat";
 
 export const runtime = "nodejs";
@@ -93,6 +98,34 @@ function qualityIssuesForX(text: string): string[] {
   ).filter(issue => issue.startsWith("banned"));
 
   return [...banned, ...suspectStat(text)];
+}
+
+// W1 link integrity (2026-07-03): heartbeat WARN when drafts were held because
+// their splanai.com link is not live yet (deferred = selection-side publish
+// wait; gate blocks appear inside `skipped`). ok+WARN keeps last_ok fresh but
+// makes the hold visible in the daily brief — a held post is intentional and
+// must never look like a silent success or a hard failure.
+function linkIntegrityWarn(
+  deferred: { id: string; issues: string[] }[],
+  skipped: { id: string; issues: string[] }[],
+): string | undefined {
+  const held = [...deferred, ...skipped]
+    .map(s => s.issues.filter(i => i.startsWith("link_integrity:")))
+    .filter(issues => issues.length > 0);
+
+  if (held.length === 0) return undefined;
+
+  const details = [...new Set(held.flat())].slice(0, 5).join(", ");
+  return `link_integrity: ${held.length} draft(s) held (${details})`.slice(0, 400);
+}
+
+// /blog/<slug> referenced by a draft's link_url (normalized like the gate).
+function blogSlugFromLinkUrl(linkUrl: string | null): string | null {
+  for (const path of extractSplanaiPaths(linkUrl)) {
+    const m = path.match(/^\/blog\/([^/]+)$/);
+    if (m) return m[1];
+  }
+  return null;
 }
 
 async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
@@ -278,11 +311,81 @@ async function xPostHandler(req: NextRequest) {
     return NextResponse.json({ ok: true, status: "no_drafts", et_date: clock.date });
   }
 
+  // ── W1 link-integrity defense 1/2: selection-side publish wait ────────────
+  // A draft whose link_url points at /blog/<slug> is NOT selectable until that
+  // article is seo_articles.status='published' (2026-07-02 incident: the X
+  // post shipped while the article was still a draft). PostgREST cannot
+  // subquery across tables without a view/RPC, so the filter runs here, right
+  // on the fetched candidate set — one batched lookup for all candidates.
+  // Deferred rows stay status='draft' (retried on the next cron slot) and are
+  // surfaced via row last_error + response `deferred` + heartbeat WARN.
+  // Defense 2/2 is checkLinkIntegrity() inside the quality loop below, which
+  // independently re-checks text+link_url (unknown paths, races, regressions).
+  const linkSlugByDraftId = new Map<string, string>();
+  for (const draft of drafts as XPostDraft[]) {
+    const slug = blogSlugFromLinkUrl(draft.link_url);
+    if (slug) linkSlugByDraftId.set(draft.id, slug);
+  }
+
+  let candidates = drafts as XPostDraft[];
+  const deferred: { id: string; issues: string[] }[] = [];
+
+  if (linkSlugByDraftId.size > 0) {
+    const slugs = [...new Set(linkSlugByDraftId.values())];
+    const { data: linkedArticles, error: linkedError } = await supabase
+      .from("seo_articles")
+      .select("slug, status")
+      .in("slug", slugs);
+
+    if (linkedError) {
+      console.error("[x-post] link-integrity DB error:", linkedError.message);
+      return NextResponse.json({ ok: false, error: linkedError.message }, { status: 500 });
+    }
+
+    const statusBySlug = new Map(
+      (linkedArticles ?? []).map((a: { slug: string; status: string | null }) => [a.slug, a.status]),
+    );
+
+    candidates = [];
+    for (const draft of drafts as XPostDraft[]) {
+      const slug = linkSlugByDraftId.get(draft.id);
+      const status = slug ? statusBySlug.get(slug) : undefined;
+      if (!slug || status === "published") {
+        candidates.push(draft);
+      } else {
+        deferred.push({
+          id: draft.id,
+          issues: [
+            status === undefined
+              ? `link_integrity:blog_missing:${slug}`
+              : `link_integrity:waiting_publish:${slug}`,
+          ],
+        });
+      }
+    }
+  }
+
+  if (deferred.length > 0) {
+    console.warn(`[x-post] link-integrity deferred ${deferred.length} draft(s): ${JSON.stringify(deferred)}`);
+    for (const d of deferred) {
+      await supabase
+        .from("x_post_draft")
+        .update({ last_error: `link_integrity: ${d.issues.join(", ")}` })
+        .eq("id", d.id)
+        .eq("status", "draft");
+    }
+  }
+
   let pick: XPostDraft | null = null;
   const skipped: { id: string; issues: string[] }[] = [];
 
-  for (const draft of drafts as XPostDraft[]) {
+  for (const draft of candidates) {
     const issues = qualityIssuesForX(draft.draft_text);
+
+    // W1 link-integrity defense 2/2 — same layer as suspectStat: every
+    // splanai.com URL in the post body AND the reply link must resolve to a
+    // live public page (published blog slug / postable static route).
+    issues.push(...await checkLinkIntegrity(draft.draft_text, draft.link_url, supabase));
 
     if (draft.draft_text.length > 280) {
       issues.push(`too_long:${draft.draft_text.length}`);
@@ -300,6 +403,8 @@ async function xPostHandler(req: NextRequest) {
     skipped.push({ id: draft.id, issues });
   }
 
+  const warn = linkIntegrityWarn(deferred, skipped);
+
   // Fail-loud: blocked drafts are logged, recorded on the row (last_error),
   // and reported in the response — never silently dropped.
   if (skipped.length > 0) {
@@ -314,7 +419,7 @@ async function xPostHandler(req: NextRequest) {
   }
 
   if (!pick) {
-    return NextResponse.json({ ok: true, status: "no_clean_draft", skipped });
+    return NextResponse.json({ ok: true, status: "no_clean_draft", skipped, deferred, warn });
   }
 
   const live =
@@ -352,6 +457,8 @@ async function xPostHandler(req: NextRequest) {
         link_reply: pick.link_url,
       },
       skipped,
+      deferred,
+      warn,
     });
   }
 
@@ -373,7 +480,32 @@ async function xPostHandler(req: NextRequest) {
   }
 
   if (!locked) {
-    return NextResponse.json({ ok: true, status: "already_claimed", draft_id: pick.id });
+    return NextResponse.json({ ok: true, status: "already_claimed", draft_id: pick.id, warn });
+  }
+
+  // W1 link-integrity final re-check (codex review): the lock re-read the row,
+  // whose text/link_url may differ from what the selection loop validated, and
+  // the article could have been un-published in the window. Never tweet a link
+  // that is not live RIGHT NOW. On NG: release the lock back to draft (retried
+  // next cycle) and surface a heartbeat WARN — this happens BEFORE any token
+  // refresh so no side effect has occurred yet.
+  const finalIssues = await checkLinkIntegrity(locked.draft_text, locked.link_url, supabase);
+  if (finalIssues.length > 0) {
+    await supabase
+      .from("x_post_draft")
+      .update({ status: "draft", last_error: `link_integrity(final): ${finalIssues.join(", ")}` })
+      .eq("id", pick.id)
+      .eq("status", "posting");
+
+    return NextResponse.json({
+      ok: true,
+      status: "held_link_integrity",
+      draft_id: pick.id,
+      issues: finalIssues,
+      skipped,
+      deferred,
+      warn: linkIntegrityWarn(deferred, [...skipped, { id: pick.id, issues: finalIssues }]),
+    });
   }
 
   let access: { accessToken: string; refreshed: boolean };
@@ -448,6 +580,8 @@ async function xPostHandler(req: NextRequest) {
     reply_error: replyError,
     refreshed_token: access.refreshed,
     skipped,
+    deferred,
+    warn,
   });
 }
 
