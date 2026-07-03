@@ -4,6 +4,8 @@
 // drift. Intentionally EXCLUDES "seamless" / "disrupt" — normal home-building
 // vocabulary (seamless gutters, market disruption) that would wrongly skip
 // good drafts.
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { PULSE_METRO_SLUGS } from "@/data/pulse-metros";
 export const BODY_MIN_LENGTH = 600;
 export const DESCRIPTION_MIN_LENGTH = 110;
 export const DESCRIPTION_MAX_LENGTH = 170;
@@ -113,6 +115,143 @@ export function suspectStat(
   }
 
   return [...issues];
+}
+
+// ── Link integrity gate (W1 2026-07-03) ─────────────────────────────────────
+// Root incident: 2026-07-02, an X auto-post linked
+// /blog/small-builder-look-like-a-national-one while the article was still
+// seo_articles.status='draft' — the post shipped before the page existed.
+// checkLinkIntegrity() is called by x-post / fb-post in the same layer as
+// suspectStat(): a draft whose splanai.com link does not resolve to a live
+// public page is SKIPPED (stays status=draft, retried next cycle) and surfaces
+// as a heartbeat WARN. Fail-closed: a DB error blocks the post rather than
+// risking a dead link on the timeline.
+//
+// Route knowledge mirrors src/app + src/app/robots.ts (PRIVATE_PATHS) and the
+// audit script scripts/link-integrity-sweep.mjs. Keep the three in sync.
+
+// HAND-CURATED allowlist of public marketing routes we are willing to point
+// outbound social copy at — deliberately NOT derived from robots.ts or the
+// sitemap (codex review: robots "*" allows far more than we should ever post,
+// e.g. /login /reset-password; a mechanical list would silently widen).
+// robots-PRIVATE routes (/dashboard /results /s/ /api/ /invite /try) and auth /
+// app-internal utility pages (/login /forgot-password /reset-password
+// /generate /upgrade) are intentionally absent: a post linking those is a bug.
+// Extending this list is an explicit editorial decision — add the route here
+// AND to the mirror in scripts/link-integrity-sweep.mjs.
+export const POSTABLE_STATIC_ROUTES: ReadonlySet<string> = new Set([
+  "/",
+  "/blog",
+  "/pulse",
+  "/tools",
+  "/tools/payment-calculator",
+  "/tools/lot-feasibility",
+  "/terms",
+  "/privacy",
+]);
+
+// Full URLs plus bare "splanai.com/..." mentions (X copy often drops https://).
+const SPLANAI_URL_RE =
+  /\bhttps?:\/\/[^\s<>"'()\][]+|(?<![\w/.@])(?:www\.)?splanai\.com\/[^\s<>"'()\][]*/gi;
+
+// Normalized splanai.com paths referenced by the given texts (dedup'd).
+// Non-splanai hosts are ignored — this gate owns only our own links.
+export function extractSplanaiPaths(
+  ...texts: Array<string | null | undefined>
+): string[] {
+  const paths = new Set<string>();
+  for (const text of texts) {
+    for (const raw of (text ?? "").match(SPLANAI_URL_RE) ?? []) {
+      const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+      let url: URL;
+      try {
+        url = new URL(withProto);
+      } catch {
+        continue;
+      }
+      if (!/^(www\.)?splanai\.com$/i.test(url.hostname)) continue;
+      // Trailing prose punctuation ("…read more: splanai.com/blog/x.") and
+      // trailing slashes are not part of the route.
+      let path = url.pathname.replace(/[.,!?;:…]+$/, "");
+      if (path.length > 1) path = path.replace(/\/+$/, "");
+      paths.add(path || "/");
+    }
+  }
+  return [...paths];
+}
+
+// Minimal structural slice of SupabaseClient used by the gate — lets tests
+// inject a fake without a network round-trip. Call sites pass a real
+// SupabaseClient; the signature also names it explicitly because checking the
+// full PostgrestFilterBuilder chain against this slice trips TS2589
+// ("excessively deep") — the union keeps the real-client path a trivial check.
+export type LinkIntegrityDb = {
+  from(table: string): {
+    select(columns: string): {
+      in(
+        column: string,
+        values: string[],
+      ): PromiseLike<{
+        data: Array<{ slug: string; status: string | null }> | null;
+        error: { message: string } | null;
+      }>;
+    };
+  };
+};
+
+// Fail-loud link gate for outbound X / FB copy. Returns [] when every
+// splanai.com URL in text/linkUrl resolves to a live public page, otherwise:
+//   link_integrity:blog_unpublished:<slug>  article exists but status!=published
+//   link_integrity:blog_missing:<slug>      no seo_articles row for the slug
+//   link_integrity:unknown_path:<path>      not a postable route (incl. robots-PRIVATE)
+//   link_integrity:check_failed:<msg>       DB error — fail closed, never post blind
+export async function checkLinkIntegrity(
+  text: string | null | undefined,
+  linkUrl: string | null | undefined,
+  db: LinkIntegrityDb | SupabaseClient,
+): Promise<string[]> {
+  const issues: string[] = [];
+  const blogSlugs: string[] = [];
+
+  for (const path of extractSplanaiPaths(text, linkUrl)) {
+    if (POSTABLE_STATIC_ROUTES.has(path)) continue;
+
+    const pulse = path.match(/^\/pulse\/([^/]+)$/);
+    if (pulse) {
+      if (!PULSE_METRO_SLUGS.includes(pulse[1])) {
+        issues.push(`link_integrity:unknown_path:${path}`);
+      }
+      continue;
+    }
+
+    const blog = path.match(/^\/blog\/([^/]+)$/);
+    if (blog) {
+      blogSlugs.push(blog[1]);
+      continue;
+    }
+
+    issues.push(`link_integrity:unknown_path:${path}`);
+  }
+
+  if (blogSlugs.length > 0) {
+    const { data, error } = await (db as LinkIntegrityDb)
+      .from("seo_articles")
+      .select("slug, status")
+      .in("slug", blogSlugs);
+
+    if (error) {
+      issues.push(`link_integrity:check_failed:${error.message}`);
+    } else {
+      const statusBySlug = new Map((data ?? []).map(r => [r.slug, r.status]));
+      for (const slug of blogSlugs) {
+        const status = statusBySlug.get(slug);
+        if (status === undefined) issues.push(`link_integrity:blog_missing:${slug}`);
+        else if (status !== "published") issues.push(`link_integrity:blog_unpublished:${slug}`);
+      }
+    }
+  }
+
+  return issues;
 }
 
 export function validate(

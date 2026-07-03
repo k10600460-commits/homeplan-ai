@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { google } from "googleapis";
 import { buildNewsCarousel, buildDigestCarousel, pushMessages, type DigestProposal } from "@/lib/line";
 import { BANNED_WORDS } from "@/lib/content-quality";
-import { recordHeartbeat } from "@/lib/heartbeat";
+import { parseHeartbeatIssue, recordHeartbeat } from "@/lib/heartbeat";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1176,7 +1176,12 @@ Voice rules (STRICT):
         const parts: string[] = [];
         if (ageMs == null) parts.push("成功実績なし");
         else if (ageMs > (STALE_MS_BY_JOB[r.job] ?? DAY_MS)) parts.push(`last ok ${Math.floor(ageMs / 3_600_000)}h前`);
-        if (r.last_error) parts.push(`ERR ${r.last_error.replace(/\s+/g, " ").slice(0, 60)}`);
+        // W1: ok+warn heartbeats (e.g. link-integrity holds) carry a "WARN "
+        // prefix in last_error — render as WARN, not ERR (intentional hold).
+        if (r.last_error) {
+          const issue = parseHeartbeatIssue(r.last_error.replace(/\s+/g, " "));
+          parts.push(`${issue.level === "warn" ? "WARN" : "ERR"} ${issue.message.slice(0, 60)}`);
+        }
         if (parts.length > 0) issues.push(`・${r.job}: ${parts.join(" / ")}`);
       }
       cronHealthText = issues.length > 0

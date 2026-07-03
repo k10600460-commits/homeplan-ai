@@ -1,10 +1,17 @@
 /**
- * Unit tests for suspectStat() and validate() fabrication gating.
+ * Unit tests for suspectStat() / validate() fabrication gating and the W1
+ * link-integrity gate (checkLinkIntegrity).
  * Run with: npx tsx src/lib/content-quality.test.ts
  * (Same convention as concept-style-image.test.ts — add vitest/jest when a
  * test runner is configured.)
  */
-import { suspectStat, validate } from "./content-quality";
+import {
+  checkLinkIntegrity,
+  extractSplanaiPaths,
+  suspectStat,
+  validate,
+  type LinkIntegrityDb,
+} from "./content-quality";
 import assert from "node:assert/strict";
 
 let passed = 0;
@@ -133,4 +140,171 @@ expectClean("Most builders I talk to hate how long proposals take.", "qualitativ
 expectClean("", "empty text");
 expectClean("   \n  ", "whitespace only");
 
-console.log(`content-quality.test.ts: all ${passed} assertions passed ✅`);
+console.log(`content-quality.test.ts: all ${passed} assertions passed ✅ (sync)`);
+
+// ═══ W1 link-integrity gate (checkLinkIntegrity) ═════════════════════════════
+// Fake of the LinkIntegrityDb slice — no network. Records query count so we
+// can also assert the gate does NOT hit the DB when no blog link is present.
+function fakeDb(
+  rows: Array<{ slug: string; status: string | null }>,
+  opts?: { errorMessage?: string },
+): LinkIntegrityDb & { queries: number } {
+  const db = {
+    queries: 0,
+    from(table: string) {
+      assert.equal(table, "seo_articles", "gate must only read seo_articles");
+      return {
+        select(_columns: string) {
+          return {
+            in(_column: string, values: string[]) {
+              db.queries++;
+              if (opts?.errorMessage) {
+                return Promise.resolve({ data: null, error: { message: opts.errorMessage } });
+              }
+              return Promise.resolve({
+                data: rows.filter(r => values.includes(r.slug)),
+                error: null,
+              });
+            },
+          };
+        },
+      };
+    },
+  };
+  return db;
+}
+
+const ARTICLES = [
+  { slug: "live-post", status: "published" },
+  { slug: "pending-post", status: "draft" },
+  { slug: "old-post", status: "archived" },
+];
+
+async function linkIntegrityTests() {
+  const expectIssues = async (
+    text: string | null,
+    linkUrl: string | null,
+    contains: string,
+    why: string,
+  ) => {
+    const issues = await checkLinkIntegrity(text, linkUrl, fakeDb(ARTICLES));
+    assert.ok(
+      issues.some(i => i.includes(contains)),
+      `expected issue containing "${contains}" (${why}) — got ${JSON.stringify(issues)}`,
+    );
+    passed++;
+  };
+  const expectPass = async (text: string | null, linkUrl: string | null, why: string) => {
+    const issues = await checkLinkIntegrity(text, linkUrl, fakeDb(ARTICLES));
+    assert.deepEqual(issues, [], `expected PASS (${why}) — got ${JSON.stringify(issues)}`);
+    passed++;
+  };
+
+  // ── the 2026-07-02 incident: unpublished slug must NOT be postable ──
+  await expectIssues(
+    "Why small builders can look national.",
+    "https://splanai.com/blog/pending-post",
+    "link_integrity:blog_unpublished:pending-post",
+    "draft article referenced from link_url",
+  );
+  await expectIssues(
+    "Full story: https://splanai.com/blog/pending-post",
+    null,
+    "link_integrity:blog_unpublished:pending-post",
+    "draft article referenced from post body",
+  );
+  await expectIssues(
+    null,
+    "https://splanai.com/blog/old-post",
+    "link_integrity:blog_unpublished:old-post",
+    "archived article is not live either",
+  );
+
+  // ── published slug passes (link_url, body, bare domain, ?utm, trailing junk) ──
+  await expectPass(null, "https://splanai.com/blog/live-post", "published slug via link_url");
+  await expectPass("Read it: https://splanai.com/blog/live-post", null, "published slug in body");
+  await expectPass("Read it: splanai.com/blog/live-post.", null, "bare domain + trailing period");
+  await expectPass(null, "https://www.splanai.com/blog/live-post/", "www + trailing slash");
+  await expectPass(null, "https://splanai.com/blog/live-post?utm_source=x#top", "query/hash stripped");
+
+  // ── static routes pass (and never hit the DB) ──
+  {
+    const db = fakeDb(ARTICLES);
+    const issues = await checkLinkIntegrity(
+      "Try splanai.com/tools and https://splanai.com/pulse — or https://splanai.com/",
+      "https://splanai.com/tools/payment-calculator",
+      db,
+    );
+    assert.deepEqual(issues, [], `static routes must pass — got ${JSON.stringify(issues)}`);
+    assert.equal(db.queries, 0, "static-only check must not query the DB");
+    passed += 2;
+  }
+  await expectPass(null, "https://splanai.com/pulse/raleigh", "known pulse metro");
+
+  // ── unknown / non-postable paths are rejected ──
+  await expectIssues(null, "https://splanai.com/blgo/live-post", "link_integrity:unknown_path:/blgo/live-post", "typo route");
+  await expectIssues("Check splanai.com/pricing today", null, "link_integrity:unknown_path:/pricing", "nonexistent route");
+  await expectIssues(null, "https://splanai.com/pulse/nowhere", "link_integrity:unknown_path:/pulse/nowhere", "unknown pulse metro");
+  await expectIssues(null, "https://splanai.com/blog/live-post/extra", "link_integrity:unknown_path", "deep blog path");
+  // robots.ts PRIVATE routes are real but not postable
+  await expectIssues(null, "https://splanai.com/s/nfhkewvz", "link_integrity:unknown_path:/s/nfhkewvz", "private share link");
+  await expectIssues(null, "https://splanai.com/try", "link_integrity:unknown_path:/try", "private demo route");
+  await expectIssues(null, "https://splanai.com/dashboard", "link_integrity:unknown_path:/dashboard", "private dashboard");
+  // real pages excluded from the hand-curated marketing allowlist (codex review)
+  await expectIssues(null, "https://splanai.com/login", "link_integrity:unknown_path:/login", "auth utility page is not postable");
+  await expectIssues(null, "https://splanai.com/upgrade", "link_integrity:unknown_path:/upgrade", "app-internal page is not postable");
+  await expectPass(null, "https://splanai.com/terms", "legal pages stay postable");
+
+  // ── missing slug (no seo_articles row) ──
+  await expectIssues(null, "https://splanai.com/blog/never-written", "link_integrity:blog_missing:never-written", "no row at all");
+
+  // ── DB failure → fail closed, never post blind ──
+  {
+    const db = fakeDb([], { errorMessage: "boom" });
+    const issues = await checkLinkIntegrity(null, "https://splanai.com/blog/live-post", db);
+    assert.ok(
+      issues.some(i => i.startsWith("link_integrity:check_failed:")),
+      `DB error must block the post — got ${JSON.stringify(issues)}`,
+    );
+    passed++;
+  }
+
+  // ── out-of-scope URLs are ignored; no URLs → no queries ──
+  {
+    const db = fakeDb(ARTICLES);
+    const issues = await checkLinkIntegrity(
+      "Great thread: https://x.com/some/status and https://example.com/blog/whatever",
+      null,
+      db,
+    );
+    assert.deepEqual(issues, [], "non-splanai URLs are out of scope");
+    assert.equal(db.queries, 0, "no splanai URL → no DB query");
+    passed += 2;
+  }
+  await expectPass("No links at all in this post.", null, "no URLs");
+
+  // ── one clean + one dirty URL in the same draft → still blocked ──
+  await expectIssues(
+    "Read https://splanai.com/blog/live-post and https://splanai.com/blog/pending-post",
+    null,
+    "link_integrity:blog_unpublished:pending-post",
+    "a single dead link blocks the whole draft",
+  );
+
+  // ── extractSplanaiPaths normalization ──
+  assert.deepEqual(
+    extractSplanaiPaths("splanai.com/blog/a. Also https://www.splanai.com/blog/a/ and https://splanai.com"),
+    ["/blog/a", "/"],
+    "dedup + trailing punctuation/slash normalization",
+  );
+  passed++;
+}
+
+linkIntegrityTests()
+  .then(() => {
+    console.log(`content-quality.test.ts: all ${passed} assertions passed ✅ (incl. link-integrity)`);
+  })
+  .catch(err => {
+    console.error(err);
+    process.exit(1);
+  });

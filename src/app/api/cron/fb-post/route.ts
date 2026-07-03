@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { suspectStat, validate as validateContentQuality } from "@/lib/content-quality";
+import { checkLinkIntegrity, suspectStat, validate as validateContentQuality } from "@/lib/content-quality";
 import { recordHeartbeat, recordHeartbeatFromResponse } from "@/lib/heartbeat";
 
 export const runtime = "nodejs";
@@ -69,6 +69,23 @@ function qualityIssuesForFacebook(text: string): string[] {
   ).filter(issue => issue.startsWith("banned"));
 
   return [...banned, ...suspectStat(text)];
+}
+
+// W1 link integrity (2026-07-03): heartbeat WARN when drafts were held because
+// a splanai.com link in the message is not live yet (unpublished/missing blog
+// slug or unknown route). ok+WARN keeps last_ok fresh but makes the hold
+// visible in the daily brief instead of looking like a silent success.
+function linkIntegrityWarn(
+  skipped: { id: string; issues: string[] }[],
+): string | undefined {
+  const held = skipped
+    .map(s => s.issues.filter(i => i.startsWith("link_integrity:")))
+    .filter(issues => issues.length > 0);
+
+  if (held.length === 0) return undefined;
+
+  const details = [...new Set(held.flat())].slice(0, 5).join(", ");
+  return `link_integrity: ${held.length} draft(s) held (${details})`.slice(0, 400);
 }
 
 async function recordFailure(
@@ -193,6 +210,13 @@ async function fbPostHandler(req: NextRequest) {
   for (const draft of drafts as FbPostDraft[]) {
     const issues = qualityIssuesForFacebook(draft.message);
 
+    // W1 link-integrity gate — same layer as suspectStat: every splanai.com
+    // URL in the message must resolve to a live public page (published blog
+    // slug / postable static route). A held draft stays status='draft' and is
+    // retried next cycle (fb_post_draft has no link_url column; links live in
+    // the message body).
+    issues.push(...await checkLinkIntegrity(draft.message, null, supabase));
+
     if (issues.length === 0) {
       pick = draft;
       break;
@@ -200,6 +224,8 @@ async function fbPostHandler(req: NextRequest) {
 
     skipped.push({ id: draft.id, issues });
   }
+
+  const warn = linkIntegrityWarn(skipped);
 
   // Fail-loud: blocked drafts are logged, recorded on the row (last_error),
   // and reported in the response — never silently dropped.
@@ -218,7 +244,7 @@ async function fbPostHandler(req: NextRequest) {
   }
 
   if (!pick) {
-    return NextResponse.json({ ok: true, status: "no_clean_draft", skipped });
+    return NextResponse.json({ ok: true, status: "no_clean_draft", skipped, warn });
   }
 
   const live =
@@ -243,6 +269,7 @@ async function fbPostHandler(req: NextRequest) {
         message: pick.message,
       },
       skipped,
+      warn,
     });
   }
 
@@ -265,7 +292,33 @@ async function fbPostHandler(req: NextRequest) {
   }
 
   if (!locked) {
-    return NextResponse.json({ ok: true, status: "already_claimed", draft_id: pick.id });
+    return NextResponse.json({ ok: true, status: "already_claimed", draft_id: pick.id, warn });
+  }
+
+  // W1 link-integrity final re-check (codex review): the lock re-read the row,
+  // whose message may differ from what the quality loop validated, and a linked
+  // article could have been un-published in the window. On NG: release the lock
+  // back to draft (retried next cycle) and surface a heartbeat WARN.
+  const finalIssues = await checkLinkIntegrity(locked.message, null, supabase);
+  if (finalIssues.length > 0) {
+    await supabase
+      .from("fb_post_draft")
+      .update({
+        status: "draft",
+        last_error: `link_integrity(final): ${finalIssues.join(", ")}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", pick.id)
+      .eq("status", "posting");
+
+    return NextResponse.json({
+      ok: true,
+      status: "held_link_integrity",
+      draft_id: pick.id,
+      issues: finalIssues,
+      skipped,
+      warn: linkIntegrityWarn([...skipped, { id: pick.id, issues: finalIssues }]),
+    });
   }
 
   let posted: { id: string };
@@ -306,6 +359,7 @@ async function fbPostHandler(req: NextRequest) {
     post_id: posted.id,
     post_url: facebookUrl(posted.id),
     skipped,
+    warn,
   });
 }
 
