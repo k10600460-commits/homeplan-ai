@@ -102,7 +102,26 @@ export async function GET(req: NextRequest) {
     (existing ?? []).map((r: { slug: string }) => r.slug),
   );
 
-  const keyword = KEYWORD_POOL.find(k => !usedKeywords.has(k));
+  // ContentOps compounding loop — light preference (no ML): if content_feedback
+  // has a recent BLOG winner whose target_keyword is still unused, draft that one
+  // first ("勝ち角度を候補上位に" 程度). Supabase read only — no extra Anthropic
+  // calls. Any absence/error (e.g. table not yet applied) falls back to pool order.
+  let preferredKeyword: string | undefined;
+  {
+    const { data: fb } = await supabase
+      .from("content_feedback")
+      .select("winners")
+      .in("status", ["complete", "partial"])
+      .order("content_date", { ascending: false })
+      .limit(1);
+    const winners = (fb?.[0]?.winners ?? []) as Array<{ channel?: string; angle?: string }>;
+    preferredKeyword = winners
+      .filter(w => w?.channel === "blog" && typeof w.angle === "string")
+      .map(w => w.angle as string)
+      .find(k => KEYWORD_POOL.includes(k) && !usedKeywords.has(k));
+  }
+
+  const keyword = preferredKeyword ?? KEYWORD_POOL.find(k => !usedKeywords.has(k));
   if (!keyword) {
     console.log("[seo-draft] All keywords exhausted — no draft generated");
     return NextResponse.json({ ok: true, status: "all_keywords_used" });

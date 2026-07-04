@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx src/lib/concept-style-image.test.ts && tsx src/lib/demo-guard.test.ts && tsx src/lib/pulse.test.ts && tsx src/lib/lot-feasibility.test.ts && tsx src/lib/content-quality.test.ts && tsx src/lib/reply-watch.test.ts && tsx src/lib/observability.test.ts"
+    "test": "tsx src/lib/concept-style-image.test.ts && tsx src/lib/demo-guard.test.ts && tsx src/lib/pulse.test.ts && tsx src/lib/lot-feasibility.test.ts && tsx src/lib/content-quality.test.ts && tsx src/lib/reply-watch.test.ts && tsx src/lib/observability.test.ts && tsx src/lib/content-feedback.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
