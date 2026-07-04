@@ -303,6 +303,18 @@ async function createdCaseTests(): Promise<number> {
     n++;
   }
 
+  // (codex review) upsert failure must PROPAGATE (→ webhook 500 → Stripe
+  // retry) before any funnel row or LINE ping — never a 🎉「同期済み」message
+  // while public.subscriptions is actually unsynced.
+  {
+    const { deps, calls } = makeFakeDeps({ customerEmail: "builder@x.com", profileId: "user-9" });
+    deps.upsertSubscription = async () => { throw new Error("db down"); };
+    await assert.rejects(() => handleSubscriptionCreated(fakeSub({ status: "active" }), "evt_6", deps), /db down/, "upsert error propagates");
+    assert.deepEqual(calls.funnel, [], "no funnel row when upsert failed");
+    assert.deepEqual(calls.lineTexts, [], "no 🎉 LINE when upsert failed");
+    n++;
+  }
+
   // notifyUnresolvedSubscription for other event types names the event and
   // falls back to the customer id when no email is known.
   {

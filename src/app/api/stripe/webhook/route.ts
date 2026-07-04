@@ -42,7 +42,14 @@ async function upsertSubscription(
     cancel_at_period_end: subscription.cancel_at_period_end,
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
-    if (upsertError) console.error("[webhook] upsert error:", JSON.stringify(upsertError));
+  if (upsertError) {
+    // (codex review) fail-loud: swallowing this error let the created case
+    // report 🎉「dashboard同期済み」on LINE while public.subscriptions stayed
+    // unsynced. Throw instead → route returns 500 → Stripe retries the event
+    // (funnel rows stay deduped via the stripe_event_id UNIQUE constraint).
+    console.error("[webhook] upsert error:", JSON.stringify(upsertError));
+    throw new Error(`subscriptions upsert failed: ${upsertError.message ?? JSON.stringify(upsertError)}`);
+  }
 }
 
 // Shared user resolution for subscription events (DEC-0704C manual founding

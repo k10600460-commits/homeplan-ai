@@ -134,6 +134,9 @@ export function buildUnresolvedSubscriptionLineText(eventType: string, who: stri
 // ── Fail-loud guard + created-case handler ───────────────────────────────────
 
 export interface SubscriptionSyncDeps extends ResolverDeps {
+  /** MUST throw on DB failure (codex review): a swallowed upsert error would
+   *  let the created case funnel-log + LINE 🎉「同期済み」while subscriptions
+   *  stayed unsynced. Throwing → webhook 500 → Stripe retry (self-healing). */
   upsertSubscription(userId: string, subscription: Stripe.Subscription): Promise<void>;
   /** insertEvent from @/lib/analytics — stripeEventId dedups Stripe retries
    *  via the UNIQUE constraint on analytics_events.stripe_event_id. */
