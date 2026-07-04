@@ -134,6 +134,11 @@ export interface CostSummaryOptions {
   now: Date;
   /** MTD spend above this (USD) raises a warning. */
   mtdWarnUsd: number;
+  /** Yesterday's ABSOLUTE spend at/above this (USD) raises a daily warning.
+   *  This is the safety net for a runaway that starts from a $0 baseline — the
+   *  ratio spike check below is structurally blind to $0→$X (no ratio exists),
+   *  which is exactly the $11.47-from-zero case that must not be missed. */
+  dailyWarnUsd: number;
   /** Ignore day-over-day spikes when the prior day is below this floor (noise). */
   spikeFloorUsd: number;
   /** yesterday > multiplier × dayBefore raises a spike warning. */
@@ -149,8 +154,13 @@ export interface CostSummary {
   warnings: string[];
 }
 
-function utcDateKey(d: Date): string {
-  return d.toISOString().slice(0, 10); // YYYY-MM-DD in UTC
+// JST (Asia/Tokyo, UTC+9, no DST) calendar-day key "YYYY-MM-DD" for an instant.
+// The daily brief runs 07:00 JST and labels figures 前日/前々日 in the founder's
+// local (JST) calendar — bucketing in UTC would put a 07:00-JST "yesterday" on
+// the wrong calendar day. Shift +9h, then read the UTC date of the shifted time.
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+function jstDateKey(d: Date): string {
+  return new Date(d.getTime() + JST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 function toNum(v: number | string | null | undefined): number {
@@ -164,14 +174,18 @@ function round2(n: number): number {
 
 /**
  * Aggregate cron_costs rows into month-to-date + day-over-day figures and derive
- * threshold warnings. Rows may include the whole current UTC month; anything
- * before the 1st (UTC) is ignored for MTD. Pure — safe to unit test.
+ * threshold warnings. Buckets (MTD, 前日, 前々日) are computed in JST — no DST —
+ * so they match the founder's calendar day in the 07:00-JST brief. Rows before
+ * the 1st of the JST month are ignored for MTD. Pure — safe to unit test.
  */
 export function summarizeCosts(rows: CostRow[], opts: CostSummaryOptions): CostSummary {
-  const { now, mtdWarnUsd, spikeFloorUsd, spikeMultiplier } = opts;
-  const monthStartMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
-  const yesterdayKey = utcDateKey(new Date(now.getTime() - 24 * 60 * 60 * 1000));
-  const dayBeforeKey = utcDateKey(new Date(now.getTime() - 48 * 60 * 60 * 1000));
+  const { now, mtdWarnUsd, dailyWarnUsd, spikeFloorUsd, spikeMultiplier } = opts;
+  // Start of the JST month as a real (UTC) instant: shift now +9h to read the JST
+  // year/month, take the 1st at JST 00:00, then shift back −9h to a UTC instant.
+  const jstNow = new Date(now.getTime() + JST_OFFSET_MS);
+  const monthStartMs = Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), 1) - JST_OFFSET_MS;
+  const yesterdayKey = jstDateKey(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+  const dayBeforeKey = jstDateKey(new Date(now.getTime() - 48 * 60 * 60 * 1000));
 
   let mtdUsd = 0;
   let yesterdayUsd = 0;
@@ -184,7 +198,7 @@ export function summarizeCosts(rows: CostRow[], opts: CostSummaryOptions): CostS
     const usd = toNum(r.est_cost_usd);
     mtdUsd += usd;
     byJob.set(r.job, (byJob.get(r.job) ?? 0) + usd);
-    const key = utcDateKey(ts);
+    const key = jstDateKey(ts);
     if (key === yesterdayKey) yesterdayUsd += usd;
     else if (key === dayBeforeKey) dayBeforeUsd += usd;
   }
@@ -198,6 +212,13 @@ export function summarizeCosts(rows: CostRow[], opts: CostSummaryOptions): CostS
   if (mtdUsd > mtdWarnUsd) {
     warnings.push(`MTD $${round2(mtdUsd)} > 閾値 $${mtdWarnUsd}`);
   }
+  // Absolute daily ceiling — the zero-baseline safety net. Fires on yesterday's
+  // spend alone, so a $0→$X jump (X ≥ dailyWarnUsd) is caught even though the
+  // ratio check below cannot see a spike from a $0 prior day.
+  if (yesterdayUsd >= dailyWarnUsd) {
+    warnings.push(`前日 $${round2(yesterdayUsd)} が日次閾値 $${dailyWarnUsd} 以上`);
+  }
+  // Ratio spike — only meaningful when the prior day is above the noise floor.
   if (dayBeforeUsd >= spikeFloorUsd && yesterdayUsd > spikeMultiplier * dayBeforeUsd) {
     warnings.push(`前日 $${round2(yesterdayUsd)} が前々日 $${round2(dayBeforeUsd)} の${spikeMultiplier}倍超`);
   }
@@ -252,10 +273,14 @@ function envNum(name: string, fallback: number): number {
 }
 
 export interface DailyCostSection extends CostSummary {
-  /** api_usage_external request_count sum for the current UTC month. */
+  /** api_usage_external request_count sum for the current JST month. */
   externalCount: number;
   /** Apollo credit balance is not queryable here without adding a meter. */
   apolloCredits: string;
+  /** Non-null when a Supabase read FAILED. The brief MUST surface this instead
+   *  of rendering a healthy-looking $0 — a read failure that reads as "all clear"
+   *  is a false-green (the exact failure mode this record layer must avoid). */
+  error: string | null;
 }
 
 /**
@@ -270,32 +295,57 @@ export async function getCostSummary(
 ): Promise<DailyCostSection> {
   const empty: DailyCostSection = {
     mtdUsd: 0, yesterdayUsd: 0, dayBeforeUsd: 0, topJobs: [], warnings: [],
-    externalCount: 0, apolloCredits: "n/a（手動確認）",
+    externalCount: 0, apolloCredits: "n/a（手動確認）", error: null,
   };
   try {
-    const monthStartIso = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-    const monthKey = monthStartIso.slice(0, 7); // YYYY-MM
+    // JST month boundary (matches summarizeCosts' JST buckets so the query window
+    // and the aggregation agree). Start of JST month as a UTC instant + JST YYYY-MM.
+    const jstNow = new Date(now.getTime() + JST_OFFSET_MS);
+    const monthStartIso = new Date(
+      Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), 1) - JST_OFFSET_MS,
+    ).toISOString();
+    const monthKey = `${jstNow.getUTCFullYear()}-${String(jstNow.getUTCMonth() + 1).padStart(2, "0")}`;
 
     const [costsRes, extRes] = await Promise.all([
       supabase.from("cron_costs").select("job, est_cost_usd, created_at").gte("created_at", monthStartIso),
       supabase.from("api_usage_external").select("request_count").eq("month", monthKey),
     ]);
 
+    // FAIL-LOUD: supabase-js returns { data, error } and does NOT throw. A
+    // migration/RLS/query failure would otherwise be summarized as a healthy $0.
+    // Surface the read error so the brief shows 取得失敗 (never a false green $0).
+    const readErrors: string[] = [];
+    if (costsRes.error) readErrors.push(`cron_costs: ${costsRes.error.message}`);
+    if (extRes.error) readErrors.push(`api_usage_external: ${extRes.error.message}`);
+    if (readErrors.length > 0) {
+      console.error("[cost] getCostSummary read error:", readErrors.join(" / "));
+      return { ...empty, error: readErrors.join(" / ") };
+    }
+
     const rows = (costsRes.data ?? []) as CostRow[];
     const summary = summarizeCosts(rows, {
       now,
       mtdWarnUsd: envNum("CRON_COST_MTD_WARN_USD", 50),
+      dailyWarnUsd: envNum("CRON_COST_DAILY_WARN_USD", 5),
       spikeFloorUsd: envNum("CRON_COST_SPIKE_FLOOR_USD", 0.5),
       spikeMultiplier: envNum("CRON_COST_SPIKE_MULT", 2),
     });
     const externalCount = ((extRes.data ?? []) as Array<{ request_count: number | null }>)
       .reduce((sum, r) => sum + (r.request_count ?? 0), 0);
 
-    return { ...summary, externalCount, apolloCredits: "n/a（手動確認）" };
+    return { ...summary, externalCount, apolloCredits: "n/a（手動確認）", error: null };
   } catch (err) {
-    console.error("[cost] getCostSummary failed:", err instanceof Error ? err.message : String(err));
-    return empty;
+    // Unexpected throw is ALSO fail-loud — never return a healthy-looking $0.
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[cost] getCostSummary failed:", msg);
+    return { ...empty, error: msg };
   }
+}
+
+export interface DailyErrorSection extends ErrorSummary {
+  /** Non-null when the error_events read FAILED — surface it, never render "0件"
+   *  (a read failure that reads as zero errors is a false-green). */
+  error: string | null;
 }
 
 /**
@@ -306,13 +356,19 @@ export async function getErrorSummary(
   supabase: SupabaseClient,
   now: Date = new Date(),
   windowHours = 24,
-): Promise<ErrorSummary> {
+): Promise<DailyErrorSection> {
   try {
     const sinceIso = new Date(now.getTime() - windowHours * 60 * 60 * 1000).toISOString();
-    const { data } = await supabase.from("error_events").select("route").gte("occurred_at", sinceIso);
-    return summarizeErrors((data ?? []) as ErrorRow[], { warnCount: envNum("ERROR_WARN_24H", 5) });
+    const { data, error } = await supabase.from("error_events").select("route").gte("occurred_at", sinceIso);
+    // FAIL-LOUD: a read failure must not render as a healthy "0件".
+    if (error) {
+      console.error("[error] getErrorSummary read error:", error.message);
+      return { count: 0, topRoutes: [], warnings: [], error: `error_events: ${error.message}` };
+    }
+    return { ...summarizeErrors((data ?? []) as ErrorRow[], { warnCount: envNum("ERROR_WARN_24H", 5) }), error: null };
   } catch (err) {
-    console.error("[error] getErrorSummary failed:", err instanceof Error ? err.message : String(err));
-    return { count: 0, topRoutes: [], warnings: [] };
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[error] getErrorSummary failed:", msg);
+    return { count: 0, topRoutes: [], warnings: [], error: msg };
   }
 }

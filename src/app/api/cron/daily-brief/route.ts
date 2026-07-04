@@ -1196,28 +1196,31 @@ Voice rules (STRICT):
     // Built from cron_costs / error_events (src/lib/observability.ts). Passive
     // record layer — reads only, adds no metered spend. Best-effort: any failure
     // yields a short notice and never blocks the brief. A threshold breach (MTD >
-    // 閾値, 前日比2倍超, or ≥N errors/24h) prepends 🚨 so this same LINE push doubles
-    // as the cost/error alert — W0 and W4 share the brief's LINE path (no new push).
+    // 閾値, 前日 ≥ 日次閾値 [zero-baseline safety net], 前日比2倍超, or ≥N errors/24h)
+    // prepends 🚨 so this same LINE push doubles as the cost/error alert — W0 and
+    // W4 share the brief's LINE path (no new push). A Supabase read failure renders
+    // 取得失敗 (fail-loud), never a healthy-looking $0/0件.
     let costErrorText: string;
     try {
       const [cost, errs] = await Promise.all([
         getCostSummary(supabase),
         getErrorSummary(supabase),
       ]);
-      const topJobs = cost.topJobs.length
-        ? cost.topJobs.map(j => `${j.job.replace(/^cron\//, "")} $${j.usd}`).join("・")
-        : "なし";
-      const errTop = errs.topRoutes.length
-        ? errs.topRoutes.map(r => `${r.route.replace(/^cron\//, "")} ${r.n}`).join("・")
-        : "—";
       const warnings = [...cost.warnings, ...errs.warnings];
       const alert = warnings.length > 0 ? `🚨 ${warnings.join(" / ")}\n` : "";
-      costErrorText =
-        `${alert}💸 API Cost (MTD)\n` +
-        `Anthropic概算 $${cost.mtdUsd}（前日 $${cost.yesterdayUsd} / 前々日 $${cost.dayBeforeUsd}）\n` +
-        `外部API ${cost.externalCount}件・Apollo ${cost.apolloCredits}\n` +
-        `内訳: ${topJobs}\n` +
-        `⚠️ Errors(24h) ${errs.count}件${errs.count > 0 ? ` — ${errTop}` : ""}`;
+      // Fail-loud: a Supabase read failure (migration/RLS/query) renders as 取得失敗,
+      // NEVER a healthy-looking $0 / 0件 — a read error that reads as "all clear"
+      // is exactly the false-green this record layer exists to prevent.
+      const costPart = cost.error
+        ? `⚠️ API Cost取得失敗（${cost.error.slice(0, 80)}）`
+        : `💸 API Cost (MTD)\n` +
+          `Anthropic概算 $${cost.mtdUsd}（前日 $${cost.yesterdayUsd} / 前々日 $${cost.dayBeforeUsd}）\n` +
+          `外部API ${cost.externalCount}件・Apollo ${cost.apolloCredits}\n` +
+          `内訳: ${cost.topJobs.length ? cost.topJobs.map(j => `${j.job.replace(/^cron\//, "")} $${j.usd}`).join("・") : "なし"}`;
+      const errPart = errs.error
+        ? `⚠️ Errors取得失敗（${errs.error.slice(0, 80)}）`
+        : `⚠️ Errors(24h) ${errs.count}件${errs.count > 0 ? ` — ${errs.topRoutes.map(r => `${r.route.replace(/^cron\//, "")} ${r.n}`).join("・")}` : ""}`;
+      costErrorText = `${alert}${costPart}\n${errPart}`;
     } catch (err) {
       costErrorText = `💸/⚠️ Cost/Error取得失敗: ${(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
     }
