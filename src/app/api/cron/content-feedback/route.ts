@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { recordHeartbeat, recordHeartbeatFromResponse } from "@/lib/heartbeat";
+import {
+  SourceUnavailableError,
+  aggregatePortal,
+  decideStatus,
+  head,
+  pickWinnersLosers,
+  portalWinnerCandidate,
+  type BlogItem,
+  type FbItem,
+  type LinkEventRow,
+  type LinkMeta,
+  type PortalAgg,
+  type SourceStatus,
+  type XItem,
+} from "@/lib/content-feedback";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,69 +31,23 @@ export const maxDuration = 60;
 // anon-reads that row and renders SplanAI/60_ContentOps/feedback/<date>.md
 // (scripts/render-content-feedback.mjs) — no secrets ever leave the server.
 //
-// FAIL-LOUD (never silent-zero): any hard failure below still upserts the row,
-// but with status='failed' + source_status + error, and this route returns 500
-// so the Vercel cron run is visibly red. Hard failures:
-//   - expected X/FB post rows missing for the content date
-//   - a "posted" row missing its platform post id
-//   - X/FB metrics API non-2xx or metrics missing
-//   - no blog article published in the ET-day window
-//   - link_events / builder_events query failure
-// The next-day /contentops reads the failed row and does NOT optimize on
-// missing data.
+// REACTION-COLLECTION MAIN AXIS = link_events (portal opens/clicks) — free,
+// first-party, already alive. X/FB analytics need paid API env that is NOT
+// injected yet (課金判断待ち), so those sources are marked "unavailable" (a
+// declared gap, recorded with a reason) rather than failing the whole day.
+//
+// STATUS (fail-loud, never silent-zero):
+//   complete — every source read cleanly.
+//   partial  — the free core (link_events/builder) read, but ≥1 of X/FB/blog is
+//              unavailable (env待ち/課金判断待ち/no posts). The loop STILL closes
+//              on the free signal; the gaps are visible in source_status.
+//   failed   — a free core source (link_events/builder) query broke, or the
+//              upsert failed. Route returns 500 so the cron run is visibly red
+//              and the next-day /contentops does NOT optimize on broken data.
 
-type SourceStatus = { ok: boolean; error?: string };
-
-type XItem = {
-  draft_id: string;
-  x_post_id: string | null;
-  angle: string | null;
-  text_head: string;
-  status: string;
-  last_error: string | null;
-  metrics: {
-    impressions: number;
-    likes: number;
-    replies: number;
-    reposts: number;
-    quotes: number;
-    bookmarks: number;
-  } | null;
-  score: number | null;
-};
-
-type FbItem = {
-  draft_id: string;
-  fb_post_id: string | null;
-  text_head: string;
-  status: string;
-  last_error: string | null;
-  metrics: {
-    impressions: number;
-    engaged_users: number;
-    reactions: number;
-    clicks: number;
-  } | null;
-  score: number | null;
-};
-
-type BlogItem = {
-  slug: string;
-  title: string;
-  target_keyword: string;
-  serp_position: number | null;
-  organic_clicks_30d: number;
-  score: number;
-};
-
-type Candidate = {
-  channel: "x" | "facebook" | "blog";
-  angle: string;
-  score: number;
-  ref: string;
-  failed?: boolean;
-  why?: string;
-};
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 function getNewYorkDate(now = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -100,15 +69,10 @@ function etInstant(dateStr: string, hour: number): Date {
   return new Date(guess.getTime() + (utcWall.getTime() - tzWall.getTime()));
 }
 
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function head(text: string | null | undefined, n = 80): string {
-  return (text ?? "").replace(/\s+/g, " ").slice(0, n);
-}
-
-// ── Source: X ────────────────────────────────────────────────────────────────
+// ── Source: X (secondary, best-effort) ─────────────────────────────────────────
+// Every failure here is SourceUnavailableError: X analytics is a paid, env-gated
+// secondary signal. It must NEVER take down the free portal loop — it is recorded
+// as a declared gap (partial), not a hard failure.
 async function collectX(supabase: SupabaseClient, contentDate: string): Promise<XItem[]> {
   const { data, error } = await supabase
     .from("x_post_draft")
@@ -117,9 +81,9 @@ async function collectX(supabase: SupabaseClient, contentDate: string): Promise<
     .eq("run_date", contentDate)
     .in("status", ["posted", "failed"]);
 
-  if (error) throw new Error(`x_post_draft query failed: ${error.message}`);
+  if (error) throw new SourceUnavailableError(`x_post_draft query failed: ${error.message}`);
   if (!data || data.length === 0) {
-    throw new Error(`no posted/failed x_post_draft rows for ${contentDate} (expected posts missing)`);
+    throw new SourceUnavailableError(`no posted/failed x_post_draft rows for ${contentDate}（X未産出 or 投稿env待ち）`);
   }
 
   const items: XItem[] = data.map(r => ({
@@ -136,12 +100,14 @@ async function collectX(supabase: SupabaseClient, contentDate: string): Promise<
   const posted = items.filter(i => i.status === "posted");
   const missingId = posted.filter(i => !i.x_post_id);
   if (missingId.length > 0) {
-    throw new Error(`posted x rows missing x_post_id: ${missingId.map(i => i.draft_id).join(",")}`);
+    throw new SourceUnavailableError(`posted x rows missing x_post_id: ${missingId.map(i => i.draft_id).join(",")}（投稿pipeline要確認）`);
   }
 
   if (posted.length > 0) {
     const bearer = process.env.X_API_BEARER_TOKEN;
-    if (!bearer) throw new Error("missing env X_API_BEARER_TOKEN");
+    if (!bearer) {
+      throw new SourceUnavailableError("env未投入 X_API_BEARER_TOKEN（X分析読取は課金判断待ち・link_eventsで代替中）");
+    }
 
     // Same metric surface as scripts/x-analytics-sync.ts (public_metrics).
     const ids = posted.map(i => i.x_post_id as string).join(",");
@@ -153,7 +119,7 @@ async function collectX(supabase: SupabaseClient, contentDate: string): Promise<
       headers: { Authorization: `Bearer ${bearer}` },
     });
     if (!res.ok) {
-      throw new Error(`X API ${res.status}: ${head(await res.text(), 300)}`);
+      throw new SourceUnavailableError(`X API ${res.status}: ${head(await res.text(), 200)}（無料枠/課金ゲートの可能性）`);
     }
     const json = (await res.json()) as {
       data?: Array<{
@@ -170,12 +136,12 @@ async function collectX(supabase: SupabaseClient, contentDate: string): Promise<
       errors?: Array<{ detail?: string; title?: string }>;
     };
     if (json.errors && json.errors.length > 0) {
-      throw new Error(`X API errors: ${JSON.stringify(json.errors).slice(0, 300)}`);
+      throw new SourceUnavailableError(`X API errors: ${JSON.stringify(json.errors).slice(0, 200)}`);
     }
 
     for (const item of posted) {
       const m = json.data?.find(t => t.id === item.x_post_id)?.public_metrics;
-      if (!m) throw new Error(`X metrics missing for tweet ${item.x_post_id}`);
+      if (!m) throw new SourceUnavailableError(`X metrics missing for tweet ${item.x_post_id}`);
       item.metrics = {
         impressions: m.impression_count ?? 0,
         likes: m.like_count ?? 0,
@@ -196,7 +162,7 @@ async function collectX(supabase: SupabaseClient, contentDate: string): Promise<
   return items;
 }
 
-// ── Source: Facebook ─────────────────────────────────────────────────────────
+// ── Source: Facebook (secondary, best-effort) ──────────────────────────────────
 async function collectFacebook(supabase: SupabaseClient, contentDate: string): Promise<FbItem[]> {
   const { data, error } = await supabase
     .from("fb_post_draft")
@@ -204,9 +170,9 @@ async function collectFacebook(supabase: SupabaseClient, contentDate: string): P
     .eq("run_date", contentDate)
     .in("status", ["posted", "failed"]);
 
-  if (error) throw new Error(`fb_post_draft query failed: ${error.message}`);
+  if (error) throw new SourceUnavailableError(`fb_post_draft query failed: ${error.message}`);
   if (!data || data.length === 0) {
-    throw new Error(`no posted/failed fb_post_draft rows for ${contentDate} (expected posts missing)`);
+    throw new SourceUnavailableError(`no posted/failed fb_post_draft rows for ${contentDate}（FB未産出 or 投稿env待ち）`);
   }
 
   const items: FbItem[] = data.map(r => ({
@@ -222,12 +188,14 @@ async function collectFacebook(supabase: SupabaseClient, contentDate: string): P
   const posted = items.filter(i => i.status === "posted");
   const missingId = posted.filter(i => !i.fb_post_id);
   if (missingId.length > 0) {
-    throw new Error(`posted fb rows missing fb_post_id: ${missingId.map(i => i.draft_id).join(",")}`);
+    throw new SourceUnavailableError(`posted fb rows missing fb_post_id: ${missingId.map(i => i.draft_id).join(",")}（投稿pipeline要確認）`);
   }
 
   if (posted.length > 0) {
     const token = process.env.FB_PAGE_ACCESS_TOKEN;
-    if (!token) throw new Error("missing env FB_PAGE_ACCESS_TOKEN");
+    if (!token) {
+      throw new SourceUnavailableError("env未投入 FB_PAGE_ACCESS_TOKEN（FB分析読取は課金判断待ち・link_eventsで代替中）");
+    }
 
     for (const item of posted) {
       const url = new URL(`https://graph.facebook.com/v25.0/${item.fb_post_id}/insights`);
@@ -239,17 +207,17 @@ async function collectFacebook(supabase: SupabaseClient, contentDate: string): P
 
       const res = await fetch(url.toString());
       if (!res.ok) {
-        throw new Error(`FB insights ${res.status} for ${item.fb_post_id}: ${head(await res.text(), 300)}`);
+        throw new SourceUnavailableError(`FB insights ${res.status} for ${item.fb_post_id}: ${head(await res.text(), 200)}`);
       }
       const json = (await res.json()) as {
         data?: Array<{ name: string; values?: Array<{ value: unknown }> }>;
       };
-      if (!json.data) throw new Error(`FB insights payload missing 'data' for ${item.fb_post_id}`);
+      if (!json.data) throw new SourceUnavailableError(`FB insights payload missing 'data' for ${item.fb_post_id}`);
 
       const metric = (name: string): number => {
         const entry = json.data?.find(d => d.name === name);
         if (!entry || !entry.values || entry.values.length === 0) {
-          throw new Error(`FB metric '${name}' missing for ${item.fb_post_id}`);
+          throw new SourceUnavailableError(`FB metric '${name}' missing for ${item.fb_post_id}`);
         }
         const v = entry.values[0].value;
         if (typeof v === "number") return v;
@@ -260,7 +228,7 @@ async function collectFacebook(supabase: SupabaseClient, contentDate: string): P
             0,
           );
         }
-        throw new Error(`FB metric '${name}' has unexpected shape for ${item.fb_post_id}`);
+        throw new SourceUnavailableError(`FB metric '${name}' has unexpected shape for ${item.fb_post_id}`);
       };
 
       item.metrics = {
@@ -281,7 +249,7 @@ async function collectFacebook(supabase: SupabaseClient, contentDate: string): P
   return items;
 }
 
-// ── Source: Blog ─────────────────────────────────────────────────────────────
+// ── Source: Blog (secondary, best-effort) ──────────────────────────────────────
 async function collectBlog(
   supabase: SupabaseClient,
   dayStart: Date,
@@ -294,9 +262,9 @@ async function collectBlog(
     .gte("published_at", dayStart.toISOString())
     .lt("published_at", dayEnd.toISOString());
 
-  if (error) throw new Error(`seo_articles query failed: ${error.message}`);
+  if (error) throw new SourceUnavailableError(`seo_articles query failed: ${error.message}`);
   if (!data || data.length === 0) {
-    throw new Error("no blog article published in the ET-day window (seo-publish may have failed)");
+    throw new SourceUnavailableError("no blog article published in the ET-day window（当日publish無し）");
   }
 
   return data.map(a => {
@@ -314,8 +282,15 @@ async function collectBlog(
   });
 }
 
-// ── Source: Portal (link_events) ─────────────────────────────────────────────
-async function collectPortal(supabase: SupabaseClient, dayStart: Date, dayEnd: Date) {
+// ── Source: Portal / link_events (FREE CORE — the compounding main axis) ────────
+// A query failure here is a HARD failure (plain Error → status='failed'): this is
+// the free first-party signal the whole loop now rests on. The shared_links slug
+// lookup is best-effort (a slug-join hiccup must not lose the free signal).
+async function collectPortal(
+  supabase: SupabaseClient,
+  dayStart: Date,
+  dayEnd: Date,
+): Promise<PortalAgg> {
   const { data, error } = await supabase
     .from("link_events")
     .select("event_type, link_id")
@@ -324,21 +299,28 @@ async function collectPortal(supabase: SupabaseClient, dayStart: Date, dayEnd: D
 
   if (error) throw new Error(`link_events query failed: ${error.message}`);
 
-  const rows = data ?? [];
-  const byType: Record<string, number> = {};
-  const uniqueLinks = new Set<string>();
-  for (const r of rows) {
-    byType[r.event_type as string] = (byType[r.event_type as string] ?? 0) + 1;
-    uniqueLinks.add(r.link_id as string);
+  const rows = (data ?? []) as LinkEventRow[];
+
+  // Resolve link_id → shared_links.slug so the feedback names WHICH portal
+  // resonated (not an opaque uuid). slug ONLY — never client_name: this row is
+  // public_ready (anon-readable) and rendered into the public vault, so buyer PII
+  // must not be pulled in. Best-effort: on lookup failure fall back to link_id.
+  const meta = new Map<string, LinkMeta>();
+  const ids = [...new Set(rows.map(r => r.link_id))];
+  if (ids.length > 0) {
+    const { data: links } = await supabase
+      .from("shared_links")
+      .select("id, slug")
+      .in("id", ids);
+    for (const l of links ?? []) {
+      meta.set(l.id as string, { slug: (l.slug as string) ?? (l.id as string) });
+    }
   }
-  return {
-    total_events: rows.length,
-    unique_links: uniqueLinks.size,
-    by_type: byType,
-  };
+
+  return aggregatePortal(rows, meta);
 }
 
-// ── Source: Builder (builder_events) ─────────────────────────────────────────
+// ── Source: Builder / builder_events (FREE CORE) ───────────────────────────────
 async function collectBuilder(supabase: SupabaseClient, dayStart: Date, dayEnd: Date) {
   const { data, error } = await supabase
     .from("builder_events")
@@ -353,72 +335,6 @@ async function collectBuilder(supabase: SupabaseClient, dayStart: Date, dayEnd: 
     byType[r.event_type as string] = (byType[r.event_type as string] ?? 0) + 1;
   }
   return { total_events: (data ?? []).length, by_type: byType };
-}
-
-// ── Winner/loser extraction + deterministic Japanese next-angle ──────────────
-function pickWinnersLosers(x: XItem[], fb: FbItem[], blog: BlogItem[]) {
-  const candidates: Candidate[] = [];
-
-  for (const i of x) {
-    if (i.status === "failed") {
-      candidates.push({
-        channel: "x", angle: i.angle ?? "unknown", score: -1,
-        ref: i.draft_id, failed: true, why: i.last_error ?? "post failed",
-      });
-    } else if (i.score != null) {
-      candidates.push({ channel: "x", angle: i.angle ?? "unknown", score: i.score, ref: i.x_post_id ?? i.draft_id });
-    }
-  }
-  for (const i of fb) {
-    if (i.status === "failed") {
-      candidates.push({
-        channel: "facebook", angle: "facebook_daily", score: -1,
-        ref: i.draft_id, failed: true, why: i.last_error ?? "post failed",
-      });
-    } else if (i.score != null) {
-      candidates.push({ channel: "facebook", angle: "facebook_daily", score: i.score, ref: i.fb_post_id ?? i.draft_id });
-    }
-  }
-  for (const b of blog) {
-    candidates.push({ channel: "blog", angle: b.target_keyword, score: b.score, ref: b.slug });
-  }
-
-  const scored = candidates.filter(c => !c.failed);
-  const failed = candidates.filter(c => c.failed);
-
-  // winner = highest score WITH distribution (all-zero day has no winner).
-  const winners =
-    scored.length > 0 && scored.some(c => c.score > 0)
-      ? [scored.reduce((a, b) => (b.score > a.score ? b : a))]
-      : [];
-  // losers = failed posts first; otherwise the lowest scorer (only meaningful
-  // when there is a distribution to compare against).
-  const losers =
-    failed.length > 0
-      ? failed
-      : scored.length > 1 && winners.length > 0
-        ? [scored.reduce((a, b) => (b.score < a.score ? b : a))]
-        : [];
-
-  let next_angle_ja: string;
-  if (winners.length > 0) {
-    const w = winners[0];
-    const l = losers[0];
-    next_angle_ja =
-      l && !l.failed
-        ? `「${l.angle}」より「${w.angle}」の反応が強い（${w.channel} score ${w.score}）。明日は「${w.angle}」起点で作る。`
-        : `「${w.angle}」が最も反応（${w.channel} score ${w.score}）。明日も「${w.angle}」の別切り口を先頭に。`;
-    if (failed.length > 0) {
-      next_angle_ja += ` 失敗投稿${failed.length}件あり（原因: ${head(failed[0].why, 60)}）— 修正が先。`;
-    }
-  } else if (failed.length > 0) {
-    next_angle_ja = `投稿失敗が発生（${failed.map(f => f.channel).join("/")}）。角度最適化より配信復旧が先。原因: ${head(failed[0].why, 80)}`;
-  } else {
-    next_angle_ja =
-      "全チャネルで反応スコア0（分布なし）。勝ち角度は判定できない — 明日は pillar ローテーションを維持し、角度を変えない。";
-  }
-
-  return { winners, losers, next_angle_ja };
 }
 
 // ── Handler ──────────────────────────────────────────────────────────────────
@@ -444,7 +360,8 @@ async function contentFeedbackHandler(req: NextRequest) {
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
   const sourceStatus: Record<string, SourceStatus> = {};
-  const errors: string[] = [];
+  const hardErrors: string[] = []; // free-core breakage → 'failed'
+  const unavailable: string[] = []; // declared gaps (env待ち/課金判断待ち) → 'partial'
 
   async function run<T>(name: string, fn: () => Promise<T>): Promise<T | null> {
     try {
@@ -453,8 +370,13 @@ async function contentFeedbackHandler(req: NextRequest) {
       return value;
     } catch (e) {
       const msg = toErrorMessage(e);
-      sourceStatus[name] = { ok: false, error: msg };
-      errors.push(`${name}: ${msg}`);
+      if (e instanceof SourceUnavailableError) {
+        sourceStatus[name] = { ok: false, unavailable: true, reason: msg };
+        unavailable.push(`${name}: ${msg}`);
+      } else {
+        sourceStatus[name] = { ok: false, error: msg };
+        hardErrors.push(`${name}: ${msg}`);
+      }
       return null;
     }
   }
@@ -467,12 +389,18 @@ async function contentFeedbackHandler(req: NextRequest) {
     run("builder", () => collectBuilder(supabase, dayStart, dayEnd)),
   ]);
 
-  const failed = errors.length > 0;
-  const { winners, losers, next_angle_ja } = pickWinnersLosers(x ?? [], facebook ?? [], blog ?? []);
+  const status = decideStatus(hardErrors.length, unavailable.length);
+  const portalWinner = portal ? portalWinnerCandidate(portal) : null;
+  const { winners, losers, next_angle_ja } = pickWinnersLosers(
+    x ?? [],
+    facebook ?? [],
+    blog ?? [],
+    portalWinner,
+  );
 
   const row = {
     content_date: contentDate,
-    status: failed ? "failed" : "complete",
+    status,
     schema_version: 1,
     generated_at: new Date().toISOString(),
     source_status: sourceStatus,
@@ -483,14 +411,18 @@ async function contentFeedbackHandler(req: NextRequest) {
     builder,
     winners,
     losers,
-    // On a failed day the render/next-day loop must see the failure, not a
-    // half-optimized angle (silent-zero ban).
-    next_angle_ja: failed
-      ? `集計失敗（${errors.length}ソース）。このデータで角度最適化しない。詳細: ${head(errors.join(" | "), 200)}`
-      : next_angle_ja,
-    error: failed ? errors.join(" | ") : null,
-    // failed rows are ALSO public_ready: the local renderer must be able to
-    // surface the failure in the vault (fail-loud, never invisible).
+    // On a HARD-failed day the render/next-day loop must see the failure, not a
+    // half-optimized angle (silent-zero ban). Partial days keep the real angle
+    // (free portal signal is trustworthy); the gaps live in source_status.
+    next_angle_ja:
+      status === "failed"
+        ? `集計失敗（コア無料ソース ${hardErrors.length}件）。このデータで角度最適化しない。詳細: ${head(hardErrors.join(" | "), 200)}`
+        : next_angle_ja,
+    // error column = HARD failure only. Unavailable (env待ち) reasons live in
+    // source_status so partial days are green but the gaps stay visible.
+    error: hardErrors.length > 0 ? hardErrors.join(" | ") : null,
+    // partial/failed rows are ALSO public_ready: the local renderer must surface
+    // the status + gaps in the vault (fail-loud, never invisible).
     public_ready: true,
   };
 
@@ -506,25 +438,31 @@ async function contentFeedbackHandler(req: NextRequest) {
     );
   }
 
-  if (failed) {
-    console.error("[content-feedback] recorded FAILED row:", errors.join(" | "));
+  if (status === "failed") {
+    console.error("[content-feedback] recorded FAILED row (core source broke):", hardErrors.join(" | "));
     return NextResponse.json(
-      { ok: false, content_date: contentDate, status: "failed", source_status: sourceStatus, error: errors.join(" | ") },
+      { ok: false, content_date: contentDate, status, source_status: sourceStatus, error: hardErrors.join(" | ") },
       { status: 500 },
     );
   }
 
+  // complete or partial → 200 (cron green). Partial still records the declared
+  // gaps so they are visible in the cron log (not silent-zero).
+  if (status === "partial") {
+    console.warn("[content-feedback] recorded PARTIAL row (declared gaps):", unavailable.join(" | "));
+  }
   return NextResponse.json({
     ok: true,
     content_date: contentDate,
-    status: "complete",
+    status,
     winners,
     next_angle_ja,
+    ...(unavailable.length > 0 ? { unavailable } : {}),
   });
 }
 
 // R5 cron heartbeat — thin wrapper only; the handler above is unchanged.
-// 2xx → last_ok, 5xx/throw → last_error (4xx probes ignored, see heartbeat.ts).
+// 2xx (complete/partial) → last_ok, 5xx/throw (failed) → last_error.
 export async function GET(req: NextRequest) {
   try {
     const res = await contentFeedbackHandler(req);
