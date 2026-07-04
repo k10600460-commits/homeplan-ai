@@ -42,7 +42,7 @@ const T = {
       streetHint: "Optional — adds neighborhood data (lot size & zoning: connect MLS on Pro)",
       locationNote: "Optional — adds neighborhood & market data",
       cta: "Generate 3 Plans →", generating: "Generating Plans…",
-      signupNote: "✨ Quick signup to receive your plans · No credit card required",
+      signupNote: "Quick signup to receive your plans · No credit card required",
       disclaimer: "No credit card required · 30-second signup · 3 free plans included",
     },
     pain: {
@@ -50,19 +50,16 @@ const T = {
       sub: "The three biggest deal-killers for home builders today.",
       items: [
         {
-          icon: "😟",
           headline: "Clients ask for a proposal. You spend 3 days on it.",
           body: "By then, they've moved on. Slow proposals don't just lose time — they lose deals.",
           solution: "SplanAI generates 3 plans in 30 seconds.",
         },
         {
-          icon: "💸",
           headline: "You show a floor plan. They can't visualize it.",
           body: "A static sketch doesn't sell. Clients need to see their future home — with real neighborhood data and financing numbers.",
           solution: "Share a live portal. Clients explore on their own.",
         },
         {
-          icon: "📉",
           headline: "You send a PDF. It sits in their inbox.",
           body: "You have no idea if they even opened it. While you wait, a competitor is already following up.",
           solution: "Know exactly when they open it, and which plan they love.",
@@ -72,21 +69,21 @@ const T = {
     how: {
       heading: "From lot to client presentation in 30 seconds.",
       steps: [
-        { step: "01", title: "Enter lot details", desc: "Lot size, budget, family size. Optional: city & state for neighborhood data.", icon: "📋" },
-        { step: "02", title: "AI generates 3 plans", desc: "Get three distinct home concepts with neighborhood data, avg rent, and mortgage estimates built in.", icon: "✨" },
-        { step: "03", title: "Share with your client", desc: "Download a branded PDF or send a unique link. Get notified when they view it.", icon: "🔗" },
+        { step: "01", title: "Enter lot details", desc: "Lot size, budget, family size. Optional: city & state for neighborhood data." },
+        { step: "02", title: "AI generates 3 plans", desc: "Get three distinct home concepts with neighborhood data, avg rent, and mortgage estimates built in." },
+        { step: "03", title: "Share with your client", desc: "Download a branded PDF or send a unique link. Get notified when they view it." },
       ],
     },
     diff: {
       heading: "The sales layer between your lot and the signed contract.",
       sub: "SplanAI is a sales tool — not a design tool.",
       items: [
-        { icon: "🗺️", title: "Neighborhood Intelligence", desc: "Auto-fetch nearby schools, police/fire stations, and market rents via Google Maps and RentCast." },
-        { icon: "📄", title: "Branded PDF in One Click", desc: "Professional proposals with your logo, room breakdown, and cost estimate. Print-ready." },
-        { icon: "📡", title: "Real-Time Client Tracking", desc: "Know the moment a client opens the link, see which concept they engaged, and send a ready-made follow-up." },
-        { icon: "🎚️", title: "Buyers Configure It Live", desc: "Clients adjust size, beds, baths, and style — price and monthly payment update instantly." },
-        { icon: "📐", title: "Layout at a Glance", desc: "A clean visual of each concept's room layout — easy to read, no blueprint required." },
-        { icon: "🔁", title: "A Portal That Stays Alive", desc: "Favorites, saved settings, and a 'new since your last visit' nudge bring buyers back." },
+        { title: "Neighborhood Intelligence", desc: "Auto-fetch nearby schools, police/fire stations, and market rents via Google Maps and RentCast." },
+        { title: "Branded PDF in One Click", desc: "Professional proposals with your logo, room breakdown, and cost estimate. Print-ready." },
+        { title: "Real-Time Client Tracking", desc: "Know the moment a client opens the link, see which concept they engaged, and send a ready-made follow-up." },
+        { title: "Buyers Configure It Live", desc: "Clients adjust size, beds, baths, and style — price and monthly payment update instantly." },
+        { title: "Layout at a Glance", desc: "A clean visual of each concept's room layout — easy to read, no blueprint required." },
+        { title: "A Portal That Stays Alive", desc: "Favorites, saved settings, and a 'new since your last visit' nudge bring buyers back." },
       ],
     },
     mission: {
@@ -113,9 +110,9 @@ const T = {
       heading: "Your data stays yours.",
       sub: "Built with privacy and compliance in mind.",
       items: [
-        { icon: "🔒", text: "Client data is never used to train AI models" },
-        { icon: "🛡️", text: "All plans and portal activity are encrypted" },
-        { icon: "📋", text: "MLS-compliant audit logs on every data call" },
+        { text: "Client data is never used to train AI models" },
+        { text: "All plans and portal activity are encrypted" },
+        { text: "MLS-compliant audit logs on every data call" },
       ],
     },
     testimonials: {
@@ -188,7 +185,7 @@ const T = {
       streetHint: "Opcional — agrega datos del vecindario (tamaño del lote y zonificación: conecta MLS en Pro)",
       locationNote: "Opcional — agrega datos del vecindario y mercado",
       cta: "Generar 3 Propuestas →", generating: "Generando Propuestas…",
-      signupNote: "✨ Registro rápido para recibir tus propuestas · Sin tarjeta de crédito",
+      signupNote: "Registro rápido para recibir tus propuestas · Sin tarjeta de crédito",
       disclaimer: "Sin tarjeta de crédito · Registro en 30 segundos · 3 propuestas gratis incluidas",
     },
     pain: {
@@ -196,19 +193,16 @@ const T = {
       sub: "Los tres mayores obstáculos para los constructores hoy.",
       items: [
         {
-          icon: "😟",
           headline: "El cliente pide una propuesta. Pasas 3 días haciéndola.",
           body: "Para entonces, ya se fue. Las propuestas lentas no solo pierden tiempo — pierden contratos.",
           solution: "SplanAI genera 3 propuestas en 30 segundos.",
         },
         {
-          icon: "💸",
           headline: "Muestras un plano. No lo visualizan.",
           body: "Un boceto estático no vende. Los clientes necesitan ver su futuro hogar — con datos del vecindario y números de financiamiento reales.",
           solution: "Comparte un portal en vivo. Los clientes exploran solos.",
         },
         {
-          icon: "📉",
           headline: "Envías un PDF. Se queda en su bandeja.",
           body: "No sabes si lo abrieron. Mientras esperas, un competidor ya está haciendo seguimiento.",
           solution: "Sabe exactamente cuándo lo abren y qué propuesta les gusta.",
@@ -218,21 +212,21 @@ const T = {
     how: {
       heading: "Del lote a la presentación al cliente en 30 segundos.",
       steps: [
-        { step: "01", title: "Ingresa los datos del lote", desc: "Tamaño, presupuesto, familia. Opcional: ciudad y estado para datos del vecindario.", icon: "📋" },
-        { step: "02", title: "La IA genera 3 propuestas", desc: "Obtén tres conceptos distintos con datos del vecindario, renta promedio y estimados de hipoteca incluidos.", icon: "✨" },
-        { step: "03", title: "Comparte con tu cliente", desc: "Descarga el PDF o envía un enlace único. Recibe una notificación cuando lo vean.", icon: "🔗" },
+        { step: "01", title: "Ingresa los datos del lote", desc: "Tamaño, presupuesto, familia. Opcional: ciudad y estado para datos del vecindario." },
+        { step: "02", title: "La IA genera 3 propuestas", desc: "Obtén tres conceptos distintos con datos del vecindario, renta promedio y estimados de hipoteca incluidos." },
+        { step: "03", title: "Comparte con tu cliente", desc: "Descarga el PDF o envía un enlace único. Recibe una notificación cuando lo vean." },
       ],
     },
     diff: {
       heading: "La capa de ventas entre tu lote y el contrato firmado.",
       sub: "SplanAI es una herramienta de ventas — no de diseño.",
       items: [
-        { icon: "🗺️", title: "Inteligencia de Vecindario", desc: "Escuelas, estaciones de policía/bomberos y renta del mercado vía Google Maps y RentCast." },
-        { icon: "📄", title: "PDF con Tu Marca en Un Clic", desc: "Propuestas profesionales con tu logo, distribución de habitaciones y estimado de costo." },
-        { icon: "📡", title: "Seguimiento en Tiempo Real", desc: "Sabe al instante cuando tu cliente abre el enlace, qué concepto le interesa, y envía un seguimiento listo para usar." },
-        { icon: "🎚️", title: "El Cliente lo Configura en Vivo", desc: "Ajusta tamaño, recámaras, baños y estilo — el precio y el pago mensual se recalculan al instante." },
-        { icon: "📐", title: "Distribución de un Vistazo", desc: "Una vista clara de la distribución de cada concepto, fácil de entender." },
-        { icon: "🔁", title: "Un Portal que Sigue Vivo", desc: "Favoritos, ajustes guardados y un aviso de 'novedades desde tu última visita' hacen volver al cliente." },
+        { title: "Inteligencia de Vecindario", desc: "Escuelas, estaciones de policía/bomberos y renta del mercado vía Google Maps y RentCast." },
+        { title: "PDF con Tu Marca en Un Clic", desc: "Propuestas profesionales con tu logo, distribución de habitaciones y estimado de costo." },
+        { title: "Seguimiento en Tiempo Real", desc: "Sabe al instante cuando tu cliente abre el enlace, qué concepto le interesa, y envía un seguimiento listo para usar." },
+        { title: "El Cliente lo Configura en Vivo", desc: "Ajusta tamaño, recámaras, baños y estilo — el precio y el pago mensual se recalculan al instante." },
+        { title: "Distribución de un Vistazo", desc: "Una vista clara de la distribución de cada concepto, fácil de entender." },
+        { title: "Un Portal que Sigue Vivo", desc: "Favoritos, ajustes guardados y un aviso de 'novedades desde tu última visita' hacen volver al cliente." },
       ],
     },
     mission: {
@@ -259,9 +253,9 @@ const T = {
       heading: "Tus datos son tuyos.",
       sub: "Construido con privacidad y cumplimiento en mente.",
       items: [
-        { icon: "🔒", text: "Los datos de clientes nunca se usan para entrenar modelos de IA" },
-        { icon: "🛡️", text: "Todas las propuestas y actividad del portal están encriptadas" },
-        { icon: "📋", text: "Registros de auditoría conformes con MLS en cada consulta de datos" },
+        { text: "Los datos de clientes nunca se usan para entrenar modelos de IA" },
+        { text: "Todas las propuestas y actividad del portal están encriptadas" },
+        { text: "Registros de auditoría conformes con MLS en cada consulta de datos" },
       ],
     },
     testimonials: {
@@ -340,6 +334,40 @@ function Check() {
     </svg>
   );
 }
+
+// ── Stroke icon set (DESIGN.md: one icon system, currentColor, no emoji in LP chrome) ─
+const ICON_PATHS = {
+  clock: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+  layout: "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z",
+  inbox: "M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4",
+  clipboard: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01",
+  layers: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10",
+  link: "M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1",
+  mappin: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z",
+  doc: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+  eye: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
+  sliders: "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4",
+  grid: "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z",
+  refresh: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+  lock: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
+  shield: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
+  clipcheck: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
+} as const;
+type IconName = keyof typeof ICON_PATHS;
+
+function Icon({ name, className = "w-6 h-6" }: { name: IconName; className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d={ICON_PATHS[name]} />
+    </svg>
+  );
+}
+
+// Section icon assignments (language-independent — kept OUT of the i18n T object so EN/ES can never drift)
+const PAIN_ICONS: IconName[] = ["clock", "layout", "inbox"];
+const HOW_ICONS: IconName[] = ["clipboard", "layers", "link"];
+const DIFF_ICONS: IconName[] = ["mappin", "doc", "eye", "sliders", "grid", "refresh"];
+const SECURITY_ICONS: IconName[] = ["lock", "shield", "clipcheck"];
 
 // ── Scroll-triggered fade+slide-up (respects prefers-reduced-motion) ─
 function AnimateIn({
@@ -422,7 +450,7 @@ function fi(visible: boolean, delay = 0): React.CSSProperties {
   };
 }
 
-function HeroPreview({ scrollY = 0 }: { scrollY?: number }) {
+function HeroPreview() {
   const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const [phase, setPhase] = useState<HeroPhase>(reduced ? 2 : 0);
   const [planVisible, setPlanVisible] = useState([false, false, false]);
@@ -472,7 +500,6 @@ function HeroPreview({ scrollY = 0 }: { scrollY?: number }) {
   return (
     <div
       className="relative w-full max-w-lg mx-auto lg:mx-0"
-      style={{ transform: `translateY(${Math.min(scrollY * 0.05, 10)}px)`, transition: "transform 0.1s linear" }}
       onMouseEnter={() => { paused.current = true; }}
       onMouseLeave={() => { paused.current = false; }}
     >
@@ -655,15 +682,6 @@ export default function Home() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [lang, setLang] = useState<Lang>("en");
 
-  // Hero parallax
-  const [heroScrollY, setHeroScrollY] = useState(0);
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const onScroll = () => setHeroScrollY(window.scrollY);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   // Limit-exceeded modal
   const [limitModal, setLimitModal] = useState<{ plan: 'free' | 'pro' | 'team'; current: number; limit: number; upgradePath: string } | null>(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
@@ -786,10 +804,10 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: "#F8FAFC", color: "#1E293B" }}>
+    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800">
 
       {/* ── 1. Nav ───────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b border-slate-800/60" style={{ background: "#0F172A" }}>
+      <header className="sticky top-0 z-50 border-b border-slate-800/60 bg-slate-900">
         <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <a href="/" className="text-xl font-extrabold tracking-tight text-white shrink-0">
             Splan<span className="text-blue-400">AI</span>
@@ -803,9 +821,8 @@ export default function Home() {
           <div className="flex items-center gap-3 ml-auto shrink-0">
             <button
               onClick={() => setLang(lang === "en" ? "es" : "en")}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs font-semibold text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-700 text-xs font-semibold text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-colors"
             >
-              <span className="text-base leading-none">{lang === "en" ? "🇲🇽" : "🇺🇸"}</span>
               {lang === "en" ? "ES" : "EN"}
             </button>
             {userEmail ? (
@@ -813,9 +830,7 @@ export default function Home() {
             ) : (
               <a href="/login" className="hidden sm:block text-sm text-slate-400 hover:text-white transition-colors">{t.nav.signin}</a>
             )}
-            <a href="#generate" className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors" style={{ background: "#3B82F6" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
-              onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
+            <a href="#generate" className="px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors"
               onClick={() => track("cta_click", { button: "nav_cta" })}
             >{t.nav.cta}</a>
           </div>
@@ -823,24 +838,20 @@ export default function Home() {
       </header>
 
       {/* ── 2. Hero ──────────────────────────────────────────────────── */}
-      <section style={{ background: "#0F172A" }} className="relative overflow-hidden">
+      <section className="relative overflow-hidden bg-slate-900">
         <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-600/20 rounded-full blur-3xl" />
 
         <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
           <div className="flex flex-col lg:flex-row items-center gap-16">
             <div className="flex-1 text-center lg:text-left max-w-xl mx-auto lg:mx-0">
               <ProductHuntBadge state="post-launch" lang={lang} />
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-white mb-5">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-balance text-white mb-5">
                 {t.hero.headline1}{" "}
                 <span className="text-blue-400">{t.hero.headline2}</span>
               </h1>
               <p className="text-lg text-slate-400 leading-relaxed mb-8 max-w-lg">{t.hero.sub}</p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10">
-                <a href="#generate" className="px-7 py-4 rounded-xl text-white font-bold text-base shadow-lg transition-all"
-                  style={{ background: "#3B82F6", boxShadow: "0 0 30px rgba(59,130,246,0.35)" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
+                <a href="#generate" className="px-7 py-4 rounded-xl text-white font-bold text-base bg-blue-500 hover:bg-blue-600 shadow-[0_0_30px_rgba(59,130,246,0.35)] transition-colors"
                   onClick={() => track("cta_click", { button: "hero_primary" })}
                 >{t.hero.ctaPrimary}</a>
                 <a href="#how" className="px-7 py-4 rounded-xl font-semibold text-base border-2 border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white transition-all">
@@ -862,7 +873,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex-1 w-full lg:max-w-lg">
-              <HeroPreview scrollY={heroScrollY} />
+              <HeroPreview />
             </div>
           </div>
         </div>
@@ -872,25 +883,22 @@ export default function Home() {
       <SocialProofBar lang={lang} />
 
       {/* ── 3. Trust Bar ────────────────────────────────────────────── */}
-      <section className="border-y border-slate-200 py-5 px-6" style={{ background: "#fff" }}>
+      <section className="border-y border-slate-200 py-5 px-6 bg-white">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center gap-5 justify-center">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest shrink-0">{t.trust.label}</span>
           <div className="w-px h-4 bg-slate-200 hidden sm:block" />
           <div className="flex flex-wrap items-center justify-center gap-8">
             {[
-              { name: "Google Maps", icon: "🗺️", sub: "Places & Geocoding" },
-              { name: "RentCast", icon: "📊", sub: "Market Data" },
-              { name: "FRED", icon: "🏦", sub: "Mortgage Rates" },
-              { name: "Anthropic Claude", icon: "✦", sub: "AI Generation" },
-              { name: "Stripe", icon: "💳", sub: "Payments" },
-              { name: "Supabase", icon: "🗄️", sub: "Database" },
+              { name: "Google Maps", sub: "Places & Geocoding" },
+              { name: "RentCast", sub: "Market Data" },
+              { name: "FRED", sub: "Mortgage Rates" },
+              { name: "Anthropic Claude", sub: "AI Generation" },
+              { name: "Stripe", sub: "Payments" },
+              { name: "Supabase", sub: "Database" },
             ].map(tech => (
-              <div key={tech.name} className="flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity">
-                <span className="text-lg">{tech.icon}</span>
-                <div>
-                  <p className="text-sm font-bold text-slate-700 leading-none">{tech.name}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{tech.sub}</p>
-                </div>
+              <div key={tech.name} className="opacity-70 hover:opacity-100 transition-opacity">
+                <p className="text-sm font-bold text-slate-700 leading-none">{tech.name}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{tech.sub}</p>
               </div>
             ))}
           </div>
@@ -898,7 +906,7 @@ export default function Home() {
       </section>
 
       {/* ── Generate Form ────────────────────────────────────────────── */}
-      <section id="generate" className="py-16 px-6 scroll-mt-[64px]" style={{ background: "#F8FAFC" }}>
+      <section id="generate" className="py-16 px-6 scroll-mt-[64px] bg-slate-50">
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-6">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.form.title}</p>
@@ -909,7 +917,7 @@ export default function Home() {
             {mlsConnected && (
               <div className="mb-5 p-4 rounded-xl bg-blue-50 border border-blue-200">
                 <label className="text-xs font-bold text-blue-700 uppercase tracking-wider block mb-2">
-                  🏠 MLS Listing # <span className="text-blue-400 font-normal">(optional — auto-fills lot data)</span>
+                  MLS Listing # <span className="text-blue-400 font-normal">(optional — auto-fills lot data)</span>
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -980,13 +988,12 @@ export default function Home() {
                 <input type="text" name="street" value={form.street} onChange={handleChange}
                   placeholder={t.form.streetPlaceholder} maxLength={120}
                   className="w-full mt-1.5 px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
-                <p className="text-xs text-slate-300 mt-1">{t.form.streetHint}</p>
+                <p className="text-xs text-slate-500 mt-1">{t.form.streetHint}</p>
               </div>
             </div>
             {error && <p className="mt-4 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-2.5 border border-red-100">{error}</p>}
             <button type="submit" disabled={!isValid || loading}
-              className="mt-6 w-full py-4 rounded-xl text-white text-base font-bold transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
-              style={{ background: loading ? "#1D4ED8" : isValid ? "#3B82F6" : "#94A3B8" }}>
+              className={`mt-6 w-full py-4 rounded-xl text-white text-base font-bold transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg ${loading ? "bg-blue-700" : isValid ? "bg-blue-500 hover:bg-blue-600" : "bg-slate-400"}`}>
               {loading ? <><Spinner />Generating proposals… (~30 sec)</> : t.form.cta}
             </button>
           </form>
@@ -998,23 +1005,23 @@ export default function Home() {
       <section className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <AnimateIn className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.pain.heading}</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance mb-3 text-slate-900">{t.pain.heading}</h2>
             <p className="text-slate-500 max-w-xl mx-auto">{t.pain.sub}</p>
           </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {t.pain.items.map((item, i) => (
               <AnimateIn key={i} delay={i * 90}>
-                <div className="rounded-2xl p-7 border-2 border-red-100 hover:border-red-200 hover:shadow-lg hover:-translate-y-1 transition-all flex flex-col gap-3 h-full" style={{ background: "#fff8f8" }}>
-                  <span className="text-4xl">{item.icon}</span>
+                <div className="rounded-2xl p-7 border border-slate-200 bg-slate-50 flex flex-col gap-3 h-full">
+                  <Icon name={PAIN_ICONS[i]} className="w-7 h-7 text-blue-600" />
                   <h3 className="font-bold text-slate-900 text-base leading-snug">{item.headline}</h3>
                   <p className="text-sm text-slate-500 leading-relaxed flex-1">{item.body}</p>
-                  <p className="text-emerald-600 text-sm font-bold border-t border-red-100 pt-4">→ {item.solution}</p>
+                  <p className="text-blue-600 text-sm font-bold border-t border-slate-200 pt-4">→ {item.solution}</p>
                 </div>
               </AnimateIn>
             ))}
           </div>
           <AnimateIn delay={200} className="mt-12 text-center">
-            <div className="inline-flex items-center gap-3 text-white px-8 py-4 rounded-2xl shadow-xl" style={{ background: "#0F172A" }}>
+            <div className="inline-flex items-center gap-3 text-white px-8 py-4 rounded-2xl shadow-xl bg-slate-900">
               <svg className="w-5 h-5 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -1027,10 +1034,10 @@ export default function Home() {
       </section>
 
       {/* ── 5. How It Works ─────────────────────────────────────────── */}
-      <section id="how" className="py-20 px-6" style={{ background: "#0F172A" }}>
+      <section id="how" className="py-20 px-6 bg-slate-900">
         <div className="max-w-5xl mx-auto">
           <AnimateIn className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">{t.how.heading}</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance text-white mb-4">{t.how.heading}</h2>
           </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-16">
             {t.how.steps.map((step, i) => (
@@ -1038,8 +1045,8 @@ export default function Home() {
               <div className="relative">
                 <div className="relative z-10 flex flex-col gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-extrabold text-white border border-blue-500/40" style={{ background: "rgba(59,130,246,0.15)" }}>
-                      {step.icon}
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-blue-400 border border-blue-500/40 bg-blue-500/15">
+                      <Icon name={HOW_ICONS[i]} className="w-5 h-5" />
                     </div>
                     <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">{step.step}</span>
                   </div>
@@ -1068,7 +1075,7 @@ export default function Home() {
                 <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-extrabold text-slate-800">Splan<span className="text-blue-500">AI</span></span>
-                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">8,500 sqft · $450K · 4 people · Austin, TX</span>
+                    <span className="hidden sm:inline text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">8,500 sqft · $450K · 4 people · Austin, TX</span>
                   </div>
                   <div className="flex gap-2">
                     <button className="text-xs px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold">Share Link</button>
@@ -1129,14 +1136,14 @@ export default function Home() {
       <section className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <AnimateIn className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.diff.heading}</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance mb-3 text-slate-900">{t.diff.heading}</h2>
             <p className="text-slate-500 max-w-xl mx-auto">{t.diff.sub}</p>
           </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {t.diff.items.map((item, i) => (
               <AnimateIn key={item.title} delay={i * 90}>
-                <div className="flex flex-col gap-4 p-7 rounded-2xl border-2 border-slate-100 hover:border-blue-100 hover:shadow-lg hover:-translate-y-1 transition-all h-full" style={{ background: "#F8FAFC" }}>
-                  <span className="text-4xl">{item.icon}</span>
+                <div className="flex flex-col gap-4 p-7 rounded-2xl border border-slate-200 bg-slate-50 hover:border-blue-200 transition-colors h-full">
+                  <Icon name={DIFF_ICONS[i]} className="w-7 h-7 text-blue-600" />
                   <h3 className="text-lg font-bold" style={{ color: "#0F172A" }}>{item.title}</h3>
                   <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
                 </div>
@@ -1147,24 +1154,24 @@ export default function Home() {
       </section>
 
       {/* ── 7. Mission ──────────────────────────────────────────────── */}
-      <section className="py-24 px-6 relative overflow-hidden" style={{ background: "#0F172A" }}>
+      <section className="py-24 px-6 relative overflow-hidden bg-slate-900">
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
         <AnimateIn className="relative max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-6 leading-tight">{t.mission.heading}</h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance text-white mb-6 leading-tight">{t.mission.heading}</h2>
           <p className="text-slate-400 text-lg leading-relaxed">{t.mission.body}</p>
         </AnimateIn>
       </section>
 
       {/* ── 8. Pricing ──────────────────────────────────────────────── */}
-      <section id="pricing" className="py-20 px-6" style={{ background: "#0B1120" }}>
+      <section id="pricing" className="py-20 px-6 bg-ink-deep">
         <div className="max-w-6xl mx-auto">
           <AnimateIn className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3 text-white">{t.pricing.heading}</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance mb-3 text-white">{t.pricing.heading}</h2>
             <p className="text-slate-400">{t.pricing.sub}</p>
           </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Free */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-700/60 hover:-translate-y-1 transition-all" style={{ background: "#1E293B" }}>
+            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-700/60 bg-slate-800">
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.free.label}</p>
                 <p className="text-4xl font-extrabold text-white mt-2">{t.pricing.free.price}</p>
@@ -1184,8 +1191,8 @@ export default function Home() {
               </a>
             </div>
             {/* Pro */}
-            <div className="rounded-2xl p-7 sm:py-10 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40 hover:-translate-y-1 transition-all" style={{ background: "#0F172A", boxShadow: "0 8px 40px rgba(59,130,246,0.30)" }}>
-              <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{ background: "#3B82F6" }}>
+            <div className="rounded-2xl p-7 sm:py-10 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40 bg-slate-900 shadow-[0_8px_40px_rgba(59,130,246,0.30)]">
+              <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white bg-blue-500">
                 {t.pricing.pro.badge}
               </div>
               <div>
@@ -1204,16 +1211,13 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <a href="/login?tab=signup" className="block text-center py-3 rounded-xl font-bold text-white transition-colors shadow-lg text-sm"
-                style={{ background: "#3B82F6" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
-                onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
+              <a href="/login?tab=signup" className="block text-center py-3 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors shadow-lg text-sm"
               >{t.pricing.pro.cta}</a>
             </div>
             {/* Team — gold left border accent */}
-            <div className="rounded-2xl p-7 sm:py-9 flex flex-col gap-5 relative overflow-hidden shadow-2xl border-l-4 hover:-translate-y-1 transition-all" style={{ background: "#0F172A", borderLeftColor: "#F59E0B", borderTopColor: "rgba(245,158,11,0.15)", borderRightColor: "rgba(245,158,11,0.15)", borderBottomColor: "rgba(245,158,11,0.15)", borderTopWidth: "1px", borderRightWidth: "1px", borderBottomWidth: "1px" }}>
+            <div className="rounded-2xl p-7 sm:py-9 flex flex-col gap-5 relative overflow-hidden shadow-2xl bg-slate-900 border border-amber-500/15 border-l-4 border-l-amber-500">
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#F59E0B" }}>{t.pricing.team.label}</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-amber-500">{t.pricing.team.label}</p>
                 <p className="text-4xl font-extrabold text-white mt-2">
                   {t.pricing.team.price}<span className="text-base font-medium text-slate-400">{t.pricing.team.period}</span>
                 </p>
@@ -1221,8 +1225,8 @@ export default function Home() {
               </div>
               <ul className="flex flex-col gap-3 flex-1">
                 {t.pricing.team.features.map((f, i) => (
-                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "font-medium" : "text-slate-200"}`} style={i === 0 ? { color: "#F59E0B" } : undefined}>
-                    <svg className="w-4 h-4 flex-shrink-0" style={{ color: "#F59E0B" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "font-medium text-amber-500" : "text-slate-200"}`}>
+                    <svg className="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>{f}
                   </li>
@@ -1231,15 +1235,12 @@ export default function Home() {
               <button
                 onClick={handleLPTeamCTA}
                 disabled={teamCheckoutLoading}
-                className="block w-full text-center py-3 rounded-xl font-bold text-white transition-colors shadow-lg text-sm disabled:opacity-60 cursor-pointer"
-                style={{ background: "#F59E0B", color: "#0F172A" }}
-                onMouseEnter={e => { if (!teamCheckoutLoading) (e.currentTarget as HTMLButtonElement).style.background = "#D97706"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#F59E0B"; }}
-              >{teamCheckoutLoading ? "Redirecting…" : t.pricing.team.cta}</button>
+                className="block w-full text-center py-3 rounded-xl font-bold text-slate-900 bg-amber-500 hover:bg-amber-600 transition-colors shadow-lg text-sm disabled:opacity-60 cursor-pointer"
+              >{teamCheckoutLoading ? t.modal.redirecting : t.pricing.team.cta}</button>
             </div>
 
             {/* Custom — sales-led, no price shown */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-600/60 hover:-translate-y-1 transition-all" style={{ background: "#0F172A" }}>
+            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-600/60 bg-slate-900">
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.custom.label}</p>
                 <p className="text-2xl font-extrabold text-white mt-2">{t.customPrice}</p>
@@ -1274,7 +1275,7 @@ export default function Home() {
             ))}
           </div>
           <p className="mt-4 text-sm text-center text-slate-400">{t.pricing.footer}</p>
-          <p className="mt-3 text-xs text-center" style={{ color: "#94A3B8" }}>
+          <p className="mt-3 text-xs text-center text-slate-400">
             *{lang === 'en' ? (
               <>Subject to our <a href="/terms#fair-use" className="underline hover:text-white transition-colors">Fair Use Policy</a>.</>
             ) : (
@@ -1288,7 +1289,7 @@ export default function Home() {
       <section className="py-20 px-6 bg-white">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.faqHeading}</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance mb-3 text-slate-900">{t.faqHeading}</h2>
           </div>
           <div className="space-y-4">
             {t.faq.map((item) => (
@@ -1307,17 +1308,17 @@ export default function Home() {
       </section>
 
       {/* ── 10. Security ─────────────────────────────────────────────── */}
-      <section className="py-20 px-6" style={{ background: "#F8FAFC" }}>
+      <section className="py-20 px-6 bg-slate-50">
         <div className="max-w-4xl mx-auto text-center">
           <AnimateIn>
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.security.heading}</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance mb-3 text-slate-900">{t.security.heading}</h2>
             <p className="text-slate-500 mb-12">{t.security.sub}</p>
           </AnimateIn>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {t.security.items.map((item, i) => (
               <AnimateIn key={i} delay={i * 80}>
-                <div className="flex flex-col items-center gap-4 p-7 rounded-2xl border-2 border-slate-100 hover:border-blue-100 hover:shadow-md hover:-translate-y-1 transition-all bg-white h-full">
-                  <span className="text-4xl">{item.icon}</span>
+                <div className="flex flex-col items-center gap-4 p-7 rounded-2xl border border-slate-200 bg-white h-full">
+                  <Icon name={SECURITY_ICONS[i]} className="w-7 h-7 text-blue-600" />
                   <p className="text-slate-700 text-sm font-semibold leading-relaxed text-center">{item.text}</p>
                 </div>
               </AnimateIn>
@@ -1331,7 +1332,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto">
           <AnimateIn className="text-center mb-12">
             <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">{t.wyg.eyebrow}</p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-3" style={{ color: "#0F172A" }}>{t.wyg.heading}</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance mb-3 text-slate-900">{t.wyg.heading}</h2>
             <p className="text-slate-500 max-w-xl mx-auto">{t.wyg.sub}</p>
             <p className="mt-2 text-xs text-slate-400 max-w-sm mx-auto">{t.wyg.note}</p>
           </AnimateIn>
@@ -1380,10 +1381,7 @@ export default function Home() {
               <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <p className="text-sm text-slate-600 leading-relaxed flex-1">{t.wyg.s2Body}</p>
                 <a href="/s/nfhkewvz" target="_blank" rel="noopener noreferrer"
-                  className="shrink-0 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-colors"
-                  style={{ background: "#10B981" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "#059669")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "#10B981")}
+                  className="shrink-0 px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-emerald-500 hover:bg-emerald-600 transition-colors"
                 >
                   {t.wyg.s2Cta}
                 </a>
@@ -1404,8 +1402,8 @@ export default function Home() {
                 </div>
               </div>
               <div className="rounded-2xl border-2 border-amber-100 overflow-hidden">
-                <div className="flex items-center gap-3 px-5 py-3.5 border-b border-amber-100" style={{ background: "#FFFBEB" }}>
-                  <span className="w-6 h-6 rounded-full text-slate-900 text-xs font-bold flex items-center justify-center shrink-0" style={{ background: "#F59E0B" }}>PRO</span>
+                <div className="flex items-center gap-3 px-5 py-3.5 border-b border-amber-100 bg-amber-50">
+                  <span className="w-6 h-6 rounded-full text-slate-900 text-xs font-bold flex items-center justify-center shrink-0 bg-amber-500">PRO</span>
                   <p className="font-bold text-slate-800 text-sm">{t.wyg.s3bTitle}</p>
                 </div>
                 <div className="p-5">
@@ -1418,17 +1416,13 @@ export default function Home() {
       </section>
 
       {/* ── 12. CTA Banner ──────────────────────────────────────────── */}
-      <section className="py-24 px-6 relative overflow-hidden" style={{ background: "#0F172A" }}>
+      <section className="py-24 px-6 relative overflow-hidden bg-slate-900">
         <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-blue-600/15 rounded-full blur-3xl" />
         <AnimateIn className="relative max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl sm:text-5xl font-extrabold text-white mb-5">{t.ctaBanner.heading}</h2>
+          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-balance text-white mb-5">{t.ctaBanner.heading}</h2>
           <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto leading-relaxed">{t.ctaBanner.sub}</p>
           <a href="#generate"
-            className="inline-flex items-center gap-3 px-10 py-5 rounded-2xl text-white text-xl font-bold transition-all shadow-2xl"
-            style={{ background: "#3B82F6", boxShadow: "0 0 40px rgba(59,130,246,0.4)" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#2563EB")}
-            onMouseLeave={e => (e.currentTarget.style.background = "#3B82F6")}
+            className="inline-flex items-center gap-3 px-6 sm:px-10 py-5 rounded-2xl text-white text-lg sm:text-xl font-bold bg-blue-500 hover:bg-blue-600 shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-colors"
           >
             {t.ctaBanner.cta}
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1439,7 +1433,7 @@ export default function Home() {
       </section>
 
       {/* ── 13. Footer ──────────────────────────────────────────────── */}
-      <footer className="border-t py-8 px-6" style={{ background: "#0F172A", borderColor: "#1E293B" }}>
+      <footer className="border-t border-slate-800 py-8 px-6 bg-slate-900">
         {/* Mobile: vertical stack / Desktop: horizontal row */}
         <div className="max-w-5xl mx-auto flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:relative">
           {/* Logo */}
@@ -1448,67 +1442,58 @@ export default function Home() {
           {/* Center: copyright + email */}
           <div className="flex flex-col items-center gap-1 sm:absolute sm:left-1/2 sm:-translate-x-1/2">
             <p className="text-sm text-slate-500 text-center whitespace-nowrap">{t.footer}</p>
-            <a href="mailto:hello@splanai.com" className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+            <a href="mailto:hello@splanai.com" className="inline-block py-1 text-xs text-slate-600 hover:text-slate-400 transition-colors">
               Questions? hello@splanai.com
             </a>
           </div>
 
           {/* Nav links */}
           <div className="flex items-center gap-5 text-sm text-slate-500 sm:ml-auto">
-            <a href="#pricing" className="hover:text-slate-300 transition-colors">{t.nav.pricing}</a>
-            <a href="/terms" className="hover:text-slate-300 transition-colors">Terms</a>
-            <a href="/privacy" className="hover:text-slate-300 transition-colors">Privacy</a>
-            <a href="/login" className="hover:text-slate-300 transition-colors">{t.nav.signin}</a>
+            <a href="#pricing" className="py-2 hover:text-slate-300 transition-colors">{t.nav.pricing}</a>
+            <a href="/terms" className="py-2 hover:text-slate-300 transition-colors">Terms</a>
+            <a href="/privacy" className="py-2 hover:text-slate-300 transition-colors">Privacy</a>
+            <a href="/login" className="py-2 hover:text-slate-300 transition-colors">{t.nav.signin}</a>
           </div>
         </div>
       </footer>
 
       {/* ── Limit-exceeded modal ─────────────────────────────────────── */}
       {limitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
-            <button onClick={() => setLimitModal(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition-colors text-xl leading-none">✕</button>
+            <button onClick={() => setLimitModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors text-xl leading-none">✕</button>
 
             {limitModal.plan === 'free' ? (
               <>
-                <div className="text-3xl mb-3">🚀</div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">{t.modal.freeTitle}</h2>
-                <p className="text-gray-500 mb-6 text-sm leading-relaxed">{t.modal.freeBody}</p>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">{t.modal.freeTitle}</h2>
+                <p className="text-slate-500 mb-6 text-sm leading-relaxed">{t.modal.freeBody}</p>
                 <button
                   onClick={() => handleUpgradeFromModal('pro')}
                   disabled={upgradeLoading}
-                  className="w-full py-3 rounded-xl font-bold text-white transition-colors disabled:opacity-60"
-                  style={{ background: "#3B82F6" }}
-                  onMouseEnter={e => { if (!upgradeLoading) (e.currentTarget as HTMLButtonElement).style.background = "#2563EB"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#3B82F6"; }}
+                  className="w-full py-3 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors disabled:opacity-60"
                 >
                   {upgradeLoading ? t.modal.redirecting : t.modal.freeCta}
                 </button>
               </>
             ) : limitModal.plan === 'pro' ? (
               <>
-                <div className="text-3xl mb-3">📊</div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">{t.modal.proTitle}</h2>
-                <p className="text-gray-500 mb-4 text-sm leading-relaxed">{t.modal.proBody}</p>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">{t.modal.proTitle}</h2>
+                <p className="text-slate-500 mb-4 text-sm leading-relaxed">{t.modal.proBody}</p>
                 <button
                   onClick={() => handleUpgradeFromModal('team')}
                   disabled={upgradeLoading}
-                  className="w-full py-3 rounded-xl font-bold transition-colors disabled:opacity-60 mb-3"
-                  style={{ background: "#F59E0B", color: "#0F172A" }}
-                  onMouseEnter={e => { if (!upgradeLoading) (e.currentTarget as HTMLButtonElement).style.background = "#D97706"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#F59E0B"; }}
+                  className="w-full py-3 rounded-xl font-bold text-slate-900 bg-amber-500 hover:bg-amber-600 transition-colors disabled:opacity-60 mb-3"
                 >
                   {upgradeLoading ? t.modal.redirecting : t.modal.proCta}
                 </button>
-                <a href="mailto:hello@splanai.com" className="block text-center text-sm text-gray-400 hover:text-gray-700 transition-colors">
+                <a href="mailto:hello@splanai.com" className="block text-center text-sm text-slate-400 hover:text-slate-700 transition-colors">
                   {t.modal.proSecondary}
                 </a>
               </>
             ) : (
               <>
-                <div className="text-3xl mb-3">📬</div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">{t.modal.otherTitle}</h2>
-                <p className="text-gray-500 mb-6 text-sm leading-relaxed">{t.modal.otherBody}</p>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">{t.modal.otherTitle}</h2>
+                <p className="text-slate-500 mb-6 text-sm leading-relaxed">{t.modal.otherBody}</p>
                 <a href="mailto:hello@splanai.com" className="block text-center py-3 rounded-xl font-bold text-blue-600 border border-blue-600 hover:bg-blue-50 transition-colors">
                   {t.modal.otherCta}
                 </a>
