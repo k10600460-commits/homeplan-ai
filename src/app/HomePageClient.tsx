@@ -821,6 +821,7 @@ export default function Home() {
           <div className="flex items-center gap-3 ml-auto shrink-0">
             <button
               onClick={() => setLang(lang === "en" ? "es" : "en")}
+              aria-label={lang === "en" ? "Cambiar idioma a español" : "Switch language to English"}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-700 text-xs font-semibold text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-colors"
             >
               {lang === "en" ? "ES" : "EN"}
