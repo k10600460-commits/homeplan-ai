@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import Anthropic from "@anthropic-ai/sdk";
+import { trackedMessage, recordError } from "@/lib/observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -139,7 +140,7 @@ export async function GET(req: NextRequest) {
     let assessment = "Minor textual change detected.";
 
     try {
-      const msg = await anthropic.messages.create({
+      const msg = await trackedMessage("cron/legal-watch", anthropic, {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 400,
         messages: [{
@@ -163,6 +164,9 @@ Respond in JSON only (no code blocks): {"impact":"Low|Med|High","assessment":"1-
       }
     } catch (err) {
       console.error(`[legal-watch] Claude error for ${url}:`, err instanceof Error ? err.message : err);
+      // Upstream Claude failure — degraded (keeps default Low/assessment) but
+      // recorded so repeated silent degradation surfaces in the daily brief.
+      await recordError("cron/legal-watch", 502, err instanceof Error ? err.message : String(err), err instanceof Error ? err.stack : null);
     }
 
     // Persist diff row with new snapshot

@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { google } from "googleapis";
 import { pushMessages } from "@/lib/line";
 import { recordHeartbeat } from "@/lib/heartbeat";
+import { trackedMessage, recordError } from "@/lib/observability";
 import {
   buildBreakerAlertText,
   buildDraftAlertText,
@@ -245,7 +246,7 @@ async function generateDraft(
   input: Parameters<typeof buildReplyDraftPrompt>[0],
 ): Promise<{ draft: string | null; summaryJa: string | null; error: string | null }> {
   try {
-    const msg = await anthropic.messages.create({
+    const msg = await trackedMessage("cron/reply-watch", anthropic, {
       model: DRAFT_MODEL,
       max_tokens: 1200,
       messages: [{ role: "user", content: buildReplyDraftPrompt(input) }],
@@ -581,6 +582,7 @@ export async function GET(req: NextRequest) {
       const message = problems.join(" | ").slice(0, 900);
       console.error(`[${JOB}] FAILED:`, message);
       await recordHeartbeat(JOB, { ok: false, error: message });
+      await recordError("cron/reply-watch", 500, message);
       return NextResponse.json({ ok: false, ...result, error: message }, { status: 500 });
     }
     await recordHeartbeat(JOB, { ok: true });
@@ -602,6 +604,7 @@ export async function GET(req: NextRequest) {
       // heartbeat table unreadable — treat as first failure (stay loud)
     }
     await recordHeartbeat(JOB, { ok: false, error: message });
+    await recordError("cron/reply-watch", 500, message, err instanceof Error ? err.stack : null);
     if (!alreadyFailing) {
       await pushMessages([{ type: "text", text: `⚠ reply-watch 失敗\n${message.slice(0, 300)}` }]);
     }

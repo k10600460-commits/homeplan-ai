@@ -6,6 +6,7 @@ import { google } from "googleapis";
 import { buildNewsCarousel, buildDigestCarousel, pushMessages, type DigestProposal } from "@/lib/line";
 import { BANNED_WORDS } from "@/lib/content-quality";
 import { parseHeartbeatIssue, recordHeartbeat } from "@/lib/heartbeat";
+import { trackedMessage, recordError, getCostSummary, getErrorSummary } from "@/lib/observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -575,7 +576,7 @@ SplanAI = 米国の中小ホームビルダー（年10〜50棟）向けのAI営�
       },
     };
 
-    const msg = await anthropic.messages.create({
+    const msg = await trackedMessage("cron/daily-brief:research", anthropic, {
       model: "claude-sonnet-4-6",
       max_tokens: 3500,
       // web_search (server tool) gathers sources; submit_research returns the
@@ -904,7 +905,7 @@ Voice rules (STRICT):
 }`;
 
     try {
-      const msg = await anthropic.messages.create({
+      const msg = await trackedMessage("cron/daily-brief:xpost", anthropic, {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 2000,
         messages: [{ role: "user", content: prompt }],
@@ -1104,7 +1105,7 @@ Voice rules (STRICT):
       try {
         const anthropicLine = new Anthropic({ apiKey: anthropicKey });
         const numbered = shortOriginals.map((o, i) => `[${i}] ${o}`).join("\n\n");
-        const tmsg = await anthropicLine.messages.create({
+        const tmsg = await trackedMessage("cron/daily-brief:translate-short", anthropicLine, {
           model: "claude-haiku-4-5-20251001",
           max_tokens: 1500,
           messages: [{
@@ -1137,7 +1138,7 @@ Voice rules (STRICT):
       if (anthropicKey) {
         try {
           const anthropicBlog = new Anthropic({ apiKey: anthropicKey });
-          const bmsg = await anthropicBlog.messages.create({
+          const bmsg = await trackedMessage("cron/daily-brief:translate-blog", anthropicBlog, {
             model: "claude-haiku-4-5-20251001",
             max_tokens: 4000,
             messages: [{
@@ -1191,6 +1192,36 @@ Voice rules (STRICT):
       cronHealthText = `⚠ Cron health取得失敗: ${(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
     }
 
+    // ── W0/W4: 💸 API Cost (MTD) + ⚠️ Errors (24h) ───────────────────────────
+    // Built from cron_costs / error_events (src/lib/observability.ts). Passive
+    // record layer — reads only, adds no metered spend. Best-effort: any failure
+    // yields a short notice and never blocks the brief. A threshold breach (MTD >
+    // 閾値, 前日比2倍超, or ≥N errors/24h) prepends 🚨 so this same LINE push doubles
+    // as the cost/error alert — W0 and W4 share the brief's LINE path (no new push).
+    let costErrorText: string;
+    try {
+      const [cost, errs] = await Promise.all([
+        getCostSummary(supabase),
+        getErrorSummary(supabase),
+      ]);
+      const topJobs = cost.topJobs.length
+        ? cost.topJobs.map(j => `${j.job.replace(/^cron\//, "")} $${j.usd}`).join("・")
+        : "なし";
+      const errTop = errs.topRoutes.length
+        ? errs.topRoutes.map(r => `${r.route.replace(/^cron\//, "")} ${r.n}`).join("・")
+        : "—";
+      const warnings = [...cost.warnings, ...errs.warnings];
+      const alert = warnings.length > 0 ? `🚨 ${warnings.join(" / ")}\n` : "";
+      costErrorText =
+        `${alert}💸 API Cost (MTD)\n` +
+        `Anthropic概算 $${cost.mtdUsd}（前日 $${cost.yesterdayUsd} / 前々日 $${cost.dayBeforeUsd}）\n` +
+        `外部API ${cost.externalCount}件・Apollo ${cost.apolloCredits}\n` +
+        `内訳: ${topJobs}\n` +
+        `⚠️ Errors(24h) ${errs.count}件${errs.count > 0 ? ` — ${errTop}` : ""}`;
+    } catch (err) {
+      costErrorText = `💸/⚠️ Cost/Error取得失敗: ${(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+    }
+
     // ── Assemble messages (only present sections · max 4) ────────────────────
     // msg1: KPI summary (always sent).
     const msg1 = {
@@ -1201,7 +1232,8 @@ Voice rules (STRICT):
         `新規登録 ${newSignups}｜ポータル閲覧 ${portalViewCount}（uniq ${uniquePortalCount}）｜生成 ${newGenerations}\n` +
         `アウトリーチ 送信${outreachSent}/返信${outreachReplied}\n` +
         `🔥ホットリード ${(hotLeads ?? []).length}件｜⚠️エスカレ ${escalations?.length ?? 0}件\n` +
-        cronHealthText,
+        cronHealthText + "\n" +
+        costErrorText,
     };
 
     // msg2: last night's auto-posts (original → Japanese). "なし" line if empty.
@@ -1303,6 +1335,7 @@ export async function GET(req: NextRequest) {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
     });
+    await recordError("cron/daily-brief", 500, err instanceof Error ? err.message : String(err), err instanceof Error ? err.stack : null);
     throw err;
   }
 }

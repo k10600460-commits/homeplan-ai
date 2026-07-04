@@ -7,6 +7,7 @@ import {
   DESCRIPTION_MIN_LENGTH,
   validate as validateContentQuality,
 } from "@/lib/content-quality";
+import { trackedMessage, recordError } from "@/lib/observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,6 +91,7 @@ export async function GET(req: NextRequest) {
 
   if (dbError) {
     console.error("[seo-draft] DB error:", dbError.message);
+    await recordError("cron/seo-draft", 500, dbError.message);
     return NextResponse.json({ error: "DB connection failed" }, { status: 500 });
   }
 
@@ -151,7 +153,7 @@ Respond in this exact JSON format (raw JSON only, no code blocks, no extra text)
 
   let result: { title: string; description: string; content: string };
   try {
-    const msg = await anthropic.messages.create({
+    const msg = await trackedMessage("cron/seo-draft", anthropic, {
       model: "claude-haiku-4-5-20251001",
       max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
@@ -163,6 +165,7 @@ Respond in this exact JSON format (raw JSON only, no code blocks, no extra text)
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error("[seo-draft] Claude error:", errMsg);
+    await recordError("cron/seo-draft", 500, errMsg, err instanceof Error ? err.stack : null);
     return NextResponse.json({ ok: false, error: errMsg }, { status: 500 });
   }
 
@@ -190,6 +193,7 @@ Respond in this exact JSON format (raw JSON only, no code blocks, no extra text)
 
   if (insertError) {
     console.error("[seo-draft] Insert error:", insertError.message);
+    await recordError("cron/seo-draft", 500, insertError.message);
     return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
   }
 
