@@ -18,8 +18,8 @@ export function ProductHuntBadge({ state, lang = "en" }: ProductHuntBadgeProps) 
       >
         <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
         {lang === "en"
-          ? "🏆 #1 Product of the Day on ProductHunt"
-          : "🏆 #1 Producto del Día en ProductHunt"}
+          ? "#1 Product of the Day on ProductHunt"
+          : "#1 Producto del Día en ProductHunt"}
       </a>
     );
   }
@@ -37,8 +37,8 @@ export function ProductHuntBadge({ state, lang = "en" }: ProductHuntBadgeProps) 
           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-400" />
         </span>
         {lang === "en"
-          ? "🚀 LIVE on ProductHunt — Upvote us today!"
-          : "🚀 ¡EN VIVO en ProductHunt — Vótanos hoy!"}
+          ? "LIVE on ProductHunt — Upvote us today!"
+          : "¡EN VIVO en ProductHunt — Vótanos hoy!"}
       </a>
     );
   }
@@ -53,8 +53,8 @@ export function ProductHuntBadge({ state, lang = "en" }: ProductHuntBadgeProps) 
       >
         <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
         {lang === "en"
-          ? "🏆 Featured on Product Hunt"
-          : "🏆 Destacado en Product Hunt"}
+          ? "Featured on Product Hunt"
+          : "Destacado en Product Hunt"}
       </a>
     );
   }
@@ -69,8 +69,8 @@ export function ProductHuntBadge({ state, lang = "en" }: ProductHuntBadgeProps) 
     >
       <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
       {lang === "en"
-        ? "🚀 Launching on ProductHunt · May 26"
-        : "🚀 Lanzamiento en ProductHunt · 26 de mayo"}
+        ? "Launching on ProductHunt · May 26"
+        : "Lanzamiento en ProductHunt · 26 de mayo"}
     </a>
   );
 }

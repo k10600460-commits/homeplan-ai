@@ -11,7 +11,7 @@ export function SocialProofBar({ lang = "en" }: { lang?: "en" | "es" }) {
           className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-300 transition-colors"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-          {lang === "en" ? "🏆 Featured on Product Hunt" : "🏆 Destacado en Product Hunt"}
+          {lang === "en" ? "Featured on Product Hunt" : "Destacado en Product Hunt"}
         </a>
 
         <span className="hidden sm:block text-slate-700 text-xs select-none">·</span>
