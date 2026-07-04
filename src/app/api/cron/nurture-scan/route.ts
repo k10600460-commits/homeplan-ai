@@ -3,12 +3,19 @@ import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { computeConfigPrice, calcMonthly } from '@/lib/price-calculator'
 import { getMortgageRate } from '@/lib/mortgage-rate'
+import { trackedMessage, recordError } from '@/lib/observability'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://splanai.com'
 const RE_ENGAGEMENT_COOLDOWN_DAYS = 7
+// Guard: cap Claude calls per run. This loop makes up to 3 calls per active
+// portal link (and new_concept can retry once per plan), over ALL active links
+// with no query limit — so a large portal set could fan out into a runaway
+// spend. 60 ≈ 20 fully-processed links, well above current volume; remaining
+// links simply drain on the next run. Additive — per-link logic is unchanged.
+const MAX_CLAUDE_CALLS_PER_RUN = 60
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -78,10 +85,12 @@ export async function GET(req: NextRequest) {
   }
 
   let drafted = 0
+  let claudeCalls = 0
   const errors: string[] = []
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const link of links as any[]) {
+    if (claudeCalls >= MAX_CLAUDE_CALLS_PER_RUN) break
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bs = buyerStateMap.get(link.id) as any
     if (bs?.unsubscribed_at) continue
@@ -143,7 +152,8 @@ export async function GET(req: NextRequest) {
         const savings    = oldMonthly - newMonthly
 
         try {
-          const msg = await anthropic.messages.create({
+          claudeCalls++
+          const msg = await trackedMessage('cron/nurture-scan:rate_drop', anthropic, {
             model: 'claude-haiku-4-5-20251001',
             max_tokens: 700,
             messages: [{
@@ -194,6 +204,7 @@ BODY:
     // ── 2. new_concept ────────────────────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const plan of plans as any[]) {
+      if (claudeCalls >= MAX_CLAUDE_CALLS_PER_RUN) break
       if (!plan.addedAt) continue
       const planId = String(plan.id)
       const alreadyDrafted = (existing as { trigger_type: string; trigger_context: unknown }[]).some(d => {
@@ -203,7 +214,8 @@ BODY:
       if (alreadyDrafted) continue
 
       try {
-        const msg = await anthropic.messages.create({
+        claudeCalls++
+        const msg = await trackedMessage('cron/nurture-scan:new_concept', anthropic, {
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 600,
           messages: [{
@@ -263,7 +275,8 @@ BODY:
         const engagedPlan = allPlans.find(p => engagedIds.includes(String(p.id))) ?? allPlans[0]
 
         try {
-          const msg = await anthropic.messages.create({
+          claudeCalls++
+          const msg = await trackedMessage('cron/nurture-scan:re_engagement', anthropic, {
             model: 'claude-haiku-4-5-20251001',
             max_tokens: 500,
             messages: [{
@@ -309,5 +322,8 @@ BODY:
     }
   }
 
+  if (errors.length > 0) {
+    await recordError('cron/nurture-scan', 500, errors.slice(0, 5).join(' | '))
+  }
   return NextResponse.json({ ok: true, drafted, currentRate, errors: errors.length ? errors : undefined })
 }
