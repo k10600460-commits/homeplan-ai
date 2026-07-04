@@ -3,6 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { insertEvent } from "@/lib/analytics";
+import { pushMessages } from "@/lib/line";
+import { recordError } from "@/lib/observability";
+import {
+  handleSubscriptionCreated,
+  makeResolverDeps,
+  notifyUnresolvedSubscription,
+  resolveSubscriptionUserId,
+  type SubscriptionSyncDeps,
+} from "@/lib/subscription-sync";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,8 +42,30 @@ async function upsertSubscription(
     cancel_at_period_end: subscription.cancel_at_period_end,
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
-    if (upsertError) console.error("[webhook] upsert error:", JSON.stringify(upsertError));
+  if (upsertError) {
+    // (codex review) fail-loud: swallowing this error let the created case
+    // report 🎉「dashboard同期済み」on LINE while public.subscriptions stayed
+    // unsynced. Throw instead → route returns 500 → Stripe retries the event
+    // (funnel rows stay deduped via the stripe_event_id UNIQUE constraint).
+    console.error("[webhook] upsert error:", JSON.stringify(upsertError));
+    throw new Error(`subscriptions upsert failed: ${upsertError.message ?? JSON.stringify(upsertError)}`);
+  }
 }
+
+// Shared user resolution for subscription events (DEC-0704C manual founding
+// subs): metadata.userId → customer-email fallback (+ metadata backfill) →
+// fail-loud LINE warning. See src/lib/subscription-sync.ts. Adds $0/day: LINE is
+// free-tier and the extra Stripe calls only run inside webhook delivery.
+const subSyncDeps: SubscriptionSyncDeps = {
+  ...makeResolverDeps(stripe, supabase),
+  upsertSubscription,
+  insertFunnelEvent: insertEvent,
+  planFromPriceId,
+  pushLineText: async (text) => {
+    await pushMessages([{ type: "text", text }]);
+  },
+  recordSyncError: (message) => recordError("stripe/webhook", 500, message),
+};
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
@@ -85,11 +116,23 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      // Manual no-card founding subs are created in the Stripe Dashboard and
+      // never pass through checkout — this case is what makes them sync (and
+      // ping Shoji's LINE) with zero eyes-on-Dashboard.
+      case "customer.subscription.created": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await handleSubscriptionCreated(subscription, event.id, subSyncDeps);
+        break;
+      }
+
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         const prev = event.data.previous_attributes as Partial<Stripe.Subscription> | undefined;
-        const userId = subscription.metadata?.userId;
-        if (!userId) break;
+        const { userId, email } = await resolveSubscriptionUserId(subscription, subSyncDeps);
+        if (!userId) {
+          await notifyUnresolvedSubscription(event.type, subscription, email, subSyncDeps);
+          break;
+        }
         await upsertSubscription(userId, subscription);
 
         // Send cancellation email when cancel_at_period_end flips to true
@@ -113,8 +156,11 @@ export async function POST(req: NextRequest) {
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        const userId = subscription.metadata?.userId;
-        if (!userId) break;
+        const { userId, email } = await resolveSubscriptionUserId(subscription, subSyncDeps);
+        if (!userId) {
+          await notifyUnresolvedSubscription(event.type, subscription, email, subSyncDeps);
+          break;
+        }
         await upsertSubscription(userId, subscription);
         break;
       }
@@ -127,8 +173,11 @@ export async function POST(req: NextRequest) {
         if (!subscriptionId) break;
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        const userId = subscription.metadata?.userId;
-        if (!userId) break;
+        const { userId, email } = await resolveSubscriptionUserId(subscription, subSyncDeps);
+        if (!userId) {
+          await notifyUnresolvedSubscription(event.type, subscription, email, subSyncDeps);
+          break;
+        }
         await upsertSubscription(userId, subscription);
         break;
       }
