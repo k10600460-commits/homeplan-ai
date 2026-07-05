@@ -201,7 +201,7 @@ async function collectFacebook(supabase: SupabaseClient, contentDate: string): P
       const url = new URL(`https://graph.facebook.com/v25.0/${item.fb_post_id}/insights`);
       url.searchParams.set(
         "metric",
-        "post_impressions,post_engaged_users,post_reactions_by_type_total,post_clicks",
+        "post_media_view,post_reactions_by_type_total,post_clicks",
       );
       url.searchParams.set("access_token", token);
 
@@ -232,8 +232,8 @@ async function collectFacebook(supabase: SupabaseClient, contentDate: string): P
       };
 
       item.metrics = {
-        impressions: metric("post_impressions"),
-        engaged_users: metric("post_engaged_users"),
+        impressions: metric("post_media_view"),
+        engaged_users: 0, // post_engaged_users は Graph API で廃止(2024-09-16)・公式代替なし
         reactions: metric("post_reactions_by_type_total"),
         clicks: metric("post_clicks"),
       };
