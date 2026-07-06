@@ -125,8 +125,9 @@ export async function POST(req: NextRequest) {
     // ── Claude generation ─────────────────────────────────────
     const genStart = Date.now();
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      model: "claude-sonnet-5",
+      max_tokens: 8192, // Sonnet 5: new tokenizer (~+30% tokens) — headroom to prevent 3-plan JSON truncation. max_tokens is a ceiling (billed per generated token only).
+      thinking: { type: "disabled" }, // Sonnet 5 defaults adaptive thinking ON; keep OFF to preserve "~30s for 3 plans" latency and avoid thinking-token cost (matches prior 4.6 behavior).
       system: [
         {
           type: "text",
