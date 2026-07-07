@@ -1,4 +1,6 @@
 import { MetadataRoute } from "next";
+import { headers } from "next/headers";
+import { requestOriginFromHeaders } from "@/lib/request-url";
 
 // GEO (Generative Engine Optimization) policy — 2026-07-02
 // AI crawlers are ALLOWED on public marketing/blog pages so SplanAI can be
@@ -10,7 +12,8 @@ import { MetadataRoute } from "next";
 // is ever observed. Pairs with public/llms.txt.
 const PRIVATE_PATHS = ["/dashboard", "/results", "/s/", "/api/", "/invite", "/try"];
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const origin = requestOriginFromHeaders(await headers());
   return {
     rules: [
       { userAgent: "GPTBot",         allow: "/", disallow: PRIVATE_PATHS },
@@ -24,6 +27,6 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: "Omgilibot",      allow: "/", disallow: PRIVATE_PATHS },
       { userAgent: "*", allow: "/", disallow: PRIVATE_PATHS },
     ],
-    sitemap: "https://splanai.com/sitemap.xml",
+    sitemap: `${origin}/sitemap.xml`,
   };
 }

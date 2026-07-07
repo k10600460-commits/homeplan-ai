@@ -4,6 +4,7 @@ import { createHash } from 'crypto'
 import SharePortalClient from './SharePortalClient'
 import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
 import { geocodeCity, getNearbyPlaces, haversineKm, computeSafetyScore, PlaceResult } from '@/lib/neighborhood'
+import { resolveMarketFromHeaders, type Market } from '@/lib/market'
 
 export const dynamic = 'force-dynamic'
 
@@ -108,13 +109,17 @@ export default async function SharePage({ params }: Props) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
-  const SELECT = 'id, slug, plans, client_name, is_active, expires_at, view_count, user_id, city, state, financials, neighborhood_snapshot, market_snapshot, area_refreshed_at, builder_name, builder_logo_url, plans_updated_at'
+  const SELECT = 'id, slug, plans, client_name, is_active, expires_at, view_count, user_id, city, state, financials, neighborhood_snapshot, market_snapshot, area_refreshed_at, builder_name, builder_logo_url, plans_updated_at, market'
+  const SELECT_LEGACY = 'id, slug, plans, client_name, is_active, expires_at, view_count, user_id, city, state, financials, neighborhood_snapshot, market_snapshot, area_refreshed_at, builder_name, builder_logo_url, plans_updated_at'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let link: any = null
   let linkErr: { message?: string } | null = null
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await admin.from('shared_links').select(SELECT).eq('slug', slug).maybeSingle()
+    let res = await admin.from('shared_links').select(SELECT).eq('slug', slug).maybeSingle()
+    if (res.error && /market/i.test(res.error.message ?? '')) {
+      res = await admin.from('shared_links').select(SELECT_LEGACY).eq('slug', slug).maybeSingle()
+    }
     link = res.data
     linkErr = res.error ?? null
     if (!linkErr) break
@@ -197,6 +202,7 @@ export default async function SharePage({ params }: Props) {
 
   if (PORTAL_AREA_MODE === 'live' && link.city && link.state) {
     const lastRefresh = link.area_refreshed_at ? new Date(link.area_refreshed_at).getTime() : 0
+    // eslint-disable-next-line react-hooks/purity -- server-side TTL check, not client render state.
     const needsRefresh = (Date.now() - lastRefresh) > AREA_TTL_MS
 
     if (needsRefresh) {
@@ -219,18 +225,34 @@ export default async function SharePage({ params }: Props) {
   let prequalUrl: string | null = null
   let prequalLabel: string | null = null
   let appointmentUrl: string | null = null
+  let profileMarket: string | null = null
   if (link.user_id) {
     try {
-      const { data: prof } = await admin
+      let profileResult = await admin
         .from('profiles')
-        .select('prequal_url, prequal_label, appointment_url')
+        .select('prequal_url, prequal_label, appointment_url, market')
         .eq('id', link.user_id)
         .single()
+      if (profileResult.error && /market/i.test(profileResult.error.message ?? '')) {
+        profileResult = await admin
+          .from('profiles')
+          .select('prequal_url, prequal_label, appointment_url')
+          .eq('id', link.user_id)
+          .single()
+      }
+      const prof = profileResult.data
       prequalUrl     = (prof?.prequal_url     as string | null)?.trim() || null
       prequalLabel   = (prof?.prequal_label   as string | null)?.trim() || null
       appointmentUrl = (prof?.appointment_url as string | null)?.trim() || null
+      profileMarket  = (prof?.market          as string | null)?.trim() || null
     } catch { /* non-fatal */ }
   }
+
+  const hdrs = await headers()
+  const marketCode: Market = resolveMarketFromHeaders(hdrs, {
+    sharedLinkMarket: link.market,
+    profileMarket,
+  })
 
   // Fetch builder's branding if they have a paid plan
   let branding = await fetchBranding(admin, link.user_id)
@@ -271,6 +293,7 @@ export default async function SharePage({ params }: Props) {
       prequalUrl={prequalUrl}
       prequalLabel={prequalLabel}
       appointmentUrl={appointmentUrl}
+      marketCode={marketCode}
     />
   )
 }
@@ -336,7 +359,7 @@ function InvalidLinkPage({ expired }: { expired?: boolean }) {
           This link is no longer active.
         </h1>
         <p className="text-gray-500 mb-4">
-          Please contact your builder for an updated proposal.
+          {expired ? 'This proposal has expired. Please contact your builder for an updated proposal.' : 'Please contact your builder for an updated proposal.'}
         </p>
       </div>
     </div>

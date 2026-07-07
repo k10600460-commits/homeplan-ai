@@ -4,6 +4,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { getClientIp } from "@/lib/security";
 import { checkRateLimitDB } from "@/lib/rate-limit-db";
+import { requestOrigin } from "@/lib/request-url";
 
 // 5 checkout attempts per IP per 15 minutes (pre-auth, IP-based)
 const CHECKOUT_RATE = { limit: 5, windowSec: 900 };
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Team plan not configured" }, { status: 500 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = requestOrigin(req);
 
     // Look up existing subscription — skip trial if record exists,
     // reuse stripe_customer_id to avoid creating duplicate customers

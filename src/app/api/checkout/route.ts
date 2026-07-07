@@ -4,6 +4,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { getClientIp } from "@/lib/security";
 import { checkRateLimitDB } from "@/lib/rate-limit-db";
+import { requestOrigin } from "@/lib/request-url";
 
 // 5 checkout attempts per IP per 15 minutes
 const CHECKOUT_RATE = { limit: 5, windowSec: 900 };
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Price ID not configured for plan: ${plan ?? "pro"}` }, { status: 500 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = requestOrigin(req);
 
     // Look up existing Stripe customer ID from subscriptions table
     const { data: sub } = await supabaseAdmin

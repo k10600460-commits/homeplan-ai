@@ -1,9 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { buildMarketLanguageAlternates } from "@/lib/market";
+import { requestOriginFromHeaders } from "@/lib/request-url";
 
 export const dynamic = "force-dynamic";
 
@@ -41,25 +44,26 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const article = await getArticle(slug);
   if (!article) return { title: "Not Found | SplanAI" };
 
-  const canonical = `https://splanai.com/blog/${article.slug}`;
+  const origin = requestOriginFromHeaders(await headers());
+  const canonical = `${origin}/blog/${article.slug}`;
   return {
     title: `${article.title} | SplanAI`,
     description: article.description ?? undefined,
     keywords: parseKeywords(article.target_keyword),
-    alternates: { canonical },
+    alternates: { canonical, languages: buildMarketLanguageAlternates(`/blog/${article.slug}`) },
     openGraph: {
       title: article.title,
       description: article.description ?? undefined,
       url: canonical,
       type: "article",
       publishedTime: article.published_at,
-      images: [{ url: "https://splanai.com/og-image.png", width: 1200, height: 630 }],
+      images: [{ url: `${origin}/og-image.png`, width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
       title: article.title,
       description: article.description ?? undefined,
-      images: ["https://splanai.com/og-image.png"],
+      images: [`${origin}/og-image.png`],
     },
     robots: { index: true, follow: true },
   };
@@ -108,7 +112,8 @@ export default async function BlogArticlePage({ params }: Params) {
   const article = await getArticle(slug);
   if (!article) notFound();
 
-  const canonical = `https://splanai.com/blog/${article.slug}`;
+  const origin = requestOriginFromHeaders(await headers());
+  const canonical = `${origin}/blog/${article.slug}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -120,10 +125,10 @@ export default async function BlogArticlePage({ params }: Params) {
     publisher: {
       "@type": "Organization",
       name: "SplanAI",
-      url: "https://splanai.com",
-      logo: { "@type": "ImageObject", url: "https://splanai.com/logo.png" },
+      url: origin,
+      logo: { "@type": "ImageObject", url: `${origin}/logo.png` },
     },
-    image: "https://splanai.com/og-image.png",
+    image: `${origin}/og-image.png`,
   };
 
   return (

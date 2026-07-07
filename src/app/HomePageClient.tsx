@@ -720,7 +720,7 @@ export default function Home() {
     setMlsFetchError(null);
     setMlsLotData(null);
     try {
-      const res = await fetch(`/api/mls/lot-data?listingId=${encodeURIComponent(mlsListingId.trim())}`);
+      const res = await fetch(`/api/mls/lot-data?provider=us-trestle&listingId=${encodeURIComponent(mlsListingId.trim())}`);
       const data = await res.json() as MlsLotData & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "MLS lookup failed");
       setMlsLotData(data);
@@ -744,7 +744,10 @@ export default function Home() {
     setError("");
     try {
       const res = await fetch("/api/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+          ...form,
+          ...(mlsLotData?.zoning ? { mlsZoning: mlsLotData.zoning } : {}),
+        }),
       });
       const data = await res.json();
       if (res.status === 401) { router.push("/login"); return; }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPulseMetro, PULSE_METROS } from "@/data/pulse-metros";
@@ -11,6 +12,8 @@ import {
 } from "@/lib/pulse";
 import { PulseSubscribeForm } from "@/components/PulseSubscribeForm";
 import { PulseViewPing } from "@/components/PulseViewPing";
+import { buildMarketLanguageAlternates } from "@/lib/market";
+import { requestOriginFromHeaders } from "@/lib/request-url";
 import {
   PartialSnapshotNote,
   PaymentTable,
@@ -37,10 +40,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { metro: slug } = await params;
   const metro = getPulseMetro(slug);
   if (!metro) return {};
+  const origin = requestOriginFromHeaders(await headers());
   return {
     title: `${metro.name}, ${metro.stateCode} Builder Market Pulse — payments & single-family permits | SplanAI`,
     description: `Weekly ${metro.name} data page for home builders: the Freddie Mac PMMS 30-year fixed rate as a monthly-payment table ($300k–$800k, 20% down) and single-family permit counts for ${metro.msaName} from the U.S. Census Bureau via FRED.`,
-    alternates: { canonical: `https://splanai.com/pulse/${metro.slug}` },
+    alternates: { canonical: `${origin}/pulse/${metro.slug}`, languages: buildMarketLanguageAlternates(`/pulse/${metro.slug}`) },
   };
 }
 
@@ -53,7 +57,8 @@ export default async function PulseMetroPage({ params }: Params) {
   const metroSnap = snapshot?.metros?.[metro.slug] ?? null;
   const permits = metroSnap?.permits ?? null;
   const aggregates = publishableAggregates(metroSnap?.aggregates);
-  const canonical = `https://splanai.com/pulse/${metro.slug}`;
+  const origin = requestOriginFromHeaders(await headers());
+  const canonical = `${origin}/pulse/${metro.slug}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -64,7 +69,7 @@ export default async function PulseMetroPage({ params }: Params) {
         name: `SplanAI Builder Market Pulse — ${metro.name}, ${metro.stateCode}`,
         description: `Weekly snapshot for ${metro.msaName}: the Freddie Mac PMMS 30-year fixed mortgage rate (FRED series MORTGAGE30US) as a monthly-payment table for $300,000–$800,000 homes at 20% down, and single-family (1-unit) housing units authorized by building permits from the U.S. Census Bureau Building Permits Survey (FRED series ${metro.fredPermitsSeriesId}).`,
         url: canonical,
-        creator: { "@type": "Organization", name: "SplanAI", url: "https://splanai.com" },
+        creator: { "@type": "Organization", name: "SplanAI", url: origin },
         spatialCoverage: { "@type": "Place", name: `${metro.msaName} (MSA)` },
         isBasedOn: ["https://fred.stlouisfed.org/series/MORTGAGE30US", metro.fredSeriesUrl],
       },

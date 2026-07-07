@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { decrypt, encrypt, hashIp } from "@/lib/crypto";
 import { getClientIp } from "@/lib/security";
 import { checkRateLimitDB } from "@/lib/rate-limit-db";
-import { getUserPlan } from "@/lib/usage";
+import { normalizeLotDataProvider } from "@/lib/lot-data-provider";
+import { resolveMarketFromRequest } from "@/lib/market";
 
 // 10 MLS lookups per authenticated user per minute
 const MLS_RATE = { limit: 10, windowSec: 60 };
@@ -87,16 +88,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Plan gate: MLS integration is Pro/Team only
-    const plan = await getUserPlan(user.id);
-    if (plan === "free") {
+    const { searchParams } = new URL(req.url);
+    const market = resolveMarketFromRequest(req);
+    const provider = normalizeLotDataProvider(searchParams.get("provider"), market);
+    if (provider.id === "manual") {
       return NextResponse.json(
-        { error: "MLS integration requires Pro or Team plan.", upgradeUrl: "/pricing" },
-        { status: 403 },
+        {
+          error: "Manual lot data entry is the default provider; no remote lookup was requested.",
+          provider: provider.id,
+        },
+        { status: 400 },
       );
     }
 
-    const { searchParams } = new URL(req.url);
     const listingId = searchParams.get("listingId")?.trim();
     if (!listingId) {
       return NextResponse.json({ error: "listingId is required" }, { status: 400 });
@@ -185,6 +189,7 @@ export async function GET(req: NextRequest) {
     // Return display-only data — never persisted in our DB
     return NextResponse.json({
       listingId:       listing.ListingId,
+      provider:        provider.id,
       address:         listing.UnparsedAddress,
       lotSizeArea:     listing.LotSizeArea,
       lotSizeUnits:    listing.LotSizeUnits ?? "Square Feet",

@@ -5,10 +5,11 @@ import { jsPDF } from "jspdf";
 import type { PortalBranding } from "./page";
 import { conceptImageSrc, styleImageUrl } from "@/lib/concept-style-image";
 import {
-  computeConfigPrice, calcMonthly, getStylePremium,
+  computeConfigPrice, calcMonthly,
   type ConfigState,
 } from "@/lib/price-calculator";
 import { zillowSearchUrl } from "@/lib/external-links";
+import { formatArea, formatCurrency, type Market } from "@/lib/market";
 
 interface FinancialsSnapshot {
   rate: number;
@@ -24,6 +25,7 @@ function MortgageWidget({
   downPctLabel,
   interestRateLabel,
   initialFinancials,
+  marketCode,
 }: {
   homePrice: number;
   mortgageEst: string;
@@ -31,6 +33,7 @@ function MortgageWidget({
   downPctLabel: string;
   interestRateLabel: string;
   initialFinancials: FinancialsSnapshot | null;
+  marketCode: Market;
 }) {
   const [downPct, setDownPct] = useState(initialFinancials?.downPct ?? 20);
   const [ratePct, setRatePct] = useState(initialFinancials?.rate ?? 6.5);
@@ -40,7 +43,7 @@ function MortgageWidget({
       <div className="flex items-start justify-between gap-4 mb-3">
         <div>
           <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">{mortgageEst}</p>
-          <p className="text-xl font-extrabold text-blue-700">≈ ${monthly.toLocaleString()}<span className="text-sm font-normal text-blue-400">/mo</span></p>
+          <p className="text-xl font-extrabold text-blue-700">≈ {formatCurrency(monthly, marketCode)}<span className="text-sm font-normal text-blue-400">/mo</span></p>
           <p className="text-xs text-blue-400 mt-0.5">
             {downPct}% down · {initialFinancials?.termYears ?? 30}yr · {ratePct.toFixed(2)}%
             {initialFinancials?.rateAsOf && (
@@ -117,6 +120,10 @@ const STYLES = ['Contemporary', 'Modern Farmhouse', 'Transitional', 'Craftsman',
 
 function displayStyle(style: string): string {
   return style.replace(/([a-z])([A-Z])/g, '$1 $2')
+}
+
+function formatCurrencyK(value: number, marketCode: Market): string {
+  return formatCurrency(Math.round(value / 1000) * 1000, marketCode).replace(/,000$/, "K");
 }
 
 function buildBreakdown(plan: FloorPlan, cfg: ConfigState, baseStyle: string): string {
@@ -454,7 +461,7 @@ function ConceptImage({ style, baseStyle, imageUrl }: { style: string; baseStyle
 }
 
 function PlanConfigurator({
-  plan, financials, slug, planKey, savedConfig, onStyleChange,
+  plan, financials, slug, planKey, savedConfig, onStyleChange, marketCode,
 }: {
   plan: FloorPlan;
   financials: FinancialsSnapshot | null;
@@ -462,6 +469,7 @@ function PlanConfigurator({
   planKey: string;
   savedConfig: ConfigState | null;
   onStyleChange?: (style: string) => void;
+  marketCode: Market;
 }) {
   const baseStyle = displayStyle(plan.style)
   const [open, setOpen] = useState(savedConfig !== null)
@@ -547,9 +555,9 @@ function PlanConfigurator({
 
           {/* Price + monthly */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center shadow-sm">
-            <p className="text-3xl font-extrabold text-gray-900">${price.toLocaleString()}</p>
+            <p className="text-3xl font-extrabold text-gray-900">{formatCurrency(price, marketCode)}</p>
             <p className="text-lg font-bold text-blue-600 mt-1">
-              ≈ ${monthly.toLocaleString()}<span className="text-sm font-normal text-gray-400">/mo</span>
+              ≈ {formatCurrency(monthly, marketCode)}<span className="text-sm font-normal text-gray-400">/mo</span>
             </p>
             <p className="text-[10px] text-gray-400 mt-1">
               Est. P&amp;I · {rate.toFixed(2)}%
@@ -562,7 +570,7 @@ function PlanConfigurator({
           <div>
             <div className="flex justify-between text-xs font-medium text-gray-600 mb-1">
               <span>Size</span>
-              <span className="font-bold text-gray-900">{cfg.sqft.toLocaleString()} sqft</span>
+              <span className="font-bold text-gray-900">{formatArea(cfg.sqft, marketCode, { suffix: "sqft" })}</span>
             </div>
             <input type="range" min={sqftMin} max={sqftMax} step={50} value={cfg.sqft}
               onChange={e => setCfg(c => ({ ...c, sqft: Number(e.target.value) }))}
@@ -1068,6 +1076,7 @@ interface Props {
   prequalUrl: string | null;
   prequalLabel: string | null;
   appointmentUrl: string | null;
+  marketCode: Market;
 }
 
 interface InquiryForm {
@@ -1077,7 +1086,7 @@ interface InquiryForm {
   message: string;
 }
 
-export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding, financials, neighborhood, market, areaAsOf, favorites: initialFavorites, savedConfigs, previousVisitedAt, plansUpdatedAt, prequalUrl, prequalLabel, appointmentUrl }: Props) {
+export default function SharePortalClient({ slug, plans, clientName, expiresAt, branding, financials, neighborhood, market, areaAsOf, favorites: initialFavorites, savedConfigs, previousVisitedAt, plansUpdatedAt, prequalUrl, prequalLabel, appointmentUrl, marketCode }: Props) {
   const isTeam = branding.plan === "team";
   const isPro  = branding.plan === "pro";
   const isBranded = isTeam || isPro;
@@ -1485,25 +1494,25 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                     {market.averageRent != null && (
                       <div className="bg-blue-50 rounded-xl p-3">
                         <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Avg Rent</p>
-                        <p className="text-base font-bold text-gray-900 mt-1">${market.averageRent.toLocaleString()}<span className="text-xs font-normal text-gray-500">/mo</span></p>
+                        <p className="text-base font-bold text-gray-900 mt-1">{formatCurrency(market.averageRent, marketCode)}<span className="text-xs font-normal text-gray-500">/mo</span></p>
                       </div>
                     )}
                     {market.medianRent != null && (
                       <div className="bg-emerald-50 rounded-xl p-3">
                         <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Median Rent</p>
-                        <p className="text-base font-bold text-gray-900 mt-1">${market.medianRent.toLocaleString()}<span className="text-xs font-normal text-gray-500">/mo</span></p>
+                        <p className="text-base font-bold text-gray-900 mt-1">{formatCurrency(market.medianRent, marketCode)}<span className="text-xs font-normal text-gray-500">/mo</span></p>
                       </div>
                     )}
                     {market.averageSalePrice != null && (
                       <div className="bg-violet-50 rounded-xl p-3">
                         <p className="text-xs text-violet-600 font-semibold uppercase tracking-wider">Avg Sale</p>
-                        <p className="text-base font-bold text-gray-900 mt-1">${(market.averageSalePrice / 1000).toFixed(0)}K</p>
+                        <p className="text-base font-bold text-gray-900 mt-1">{formatCurrencyK(market.averageSalePrice, marketCode)}</p>
                       </div>
                     )}
                     {market.medianSalePrice != null && (
                       <div className="bg-orange-50 rounded-xl p-3">
                         <p className="text-xs text-orange-600 font-semibold uppercase tracking-wider">Median Sale</p>
-                        <p className="text-base font-bold text-gray-900 mt-1">${(market.medianSalePrice / 1000).toFixed(0)}K</p>
+                        <p className="text-base font-bold text-gray-900 mt-1">{formatCurrencyK(market.medianSalePrice, marketCode)}</p>
                       </div>
                     )}
                   </div>
@@ -1734,7 +1743,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                 {/* Stats row */}
                 <div className="grid grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
                   {[
-                    { label: t.sqft, value: plan.squareFootage.toLocaleString() },
+                    { label: t.sqft, value: formatArea(plan.squareFootage, marketCode).replace(/\s(?:sq ft|sqft|m2)$/, "") },
                     { label: t.beds, value: plan.bedrooms },
                     { label: t.baths, value: plan.bathrooms },
                     { label: t.stories, value: plan.stories },
@@ -1773,6 +1782,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                   planKey={planKey}
                   savedConfig={savedConfigs[planKey] ?? null}
                   onStyleChange={(s) => setStyleByPlan(prev => ({ ...prev, [planKey]: s }))}
+                  marketCode={marketCode}
                 />
 
                 {/* Expanded detail */}
@@ -1809,6 +1819,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                       downPctLabel={t.downPct}
                       interestRateLabel={t.interestRate}
                       initialFinancials={financials}
+                      marketCode={marketCode}
                     />
 
                     {prequalUrl && (
