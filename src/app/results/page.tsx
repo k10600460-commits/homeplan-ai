@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { jsPDF } from "jspdf";
 import { zillowSearchUrl } from "@/lib/external-links";
+import { marketFromHost, formatArea, areaValue, areaUnitLabel, type Market } from "@/lib/market";
 
 interface Room {
   name: string;
@@ -119,6 +120,7 @@ function MortgageCalculator({
   ratePct,
   termYears,
   rateAsOf,
+  rateSrc,
   onDownPct,
   onRatePct,
   onTermYears,
@@ -128,6 +130,7 @@ function MortgageCalculator({
   ratePct: number;
   termYears: number;
   rateAsOf: string;
+  rateSrc: { sourceName: string; sourceLabel: string; sourceUrl: string } | null;
   onDownPct: (v: number) => void;
   onRatePct: (v: number) => void;
   onTermYears: (v: number) => void;
@@ -170,7 +173,14 @@ function MortgageCalculator({
           />
           {rateAsOf && (
             <p className="text-[11px] text-gray-400 mt-1.5">
-              30yr avg as of {new Date(rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              {rateSrc?.sourceLabel ?? '30yr avg'} as of {new Date(rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              {rateSrc?.sourceName ? (
+                <> · Powered by{' '}
+                  {rateSrc.sourceUrl ? (
+                    <a href={rateSrc.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">{rateSrc.sourceName}</a>
+                  ) : rateSrc.sourceName}
+                </>
+              ) : null}
             </p>
           )}
         </div>
@@ -244,7 +254,7 @@ interface MortgageSnapshot {
   termYears: number;
 }
 
-async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?: BrandingOptions, mortgage?: MortgageSnapshot): Promise<jsPDF> {
+async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?: BrandingOptions, mortgage?: MortgageSnapshot, market: Market = "us"): Promise<jsPDF> {
   const plan = branding?.plan ?? 'free';
   const isTeam = plan === 'team';
   const isPro  = plan === 'pro';
@@ -387,7 +397,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       doc.setFontSize(8);
       doc.setTextColor(156, 163, 175);
       doc.text(
-        `Lot: ${Number(formData.lotSize).toLocaleString()} sq ft  ·  Budget: $${Number(formData.budget).toLocaleString()}  ·  Family: ${formData.familySize}`,
+        `Lot: ${formatArea(Number(formData.lotSize), market)}  ·  Budget: $${Number(formData.budget).toLocaleString()}  ·  Family: ${formData.familySize}`,
         ML, y,
       );
     }
@@ -400,7 +410,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
     y += 4;
 
     const stats: { label: string; value: string }[] = [
-      { label: "Sq Ft",     value: plan.squareFootage.toLocaleString() },
+      { label: market === "us" ? "Sq Ft" : areaUnitLabel(market), value: areaValue(plan.squareFootage, market) },
       { label: "Bedrooms",  value: String(plan.bedrooms) },
       { label: "Bathrooms", value: String(plan.bathrooms) },
       { label: "Stories",   value: String(plan.stories) },
@@ -551,7 +561,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       doc.setTextColor(55, 65, 81);
       doc.text(leftRoom.name, ML + 4, y);
       doc.setTextColor(107, 114, 128);
-      doc.text(`${leftRoom.sqft} sqft`, ML + roomColW - 4, y, { align: "right" });
+      doc.text(`${areaValue(leftRoom.sqft, market)} ${market === "au" || market === "nz" ? "m2" : "sqft"}`, ML + roomColW - 4, y, { align: "right" });
 
       if (rightRoom) {
         doc.setFillColor(249, 250, 251);
@@ -562,7 +572,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
         doc.setTextColor(55, 65, 81);
         doc.text(rightRoom.name, ML + CW / 2 + 4, y);
         doc.setTextColor(107, 114, 128);
-        doc.text(`${rightRoom.sqft} sqft`, ML + CW / 2 + roomColW - 4, y, { align: "right" });
+        doc.text(`${areaValue(rightRoom.sqft, market)} ${market === "au" || market === "nz" ? "m2" : "sqft"}`, ML + CW / 2 + roomColW - 4, y, { align: "right" });
       }
 
       y += roomPitch;
@@ -613,6 +623,9 @@ export default function Results() {
   const [shareCopied, setShareCopied] = useState(false);
   const [mortgageInputs, setMortgageInputs] = useState<MortgageSnapshot>({ downPct: 20, ratePct: 6.5, termYears: 30 });
   const [rateAsOf, setRateAsOf] = useState('');
+  const [rateSrc, setRateSrc] = useState<{ sourceName: string; sourceLabel: string; sourceUrl: string } | null>(null);
+  const [mkt, setMkt] = useState<Market>("us");
+  useEffect(() => { setMkt(marketFromHost(window.location.host) ?? "us"); }, []);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("floorPlans");
@@ -669,9 +682,10 @@ export default function Results() {
       // Fetch live 30yr fixed mortgage rate
       fetch('/api/mortgage-rate')
         .then(r => r.json())
-        .then((d: { rate: number; asOf: string }) => {
+        .then((d: { rate: number; asOf: string; sourceName?: string; sourceLabel?: string; sourceUrl?: string }) => {
           setMortgageInputs(prev => ({ ...prev, ratePct: d.rate }));
           setRateAsOf(d.asOf);
+          if (d.sourceName && d.sourceLabel) setRateSrc({ sourceName: d.sourceName, sourceLabel: d.sourceLabel, sourceUrl: d.sourceUrl ?? '' });
         })
         .catch(() => {});
     } catch {
@@ -735,7 +749,7 @@ export default function Results() {
       if (pdfLang === "zh") {
         await downloadZH(plans, "SplanAI-Floor-Plans-ZH.pdf");
       } else {
-        const doc = await buildPDF(plans, formData, branding, mortgageInputs);
+        const doc = await buildPDF(plans, formData, branding, mortgageInputs, mkt);
         const pdfName = branding.plan !== 'free' && branding.companyName
           ? `${branding.companyName.replace(/\s+/g, "-")}-Floor-Plans.pdf`
           : "SplanAI-Floor-Plans.pdf";
@@ -751,7 +765,7 @@ export default function Results() {
     if (pdfLang === "zh") {
       await downloadZH([plan], filename);
     } else {
-      const doc = await buildPDF([plan], formData, branding, mortgageInputs);
+      const doc = await buildPDF([plan], formData, branding, mortgageInputs, mkt);
       doc.save(filename);
     }
   }
@@ -867,7 +881,7 @@ export default function Results() {
           <h1 className="text-3xl font-extrabold text-gray-900">Your 3 Floor Plan Proposals</h1>
           {formData && (
             <p className="mt-2 text-gray-500">
-              {`${Number(formData.lotSize).toLocaleString()} sq ft lot · $${Number(formData.budget).toLocaleString()} budget · ${formData.familySize} ${Number(formData.familySize) === 1 ? "person" : "people"}`}
+              {`${formatArea(Number(formData.lotSize), mkt)} lot · $${Number(formData.budget).toLocaleString()} budget · ${formData.familySize} ${Number(formData.familySize) === 1 ? "person" : "people"}`}
             </p>
           )}
           {/* MLS badge + attribution */}
@@ -931,7 +945,7 @@ export default function Results() {
                 {(() => {
                   const g = plan.garages != null ? Math.min(3, Math.max(0, Math.round(plan.garages))) : 0;
                   const statItems: { label: string; value: string | number }[] = [
-                    { label: "Sq Ft", value: plan.squareFootage.toLocaleString() },
+                    { label: mkt === "us" ? "Sq Ft" : areaUnitLabel(mkt), value: areaValue(plan.squareFootage, mkt) },
                     { label: "Beds", value: plan.bedrooms },
                     { label: "Baths", value: plan.bathrooms },
                     { label: "Stories", value: plan.stories },
@@ -985,7 +999,7 @@ export default function Results() {
                       {plan.rooms.map((room, j) => (
                         <div key={j} className="flex justify-between items-center bg-white rounded-lg px-3 py-2 text-xs border border-gray-100">
                           <span className="text-gray-700 font-medium">{room.name}</span>
-                          <span className="text-gray-500">{room.sqft} sqft</span>
+                          <span className="text-gray-500">{areaValue(room.sqft, mkt)} {mkt === "au" || mkt === "nz" ? "m2" : "sqft"}</span>
                         </div>
                       ))}
                     </div>
@@ -1008,6 +1022,7 @@ export default function Results() {
                         ratePct={mortgageInputs.ratePct}
                         termYears={mortgageInputs.termYears}
                         rateAsOf={rateAsOf}
+                        rateSrc={rateSrc}
                         onDownPct={v => setMortgageInputs(p => ({ ...p, downPct: v }))}
                         onRatePct={v => setMortgageInputs(p => ({ ...p, ratePct: v }))}
                         onTermYears={v => setMortgageInputs(p => ({ ...p, termYears: v }))}

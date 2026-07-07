@@ -4,6 +4,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 import { getClientIp } from "@/lib/security";
 import { checkRateLimitDB } from "@/lib/rate-limit-db";
 import { sendInquiryNotificationEmail } from "@/lib/emails";
+import { requestOrigin } from "@/lib/request-url";
 
 // 5 inquiries per hour per IP — prevents spam while allowing real buyers
 const INQUIRY_RATE = { limit: 5, windowSec: 3600 };
@@ -52,7 +53,7 @@ export async function POST(
   }
 
   const db = admin();
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com";
+  const APP_URL = requestOrigin(req);
 
   // Resolve slug → link (must be active)
   const { data: link } = await db

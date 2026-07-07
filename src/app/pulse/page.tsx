@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { PULSE_METROS } from "@/data/pulse-metros";
 import { buildPulseGeoPassage, fmtMonth, getLatestPulseSnapshot } from "@/lib/pulse";
+import { buildMarketLanguageAlternates } from "@/lib/market";
+import { requestOriginFromHeaders } from "@/lib/request-url";
 import { PulseSubscribeForm } from "@/components/PulseSubscribeForm";
 import { PulseViewPing } from "@/components/PulseViewPing";
 import {
@@ -16,12 +19,15 @@ import {
 // Regenerate hourly so the weekly cron's snapshot shows up without a deploy.
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title: "Builder Market Pulse — weekly rates & single-family permits | SplanAI",
-  description:
-    "Free weekly data hub for small US home builders: the Freddie Mac PMMS 30-year fixed rate turned into monthly-payment tables ($300k–$800k), plus U.S. Census Bureau single-family permit counts for ten builder-heavy metros.",
-  alternates: { canonical: "https://splanai.com/pulse" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const origin = requestOriginFromHeaders(await headers());
+  return {
+    title: "Builder Market Pulse — weekly rates & single-family permits | SplanAI",
+    description:
+      "Free weekly data hub for small US home builders: the Freddie Mac PMMS 30-year fixed rate turned into monthly-payment tables ($300k–$800k), plus U.S. Census Bureau single-family permit counts for ten builder-heavy metros.",
+    alternates: { canonical: `${origin}/pulse`, languages: buildMarketLanguageAlternates("/pulse") },
+  };
+}
 
 const jsonLd = {
   "@context": "https://schema.org",

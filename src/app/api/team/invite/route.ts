@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { getUserPlan } from "@/lib/usage";
+import { requestOrigin } from "@/lib/request-url";
 
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://splanai.com";
 const MAX_MEMBERS = 15;
 
 export async function POST(req: NextRequest) {
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Send invitation email via Resend
-  const inviteUrl = `${APP_URL}/invite?token=${member.invite_token}`;
+  const inviteUrl = `${requestOrigin(req)}/invite?token=${member.invite_token}`;
   const { sendTeamInviteEmail } = await import("@/lib/emails");
   await sendTeamInviteEmail(email, user.email ?? "Your team owner", inviteUrl).catch(console.error);
 

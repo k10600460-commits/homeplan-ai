@@ -95,8 +95,6 @@ function formatDate(iso: string | null) {
   });
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://homeplan-ai.vercel.app";
-
 // ── Follow-up lite (rule-based, display-only — nothing is ever auto-sent) ────
 // Suggest a bump when: opened >= MIN_OPENS AND quiet >= QUIET_DAYS AND the lead
 // hasn't been contacted / won / lost yet (i.e. no reply and no outcome).
@@ -640,7 +638,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
   }, [loadSharedLinks, supabase]);
 
   async function handleCopyLink(slug: string) {
-    await navigator.clipboard.writeText(`${APP_URL}/s/${slug}`);
+    await navigator.clipboard.writeText(`${window.location.origin}/s/${slug}`);
     setCopiedSlug(slug);
     setTimeout(() => setCopiedSlug(null), 2000);
   }

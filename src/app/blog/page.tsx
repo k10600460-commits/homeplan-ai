@@ -1,20 +1,26 @@
 import { createClient } from "@supabase/supabase-js";
 import { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
+import { buildMarketLanguageAlternates } from "@/lib/market";
+import { requestOriginFromHeaders } from "@/lib/request-url";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Blog | SplanAI",
-  description: "Insights and guides for home builders on floor plans, AI tools, and closing more deals.",
-  alternates: { canonical: "https://splanai.com/blog" },
-  openGraph: {
+export async function generateMetadata(): Promise<Metadata> {
+  const origin = requestOriginFromHeaders(await headers());
+  return {
     title: "Blog | SplanAI",
     description: "Insights and guides for home builders on floor plans, AI tools, and closing more deals.",
-    url: "https://splanai.com/blog",
-    images: [{ url: "https://splanai.com/og-image.png", width: 1200, height: 630 }],
-  },
-};
+    alternates: { canonical: `${origin}/blog`, languages: buildMarketLanguageAlternates("/blog") },
+    openGraph: {
+      title: "Blog | SplanAI",
+      description: "Insights and guides for home builders on floor plans, AI tools, and closing more deals.",
+      url: `${origin}/blog`,
+      images: [{ url: `${origin}/og-image.png`, width: 1200, height: 630 }],
+    },
+  };
+}
 
 interface Article {
   slug: string;

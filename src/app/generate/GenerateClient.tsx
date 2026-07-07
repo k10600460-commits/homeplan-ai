@@ -64,7 +64,7 @@ export default function GenerateClient() {
     setMlsFetchError(null);
     setMlsLotData(null);
     try {
-      const res = await fetch(`/api/mls/lot-data?listingId=${encodeURIComponent(mlsListingId.trim())}`);
+      const res = await fetch(`/api/mls/lot-data?provider=us-trestle&listingId=${encodeURIComponent(mlsListingId.trim())}`);
       const data = await res.json() as MlsLotData & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "MLS lookup failed");
       setMlsLotData(data);

@@ -1,29 +1,39 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { buildMarketLanguageAlternates } from "@/lib/market";
+import { requestOriginFromHeaders } from "@/lib/request-url";
 import HomePageClient from "./HomePageClient";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "https://splanai.com" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const origin = requestOriginFromHeaders(await headers());
+  return {
+    alternates: {
+      canonical: origin,
+      languages: buildMarketLanguageAlternates("/"),
+    },
+  };
+}
 
-const jsonLd = {
+function buildJsonLd(origin: string) {
+  return {
   "@context": "https://schema.org",
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://splanai.com/#organization",
+      "@id": `${origin}/#organization`,
       name: "SplanAI",
-      url: "https://splanai.com",
-      logo: "https://splanai.com/logo.png",
+      url: origin,
+      logo: `${origin}/logo.png`,
       sameAs: ["https://x.com/SplanAI"],
     },
     {
       "@type": "SoftwareApplication",
-      "@id": "https://splanai.com/#software",
+      "@id": `${origin}/#software`,
       name: "SplanAI",
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
-      url: "https://splanai.com",
-      publisher: { "@id": "https://splanai.com/#organization" },
+      url: origin,
+      publisher: { "@id": `${origin}/#organization` },
       offers: [
         {
           "@type": "Offer",
@@ -46,18 +56,20 @@ const jsonLd = {
       ],
     },
   ],
-};
+  };
+}
 
 function serializeJsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
-export default function Page() {
+export default async function Page() {
+  const origin = requestOriginFromHeaders(await headers());
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildJsonLd(origin)) }}
       />
       <HomePageClient />
     </>

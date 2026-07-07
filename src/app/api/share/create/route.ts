@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { randomBytes } from 'crypto'
 import { checkRateLimitDB } from '@/lib/rate-limit-db'
+import { requestOrigin } from '@/lib/request-url'
+import { resolveMarketFromRequest } from '@/lib/market'
 
 // 20 shared links per authenticated user per hour
 const SHARE_RATE = { limit: 20, windowSec: 3600 }
@@ -42,6 +44,19 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
+  let profileMarket: string | null = null
+  try {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('market')
+      .eq('id', user.id)
+      .maybeSingle()
+    profileMarket = (profile?.market as string | null) ?? null
+  } catch {
+    profileMarket = null
+  }
+  const market = resolveMarketFromRequest(req, { profileMarket })
+
   // Generate unique slug (retry up to 5 times on collision)
   let slug = ''
   for (let i = 0; i < 5; i++) {
@@ -55,25 +70,46 @@ export async function POST(req: NextRequest) {
   }
   if (!slug) return NextResponse.json({ error: 'Failed to generate unique slug' }, { status: 500 })
 
-  const { data, error } = await admin
+  const insertPayload = {
+    user_id: user.id,
+    generation_id: generationId,
+    slug,
+    plans,
+    city: location?.city ?? null,
+    state: location?.state ?? null,
+    financials: financials ?? null,
+    market,
+  }
+
+  let insertResult = await admin
     .from('shared_links')
-    .insert({
-      user_id: user.id,
-      generation_id: generationId,
-      slug,
-      plans,
-      city: location?.city ?? null,
-      state: location?.state ?? null,
-      financials: financials ?? null,
-    })
+    .insert(insertPayload)
     .select('id, slug')
     .single()
 
+  if (insertResult.error && /market/i.test(insertResult.error.message)) {
+    const fallbackPayload = {
+      user_id: insertPayload.user_id,
+      generation_id: insertPayload.generation_id,
+      slug: insertPayload.slug,
+      plans: insertPayload.plans,
+      city: insertPayload.city,
+      state: insertPayload.state,
+      financials: insertPayload.financials,
+    }
+    insertResult = await admin
+      .from('shared_links')
+      .insert(fallbackPayload)
+      .select('id, slug')
+      .single()
+  }
+
+  const { data, error } = insertResult
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const { insertEvent } = await import('@/lib/analytics')
   insertEvent('share_link_created', user.id, { metadata: { slug: data.slug } })
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://homeplan-ai.vercel.app').replace(/\/$/, '')
+  const appUrl = requestOrigin(req)
   return NextResponse.json({ slug: data.slug, url: `${appUrl}/s/${data.slug}` })
 }

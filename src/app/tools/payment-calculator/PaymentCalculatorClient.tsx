@@ -14,7 +14,9 @@ type PriceMode = "total" | "lot-build";
 
 interface RateMeta {
   asOf: string;
-  source: "fred" | "fallback";
+  source: "fred" | "boc" | "rba" | "fallback";
+  sourceName?: string;
+  sourceLabel?: string;
 }
 
 function fmt(n: number): string {
@@ -44,11 +46,11 @@ export default function PaymentCalculatorClient() {
     // starting point. The user's own number always wins (rateEdited guard).
     fetch("/api/mortgage-rate")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
-      .then((d: { rate: number; asOf: string; source: "fred" | "fallback" }) => {
+      .then((d: { rate: number; asOf: string; source: RateMeta["source"]; sourceName?: string; sourceLabel?: string }) => {
         if (cancelled || rateEdited.current) return;
         if (typeof d.rate === "number" && Number.isFinite(d.rate) && d.rate > 0) {
           setRateInput(String(d.rate));
-          setRateMeta({ asOf: d.asOf, source: d.source });
+          setRateMeta({ asOf: d.asOf, source: d.source, sourceName: d.sourceName, sourceLabel: d.sourceLabel });
         }
       })
       .catch(() => {});
@@ -224,10 +226,10 @@ export default function PaymentCalculatorClient() {
               className={inputCls}
             />
             <p className="text-[11px] text-slate-500 mt-1.5">
-              {rateMeta?.source === "fred"
-                ? `Preloaded with the 30-yr fixed national average as of ${new Date(
+              {rateMeta?.sourceLabel
+                ? `Preloaded with the ${rateMeta.sourceLabel} as of ${new Date(
                     rateMeta.asOf + "T00:00:00",
-                  ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} (FRED). Edit to match your lender's quote.`
+                  ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}${rateMeta.sourceName ? ` (${rateMeta.sourceName})` : ""}. Edit to match your lender's quote.`
                 : "Starts at a typical recent average — edit to match your lender's quote."}
             </p>
           </div>
