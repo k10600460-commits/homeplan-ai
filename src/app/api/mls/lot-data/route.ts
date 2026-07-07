@@ -5,6 +5,7 @@ import { getClientIp } from "@/lib/security";
 import { checkRateLimitDB } from "@/lib/rate-limit-db";
 import { normalizeLotDataProvider } from "@/lib/lot-data-provider";
 import { resolveMarketFromRequest } from "@/lib/market";
+import { getUserPlan } from "@/lib/usage";
 
 // 10 MLS lookups per authenticated user per minute
 const MLS_RATE = { limit: 10, windowSec: 60 };
@@ -98,6 +99,15 @@ export async function GET(req: NextRequest) {
           provider: provider.id,
         },
         { status: 400 },
+      );
+    }
+
+    // Plan gate: remote lot-data providers (e.g. Trestle MLS) are Pro/Team only.
+    const plan = await getUserPlan(user.id);
+    if (plan === "free") {
+      return NextResponse.json(
+        { error: "MLS integration requires Pro or Team plan.", upgradeUrl: "/pricing" },
+        { status: 403 },
       );
     }
 
