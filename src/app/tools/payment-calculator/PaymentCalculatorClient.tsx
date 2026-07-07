@@ -14,7 +14,7 @@ type PriceMode = "total" | "lot-build";
 
 interface RateMeta {
   asOf: string;
-  source: "fred" | "boc" | "rba" | "squirrel" | "fallback";
+  source: "fred" | "boc" | "rba" | "fallback";
   sourceName?: string;
   sourceLabel?: string;
 }

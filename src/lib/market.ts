@@ -87,8 +87,9 @@ export const MARKET_PACKS: Record<Market, MarketPack> = {
     areaUnit: "m2",
     lotDataProvider: "manual",
     // NZ: short-term FIXED dominant (2yr most popular), ~25-30yr amortization, 20% deposit.
-    // mortgageRatePct = FALLBACK only; live RBNZ rate (series B20, XLSX — no public API) is a later phase.
-    financeDefaults: { downPct: 20, termYears: 30, mortgageRatePct: 6.0 }, // TODO(rate-fallback): point-in-time, verify (RBNZ B20).
+    // mortgageRatePct = labeled ESTIMATE shown in-product; no compliant free live feed yet
+    // (RBNZ B20 is XLSX/WAF-blocked; Squirrel & interest.co.nz forbid redistribution).
+    financeDefaults: { downPct: 20, termYears: 30, mortgageRatePct: 5.75 }, // TODO(rate): manual review — ~NZ 2yr fixed indicative; verify vs RBNZ B20.
     vocab: {
       stateLabel: "Region",
       lotSizeLabel: "Lot size (m2)",

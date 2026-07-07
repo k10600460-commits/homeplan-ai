@@ -4,7 +4,7 @@ import { getMarketPack, type Market } from '@/lib/market'
 export interface RateResult {
   rate: number
   asOf: string   // ISO date string of the observation, e.g. "2026-05-29"
-  source: 'fred' | 'boc' | 'rba' | 'squirrel' | 'fallback'
+  source: 'fred' | 'boc' | 'rba' | 'fallback'
   sourceName: string   // for "Powered by" attribution
   sourceUrl: string
   sourceLabel: string  // human description of the rate type (market-specific)
@@ -27,14 +27,14 @@ const RATE_SOURCE = {
     sourceUrl: 'https://www.rba.gov.au/statistics/tables/',
     sourceLabel: 'discounted variable rate (owner-occupier)',
   },
-  squirrel: {
-    sourceName: 'Squirrel (NZ mortgage rates)',
-    sourceUrl: 'https://www.squirrel.co.nz/mortgage-rates',
-    sourceLabel: 'lowest advertised 2-year fixed rate',
+  rbnz: {
+    sourceName: 'Reserve Bank of New Zealand',
+    sourceUrl: 'https://www.rbnz.govt.nz/statistics',
+    sourceLabel: '2-year fixed rate (indicative)',
   },
 } as const
 
-const INTENDED_SOURCE: Record<Market, keyof typeof RATE_SOURCE> = { us: 'fred', ca: 'boc', au: 'rba', nz: 'squirrel' }
+const INTENDED_SOURCE: Record<Market, keyof typeof RATE_SOURCE> = { us: 'fred', ca: 'boc', au: 'rba', nz: 'rbnz' }
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -127,42 +127,25 @@ async function _fetchRbaRate(): Promise<RateResult> {
   }
 }
 
-// New Zealand: RBNZ B20 (official) is WAF-blocked (403) and XLSX-only, so it is not
-// server-fetchable. Squirrel publishes bank 2-year fixed rates server-side in raw HTML,
-// used here as a best-effort live source with graceful fallback. ⚠️ Verify Squirrel's
-// terms of use before relying on this in production, or swap for a licensed data feed.
-async function _fetchSquirrelNzRate(): Promise<RateResult> {
-  try {
-    const res = await fetch('https://www.squirrel.co.nz/mortgage-rates', {
-      next: { revalidate: 86400 },
-      headers: { 'user-agent': 'Mozilla/5.0 (compatible; SplanAI/1.0; +https://splanai.com)' },
-    })
-    if (!res.ok) throw new Error(`Squirrel ${res.status}`)
-    const html = await res.text()
-    // Rate rows render as: <span>2 Years</span></div><div ...>5.29%</div>
-    const rates = [...html.matchAll(/2\s*Years<\/span><\/div><div[^>]*>\s*([0-9]+\.[0-9]+)\s*%/gi)]
-      .map((m) => parseFloat(m[1]))
-      .filter((r) => Number.isFinite(r) && r > 1 && r < 15)
-    if (rates.length === 0) throw new Error('No NZ 2-year fixed rates parsed')
-    return { rate: Math.min(...rates), asOf: todayISO(), source: 'squirrel', ...RATE_SOURCE.squirrel }
-  } catch (err) {
-    console.error('[mortgage-rate] NZ (Squirrel) fetch failed, using fallback:', err)
-    return fallbackFor('nz')
-  }
-}
+// New Zealand: no compliant free live feed exists yet. RBNZ B20 (official) is WAF-blocked
+// (403) and XLSX-only; interest.co.nz and Squirrel publish rates but their terms of use
+// forbid public redistribution. Until a licensed/permitted feed is in place, NZ uses a
+// clearly-labeled indicative estimate (MarketPack.financeDefaults.mortgageRatePct), shown
+// with an "(estimate)" attribution. Follow-up: license a feed or obtain written permission,
+// then add an _fetchNzRate() here and route it below.
 
-// Market-aware live rate. us -> FRED (JSON), ca -> BoC Valet (JSON), au -> RBA F5 (CSV), nz -> Squirrel (HTML).
+// Market-aware live rate. us -> FRED (JSON), ca -> BoC Valet (JSON), au -> RBA F5 (CSV), nz -> labeled estimate.
 async function _fetchRate(market: Market): Promise<RateResult> {
   if (market === 'ca') return _fetchBocRate()
   if (market === 'au') return _fetchRbaRate()
-  if (market === 'nz') return _fetchSquirrelNzRate()
+  if (market === 'nz') return fallbackFor('nz')
   return _fetchFredRate()
 }
 
 // Cache for 24 hours via Next.js Data Cache. The `market` argument is part of the cache key.
 const _cachedFetchRate = unstable_cache(
   _fetchRate,
-  ['mortgage-rate-by-market-v3'],
+  ['mortgage-rate-by-market-v4'],
   { revalidate: 86400 },
 )
 
