@@ -122,8 +122,8 @@ export const MARKET_PACKS: Record<Market, MarketPack> = {
     areaUnit: "sqft", // Canada uses square feet in listings (same as US), despite metric officialdom.
     lotDataProvider: "manual",
     // termYears 25 = CA standard amortization (30yr exists for first-time/new-build only).
-    // mortgageRatePct = FALLBACK only; live rate comes from Bank of Canada Valet API (series V80691335, 5yr conventional).
-    financeDefaults: { downPct: 20, termYears: 25, mortgageRatePct: 6.0 }, // fallback only; live via BoC V80691335 (verified ~6.09% 2026-07).
+    // mortgageRatePct = FALLBACK only; live via BoC Valet V122667786 (5yr fixed, uninsured, funds advanced).
+    financeDefaults: { downPct: 20, termYears: 25, mortgageRatePct: 4.2 }, // actual-band upper (wowa/ratehub 実勢4.0-4.2, Fable5精査 2026-07-10); live V122667786=4.18% (2026-04, verified 2026-07-10).
     vocab: {
       stateLabel: "Province",
       lotSizeLabel: "Lot Size (sq ft)",
@@ -263,7 +263,11 @@ export function indicativeRateAssumptionNote(
     ? new Date(`${asOf}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : "today";
   const sourceText = sourceName?.trim() || RATE_SOURCE_NAME[market];
-  return `Based on an indicative rate as of ${asOfText} (${sourceText}). Estimate only — not a quote and not financial or credit advice. Verify with your lender or adviser.`;
+  const base = `Based on an indicative rate as of ${asOfText} (${sourceText}). Estimate only — not a quote and not financial or credit advice. Verify with your lender or adviser.`;
+  // CA: honest disclosure of the underlying series (uninsured 5yr fixed, funds advanced; monthly, ~1-2mo lag).
+  return market === "ca"
+    ? `${base} Average of rates on newly advanced uninsured 5-year fixed mortgages; your offered rate may differ.`
+    : base;
 }
 
 export function marketOrigin(market: Market): string {

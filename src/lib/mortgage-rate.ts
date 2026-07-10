@@ -20,7 +20,7 @@ const RATE_SOURCE = {
   boc: {
     sourceName: 'Bank of Canada',
     sourceUrl: 'https://www.bankofcanada.ca/rates/banking-and-financial-statistics/posted-interest-rates-offered-by-chartered-banks/',
-    sourceLabel: '5-year conventional mortgage rate',
+    sourceLabel: '5-year fixed average (uninsured mortgages, funds advanced)',
   },
   rba: {
     sourceName: 'Reserve Bank of Australia',
@@ -75,15 +75,17 @@ async function _fetchFredRate(): Promise<RateResult> {
   }
 }
 
-// Canada: Bank of Canada Valet API — series V80691335 (5-year conventional). Free, no key.
+// Canada: Bank of Canada Valet API — series V122667786 (5-year fixed, UNINSURED, funds advanced;
+// monthly, ~1-2mo observation lag). Swapped from posted V80691335 (6.09%) which overstated
+// repayments ~21% vs actual borrowing rates (Fable5 pre-launch review R3, 2026-07-10). Free, no key.
 async function _fetchBocRate(): Promise<RateResult> {
   try {
-    const url = 'https://www.bankofcanada.ca/valet/observations/V80691335/json?recent=1'
+    const url = 'https://www.bankofcanada.ca/valet/observations/V122667786/json?recent=1'
     const res = await fetch(url, { next: { revalidate: 86400 } })
     if (!res.ok) throw new Error(`BoC ${res.status}`)
     const data = await res.json() as { observations?: Array<{ d: string } & Record<string, { v: string }>> }
     const obs = data.observations?.[data.observations.length - 1]
-    const rate = parseFloat(obs?.['V80691335']?.v ?? '')
+    const rate = parseFloat(obs?.['V122667786']?.v ?? '')
     if (!obs || !isFinite(rate)) throw new Error('No BoC observation')
     return { rate, asOf: obs.d, source: 'boc', ...RATE_SOURCE.boc }
   } catch (err) {
@@ -145,7 +147,7 @@ async function _fetchRate(market: Market): Promise<RateResult> {
 // Cache for 24 hours via Next.js Data Cache. The `market` argument is part of the cache key.
 const _cachedFetchRate = unstable_cache(
   _fetchRate,
-  ['mortgage-rate-by-market-v4'],
+  ['mortgage-rate-by-market-v5'],
   { revalidate: 86400 },
 )
 
