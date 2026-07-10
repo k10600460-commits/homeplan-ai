@@ -226,6 +226,29 @@ const b64url = (s: string) =>
     "unknown fresh mail → human",
   );
 
+  // DMARC aggregate reports (rua receivers) — 2026-07-10: Microsoft's slipped
+  // through to "human" (a daily §5.5 draft + LINE pair for a robot mailbox);
+  // SES's postmaster@ variant was misclassified "bounce" (polluting the W1
+  // breaker). Both must be noise.
+  ok(
+    classifyInbound({
+      ...base,
+      fromEmail: "dmarcreport@microsoft.com",
+      fromRaw: "DMARC Aggregate Report <dmarcreport@microsoft.com>",
+      subject: "[Preview] Report Domain: splanai.com Submitter: enterprise.protection.outlook.com",
+    }) === "noise",
+    "Microsoft DMARC aggregate report → noise (no §5.5 draft / LINE pair)",
+  );
+  ok(
+    classifyInbound({
+      ...base,
+      fromEmail: "postmaster@amazonses.com",
+      fromRaw: "postmaster@amazonses.com",
+      subject: "Dmarc Aggregate Report Domain: {splanai.com}  Submitter: {Amazon SES}  Date: {2026-07-07}",
+    }) === "noise",
+    "SES DMARC report from postmaster@ → noise, NOT bounce (breaker unpolluted)",
+  );
+
   // codex review: OOO autoresponders carry In-Reply-To and may come from a
   // KNOWN prospect — they must be noise (never a §5.5 draft or LINE pair).
   ok(

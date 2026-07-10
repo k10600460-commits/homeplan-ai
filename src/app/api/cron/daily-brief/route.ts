@@ -31,6 +31,8 @@ const NOISE_SENDERS = [
   "vercel.com", "resend.com", "github.com",
   "google.com", "googlealerts-noreply@", "producthunt.com",
   "anthropic.com",
+  // DMARC rua receivers (dmarcreport@microsoft.com etc.) — robot digests (2026-07-10)
+  "dmarc",
   // Shoji's own test addresses
   "k10600460@gmail.com",
 ];
