@@ -999,20 +999,20 @@ export default function Home() {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-slate-400">{t.form.cityLabel}</label>
                   <input type="text" name="city" value={form.city} onChange={handleChange}
-                    placeholder={t.form.cityPlaceholder} maxLength={60}
+                    placeholder={mkt === "us" ? t.form.cityPlaceholder : pack.vocab.cityPlaceholder} maxLength={60}
                     className="px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-slate-400">{stateLabel}</label>
                   <input type="text" name="state" value={form.state} onChange={handleChange}
-                    placeholder={t.form.statePlaceholder} maxLength={30}
+                    placeholder={mkt === "us" ? t.form.statePlaceholder : pack.vocab.statePlaceholder} maxLength={30}
                     className="px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
                 </div>
               </div>
               <div className="mt-3">
                 <label className="text-xs font-semibold text-slate-400">{t.form.streetLabel}</label>
                 <input type="text" name="street" value={form.street} onChange={handleChange}
-                  placeholder={t.form.streetPlaceholder} maxLength={120}
+                  placeholder={mkt === "us" ? t.form.streetPlaceholder : pack.vocab.streetPlaceholder} maxLength={120}
                   className="w-full mt-1.5 px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
                 <p className="text-xs text-slate-500 mt-1">{t.form.streetHint}</p>
               </div>

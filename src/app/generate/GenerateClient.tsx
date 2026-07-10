@@ -230,7 +230,7 @@ export default function GenerateClient() {
                   name="city"
                   value={form.city}
                   onChange={handleChange}
-                  placeholder="e.g. Austin"
+                  placeholder={mkt === "us" ? "e.g. Austin" : pack.vocab.cityPlaceholder}
                   maxLength={60}
                   className="px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm"
                 />
@@ -242,7 +242,7 @@ export default function GenerateClient() {
                   name="state"
                   value={form.state}
                   onChange={handleChange}
-                  placeholder="e.g. TX"
+                  placeholder={mkt === "us" ? "e.g. TX" : pack.vocab.statePlaceholder}
                   maxLength={30}
                   className="px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm"
                 />
@@ -255,7 +255,7 @@ export default function GenerateClient() {
                 name="street"
                 value={form.street}
                 onChange={handleChange}
-                placeholder="e.g. 1234 Oak Lane, Austin, TX"
+                placeholder={mkt === "us" ? "e.g. 1234 Oak Lane, Austin, TX" : pack.vocab.streetPlaceholder}
                 maxLength={120}
                 className="w-full mt-1.5 px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm"
               />
