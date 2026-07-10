@@ -20,6 +20,9 @@ export const NOISE_SENDERS = [
   "google.com", "googlealerts-noreply@", "producthunt.com",
   "anthropic.com",
   "linkedin.com", "facebook.com", "facebookmail.com",
+  // DMARC rua receivers (dmarcreport@microsoft.com, noreply-dmarc-support@ …)
+  // — unmonitored robot digests, never a reply target (2026-07-10)
+  "dmarc",
   // Shoji's own test address
   "k10600460@gmail.com",
 ] as const;
@@ -104,6 +107,13 @@ export function isAutoReply(input: { subject: string; autoSubmitted: string | nu
   return AUTO_REPLY_SUBJECT_RE.test(input.subject.trim());
 }
 
+// DMARC aggregate reports (RFC 7489 "rua" receivers: Microsoft / Google /
+// Amazon SES …) are unmonitored robot digests — "Please do not respond".
+// Checked BEFORE detectBounce: SES sends them from postmaster@, which
+// BOUNCE_SENDER_RE would otherwise misclassify as a DSN and pollute
+// bounce_events / the W1 breaker (observed in prod 2026-07-08).
+const DMARC_REPORT_SUBJECT_RE = /report\s+domain\s*:|dmarc\s+aggregate/i;
+
 export interface ClassifyInput {
   fromEmail: string; // bare address, e.g. dean@acme.com
   fromRaw: string;   // full From header, e.g. `"Mail Delivery Subsystem" <mailer-daemon@googlemail.com>`
@@ -117,13 +127,16 @@ export interface ClassifyInput {
 
 /**
  * Classify one inbound message. Order matters:
- *   bounce → auto-reply/noise-sender → KNOWN address (outreach_reply)
- *   → List-Unsubscribe (noise) → In-Reply-To (outreach_reply) → human.
+ *   dmarc-report (noise) → bounce → auto-reply/noise-sender
+ *   → KNOWN address (outreach_reply) → List-Unsubscribe (noise)
+ *   → In-Reply-To (outreach_reply) → human.
  * A known prospect address outranks List-Unsubscribe (their personal reply must
  * never be dropped as marketing), but an OOO autoresponder outranks everything
- * except bounces (it must never earn a §5.5 draft).
+ * except bounces (it must never earn a §5.5 draft). DMARC reports outrank even
+ * bounces — SES sends them from postmaster@ (a bounce-sender pattern).
  */
 export function classifyInbound(input: ClassifyInput & { mimeTypes?: readonly string[] }): InboundKind {
+  if (DMARC_REPORT_SUBJECT_RE.test(input.subject)) return "noise";
   if (detectBounce({ from: input.fromRaw, subject: input.subject, body: input.body, mimeTypes: input.mimeTypes })) {
     return "bounce";
   }
