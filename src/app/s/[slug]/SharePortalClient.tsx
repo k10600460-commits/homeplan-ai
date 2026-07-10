@@ -9,13 +9,14 @@ import {
   type ConfigState,
 } from "@/lib/price-calculator";
 import { zillowSearchUrl } from "@/lib/external-links";
-import { formatArea, formatCurrency, type Market } from "@/lib/market";
+import { formatArea, formatCurrency, getMarketPack, indicativeRateAssumptionNote, type Market } from "@/lib/market";
 
 interface FinancialsSnapshot {
   rate: number;
   downPct: number;
   termYears: number;
   rateAsOf: string;
+  sourceName?: string | null;
 }
 
 function MortgageWidget({
@@ -37,7 +38,9 @@ function MortgageWidget({
 }) {
   const [downPct, setDownPct] = useState(initialFinancials?.downPct ?? 20);
   const [ratePct, setRatePct] = useState(initialFinancials?.rate ?? 6.5);
+  const isUsMarket = marketCode === "us";
   const monthly = calcMonthly(homePrice, downPct, ratePct, initialFinancials?.termYears ?? 30);
+  const nonUsRateNote = indicativeRateAssumptionNote(marketCode, initialFinancials?.rateAsOf, initialFinancials?.sourceName);
   return (
     <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
       <div className="flex items-start justify-between gap-4 mb-3">
@@ -45,15 +48,21 @@ function MortgageWidget({
           <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">{mortgageEst}</p>
           <p className="text-xl font-extrabold text-blue-700">≈ {formatCurrency(monthly, marketCode)}<span className="text-sm font-normal text-blue-400">/mo</span></p>
           <p className="text-xs text-blue-400 mt-0.5">
-            {downPct}% down · {initialFinancials?.termYears ?? 30}yr · {ratePct.toFixed(2)}%
-            {initialFinancials?.rateAsOf && (
-              <span className="text-blue-300"> · as of {new Date(initialFinancials.rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            {isUsMarket ? (
+              <>
+                {downPct}% down · {initialFinancials?.termYears ?? 30}yr · {ratePct.toFixed(2)}%
+                {initialFinancials?.rateAsOf && (
+                  <span className="text-blue-300"> · as of {new Date(initialFinancials.rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                )}
+              </>
+            ) : (
+              <>{downPct}% down · {initialFinancials?.termYears ?? 30}yr</>
             )}
           </p>
         </div>
         <span className="text-2xl">🏦</span>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className={`grid ${isUsMarket ? "grid-cols-2" : "grid-cols-1"} gap-3`}>
         <div>
           <label className="text-xs text-blue-500 font-medium">{downPctLabel} %</label>
           <input
@@ -63,17 +72,19 @@ function MortgageWidget({
           />
           <p className="text-xs text-blue-600 font-bold text-center">{downPct}%</p>
         </div>
-        <div>
-          <label className="text-xs text-blue-500 font-medium">{interestRateLabel} %</label>
-          <input
-            type="range" min={3} max={12} step={0.25} value={ratePct}
-            onChange={e => setRatePct(Number(e.target.value))}
-            className="w-full accent-blue-600 mt-1"
-          />
-          <p className="text-xs text-blue-600 font-bold text-center">{ratePct.toFixed(2)}%</p>
-        </div>
+        {isUsMarket && (
+          <div>
+            <label className="text-xs text-blue-500 font-medium">{interestRateLabel} %</label>
+            <input
+              type="range" min={3} max={12} step={0.25} value={ratePct}
+              onChange={e => setRatePct(Number(e.target.value))}
+              className="w-full accent-blue-600 mt-1"
+            />
+            <p className="text-xs text-blue-600 font-bold text-center">{ratePct.toFixed(2)}%</p>
+          </div>
+        )}
       </div>
-      <p className="text-[10px] text-blue-400 italic mt-2">{mortgageDisclaimer}</p>
+      <p className="text-[10px] text-blue-400 italic mt-2">{isUsMarket ? mortgageDisclaimer : nonUsRateNote}</p>
     </div>
   );
 }
@@ -347,9 +358,11 @@ function classifyZone(name: string): string {
 function ConceptLayoutSchematic({
   plan,
   accentRGB,
+  marketCode,
 }: {
   plan: FloorPlan
   accentRGB: [number, number, number]
+  marketCode: Market
 }) {
   if (!plan.rooms || plan.rooms.length === 0) return null
 
@@ -404,7 +417,9 @@ function ConceptLayoutSchematic({
                     className={`rounded-lg border px-2 py-2.5 min-h-[54px] flex flex-col justify-center${rm.muted ? ' opacity-60' : ''}`}
                   >
                     <p className="text-[11px] font-semibold text-gray-800 leading-tight">{rm.name}</p>
-                    <p className="text-[10px] text-gray-500 mt-0.5 tabular-nums">{rm.sqft.toLocaleString()} sqft</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5 tabular-nums">
+                      {marketCode === "us" ? `${rm.sqft.toLocaleString()} sqft` : formatArea(rm.sqft, marketCode, { suffix: "sqft" })}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -486,6 +501,7 @@ function PlanConfigurator({
   const rateAsOf  = financials?.rateAsOf ?? null
   const monthly   = calcMonthly(price, downPct, rate, termYears)
   const breakdown = buildBreakdown(plan, cfg, baseStyle)
+  const nonUsRateNote = indicativeRateAssumptionNote(marketCode, rateAsOf, financials?.sourceName)
   const isModified = cfg.sqft !== plan.squareFootage || cfg.beds !== plan.bedrooms || cfg.baths !== plan.bathrooms || cfg.style !== baseStyle
   const isTight    = cfg.sqft / cfg.beds < 300
   const sqftMin    = Math.max(1200, plan.squareFootage - 800)
@@ -559,11 +575,17 @@ function PlanConfigurator({
             <p className="text-lg font-bold text-blue-600 mt-1">
               ≈ {formatCurrency(monthly, marketCode)}<span className="text-sm font-normal text-gray-400">/mo</span>
             </p>
-            <p className="text-[10px] text-gray-400 mt-1">
-              Est. P&amp;I · {rate.toFixed(2)}%
-              {rateAsOf ? ` (as of ${new Date(rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})` : ''}
-              {' '}· {downPct}% down · {termYears}-yr
-            </p>
+            {marketCode === "us" ? (
+              <p className="text-[10px] text-gray-400 mt-1">
+                Est. P&amp;I · {rate.toFixed(2)}%
+                {rateAsOf ? ` (as of ${new Date(rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})` : ''}
+                {' '}· {downPct}% down · {termYears}-yr
+              </p>
+            ) : (
+              <p className="text-[10px] text-gray-400 mt-1 leading-snug">
+                Est. P&amp;I · {downPct}% down · {termYears}-yr. {nonUsRateNote}
+              </p>
+            )}
           </div>
 
           {/* Size */}
@@ -801,7 +823,7 @@ async function imageToDataURL(url: string): Promise<{ dataUrl: string; w: number
   } catch { return null; }
 }
 
-async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding, financials?: FinancialsSnapshot | null): Promise<jsPDF> {
+async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding, financials?: FinancialsSnapshot | null, marketCode: Market = "us"): Promise<jsPDF> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const PW = 210, PH = 297, ML = 20, CW = PW - ML * 2;
   const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
@@ -810,9 +832,11 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
   const isPro  = branding.plan === "pro";
   const companyLabel = branding.companyName?.trim() || "";
   const logoBase64 = branding.logoDataUrl ?? null;
+  const pack = getMarketPack(marketCode);
 
   // Pre-compute footer disclaimer metrics (same for every page)
-  const disclaimer = "Floor-plan concepts are AI-assisted illustrations for preliminary use only - not construction drawings, and may not meet building codes or zoning. Verify with licensed professionals before relying on them.";
+  const baseDisclaimer = "Floor-plan concepts are AI-assisted illustrations for preliminary use only - not construction drawings, and may not meet building codes or zoning. Verify with licensed professionals before relying on them.";
+  const disclaimer = marketCode === "us" ? baseDisclaimer : `${baseDisclaimer} ${pack.legalFooter}`;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6);
   const discLines = doc.splitTextToSize(disclaimer, CW) as string[];
@@ -874,7 +898,10 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
     doc.setFontSize(15);
     doc.setTextColor(cr, cg, cb);
     const costHigh = Math.round(plan.estimatedCost * 1.1);
-    doc.text(`$${plan.estimatedCost.toLocaleString()} - $${costHigh.toLocaleString()}`, PW - ML, y, { align: "right" });
+    const costText = marketCode === "us"
+      ? `$${plan.estimatedCost.toLocaleString()} - $${costHigh.toLocaleString()}`
+      : `${formatCurrency(plan.estimatedCost, marketCode)} - ${formatCurrency(costHigh, marketCode)}`;
+    doc.text(costText, PW - ML, y, { align: "right" });
     {
       const mDown = financials?.downPct ?? 20;
       const mRate = financials?.rate ?? 6.5;
@@ -883,7 +910,10 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       doc.setTextColor(156, 163, 175);
-      doc.text(`Est. $${pdfMonthly.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}% - illustrative only`, PW - ML, y + 4.5, { align: "right" });
+      const monthlyText = marketCode === "us"
+        ? `Est. $${pdfMonthly.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}% - illustrative only`
+        : `Est. ${formatCurrency(pdfMonthly, marketCode)}/mo · ${mDown}% dn · ${mTerm}yr - indicative only`;
+      doc.text(monthlyText, PW - ML, y + 4.5, { align: "right" });
     }
 
     y += 13;
@@ -906,7 +936,12 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
     }
 
     const stats: { label: string; value: string }[] = [
-      { label: T[lang].sqft, value: plan.squareFootage.toLocaleString() },
+      {
+        label: marketCode === "us" ? T[lang].sqft : pack.vocab.sqftLabel,
+        value: marketCode === "us"
+          ? plan.squareFootage.toLocaleString()
+          : formatArea(plan.squareFootage, marketCode).replace(/\s(?:sq ft|sqft|m2)$/, ""),
+      },
       { label: T[lang].beds, value: String(plan.bedrooms) },
       { label: T[lang].baths, value: String(plan.bathrooms) },
       { label: T[lang].stories, value: String(plan.stories) },
@@ -986,7 +1021,7 @@ async function buildPDF(plans: FloorPlan[], lang: Lang, branding: PortalBranding
       doc.setTextColor(55, 65, 81);
       doc.text(room.name, rx + 4, ry);
       doc.setTextColor(107, 114, 128);
-      doc.text(`${room.sqft} sqft`, rx + roomColW - 4, ry, { align: "right" });
+      doc.text(marketCode === "us" ? `${room.sqft} sqft` : formatArea(room.sqft, marketCode, { suffix: "sqft" }), rx + roomColW - 4, ry, { align: "right" });
     });
 
     doc.setFillColor(248, 250, 252);
@@ -1091,6 +1126,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
   const isPro  = branding.plan === "pro";
   const isBranded = isTeam || isPro;
   const companyLabel = branding.companyName?.trim() || "";
+  const marketPack = getMarketPack(marketCode);
   const [lang, setLang] = useState<Lang>("en");
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -1217,7 +1253,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
     const res = await fetch("/api/generate-pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planData: targetPlans, language: "zh" }),
+      body: JSON.stringify({ planData: targetPlans, language: "zh", ...(marketCode !== "us" ? { market: marketCode } : {}) }),
     });
     if (!res.ok) throw new Error("PDF generation failed");
     const blob = await res.blob();
@@ -1233,7 +1269,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
       if (lang === "zh") {
         await downloadZH(plans, "SplanAI-Floor-Plans-ZH.pdf");
       } else {
-        const doc = await buildPDF(plans, lang, branding, financials);
+        const doc = await buildPDF(plans, lang, branding, financials, marketCode);
         const pdfName = isTeam && companyLabel
           ? `${companyLabel.replace(/\s+/g, "-")}-Floor-Plans.pdf`
           : "SplanAI-Floor-Plans.pdf";
@@ -1255,7 +1291,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
     if (lang === "zh") {
       await downloadZH([plan], filename);
     } else {
-      const doc = await buildPDF([plan], lang, branding, financials);
+      const doc = await buildPDF([plan], lang, branding, financials, marketCode);
       doc.save(filename);
     }
     fetch("/api/share/activity", {
@@ -1613,11 +1649,18 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                 <span className="text-lg">🏦</span>
                 <span className="font-semibold text-blue-800">Financing snapshot at time of sharing:</span>
                 <span className="text-blue-700">
-                  {financials.downPct}% down · {financials.termYears}yr · {financials.rate.toFixed(1)}% rate
+                  {marketCode === "us"
+                    ? `${financials.downPct}% down · ${financials.termYears}yr · ${financials.rate.toFixed(1)}% rate`
+                    : `${financials.downPct}% down · ${financials.termYears}yr · indicative monthly estimate`}
                 </span>
-                {financials.rateAsOf && (
+                {marketCode === "us" && financials.rateAsOf && (
                   <span className="text-blue-400 text-xs">
                     (30yr avg as of {new Date(financials.rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})
+                  </span>
+                )}
+                {marketCode !== "us" && (
+                  <span className="text-blue-400 text-xs">
+                    {indicativeRateAssumptionNote(marketCode, financials.rateAsOf, financials.sourceName)}
                   </span>
                 )}
               </div>
@@ -1743,7 +1786,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                 {/* Stats row */}
                 <div className="grid grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
                   {[
-                    { label: t.sqft, value: formatArea(plan.squareFootage, marketCode).replace(/\s(?:sq ft|sqft|m2)$/, "") },
+                    { label: marketCode === "us" ? t.sqft : marketPack.vocab.sqftLabel, value: formatArea(plan.squareFootage, marketCode).replace(/\s(?:sq ft|sqft|m2)$/, "") },
                     { label: t.beds, value: plan.bedrooms },
                     { label: t.baths, value: plan.bathrooms },
                     { label: t.stories, value: plan.stories },
@@ -1802,7 +1845,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                       {plan.rooms.map((room, j) => (
                         <div key={j} className="flex justify-between items-center bg-white rounded-lg px-3 py-2 text-xs border border-gray-100">
                           <span className="text-gray-700 font-medium">{room.name}</span>
-                          <span className="text-gray-500">{room.sqft} sqft</span>
+                          <span className="text-gray-500">{marketCode === "us" ? `${room.sqft} sqft` : formatArea(room.sqft, marketCode, { suffix: "sqft" })}</span>
                         </div>
                       ))}
                     </div>
@@ -1810,6 +1853,7 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
                     <ConceptLayoutSchematic
                       plan={plan}
                       accentRGB={accentRGB}
+                      marketCode={marketCode}
                     />
 
                     <MortgageWidget
@@ -1948,6 +1992,11 @@ export default function SharePortalClient({ slug, plans, clientName, expiresAt, 
           <p className="text-xs text-gray-400 italic mb-5 max-w-xl mx-auto">
             AI-generated concept — illustration only. Not an architectural or engineering plan. Verify with a licensed professional before construction.
           </p>
+          {marketCode !== "us" && (
+            <p className="text-xs text-gray-400 italic mb-5 max-w-xl mx-auto">
+              {marketPack.legalFooter}
+            </p>
+          )}
 
           {isBranded && (companyLabel || branding.phone || branding.website || branding.tagline) ? (
             <div className="mb-4 space-y-1">

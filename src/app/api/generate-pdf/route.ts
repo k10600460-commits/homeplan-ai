@@ -6,6 +6,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js';
 import { checkRateLimitDB } from '@/lib/rate-limit-db';
 import { getUserPlan } from '@/lib/usage';
 import { buildZHHTML, type ZHBranding, type ZHPlanData } from '@/lib/zh-pdf-html';
+import { formatArea, formatCurrency, getMarketPack, isMarket, type Market } from '@/lib/market';
 
 // 10 PDF generations per authenticated user per minute (CPU-intensive endpoint)
 const PDF_RATE = { limit: 10, windowSec: 60 };
@@ -42,7 +43,7 @@ function getFonts(): { fonts: Record<string, object>; defaultFont: string } {
   };
 }
 
-function buildDocDefinition(plans: ZHPlanData[], defaultFont: string, branding: ZHBranding): object {
+function buildDocDefinition(plans: ZHPlanData[], defaultFont: string, branding: ZHBranding, market: Market = 'us'): object {
   const date = new Date().toLocaleDateString('zh-CN', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
@@ -51,6 +52,10 @@ function buildDocDefinition(plans: ZHPlanData[], defaultFont: string, branding: 
   const isPro  = branding.plan === 'pro';
   const companyName = branding.companyName?.trim() ?? '';
   const PLAN_COLORS = ['#2563EB', '#10B981', '#7C3AED'];
+  const pack = getMarketPack(market);
+  const disclaimer = market === 'us'
+    ? '仅供参考。数据可能变动。不构成专业建筑或法律建议。'
+    : `仅供参考。数据可能变动。不构成专业建筑或法律建议。${pack.legalFooter}`;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const content: any[] = [];
@@ -109,7 +114,20 @@ function buildDocDefinition(plans: ZHPlanData[], defaultFont: string, branding: 
     // ── Stats row ─────────────────────────────────────────────
     const pdfGarages = plan.garages != null ? Math.min(3, Math.max(0, Math.round(plan.garages as number))) : 0;
     const pdfStatCols = [
-      { stack: [{ text: plan.squareFootage.toLocaleString(), fontSize: 18, bold: true, color: '#0f172a' }, { text: '平方英尺', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
+      {
+        stack: [
+          {
+            text: market === 'us'
+              ? plan.squareFootage.toLocaleString()
+              : formatArea(plan.squareFootage, market).replace(/\s(?:sq ft|sqft|m2)$/, ''),
+            fontSize: 18,
+            bold: true,
+            color: '#0f172a',
+          },
+          { text: market === 'us' ? '平方英尺' : pack.vocab.sqftLabel, fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] },
+        ],
+        alignment: 'center',
+      },
       { stack: [{ text: String(plan.bedrooms), fontSize: 18, bold: true, color: '#0f172a' }, { text: '卧室', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
       { stack: [{ text: String(plan.bathrooms), fontSize: 18, bold: true, color: '#0f172a' }, { text: '浴室', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
       { stack: [{ text: String(plan.stories), fontSize: 18, bold: true, color: '#0f172a' }, { text: '层数', fontSize: 9, color: '#64748b', margin: [0, 2, 0, 0] }], alignment: 'center' },
@@ -124,7 +142,7 @@ function buildDocDefinition(plans: ZHPlanData[], defaultFont: string, branding: 
     content.push({
       text: [
         { text: '预估造价：', color: '#475569', fontSize: 12 },
-        { text: `$${plan.estimatedCost.toLocaleString()}`, color, fontSize: 14, bold: true },
+        { text: market === 'us' ? `$${plan.estimatedCost.toLocaleString()}` : formatCurrency(plan.estimatedCost, market), color, fontSize: 14, bold: true },
       ],
       margin: [0, 0, 0, 14],
     });
@@ -153,7 +171,7 @@ function buildDocDefinition(plans: ZHPlanData[], defaultFont: string, branding: 
           ],
           ...plan.rooms.map(r => [
             { text: r.name, fontSize: 10, color: '#475569', border: [false, false, false, false] },
-            { text: `${r.sqft} sqft`, fontSize: 10, color: '#94a3b8', alignment: 'right', border: [false, false, false, false] },
+            { text: market === 'us' ? `${r.sqft} sqft` : formatArea(r.sqft, market, { suffix: 'sqft' }), fontSize: 10, color: '#94a3b8', alignment: 'right', border: [false, false, false, false] },
           ]),
         ],
       },
@@ -187,7 +205,7 @@ function buildDocDefinition(plans: ZHPlanData[], defaultFont: string, branding: 
       margin: [0, 0, 0, 4],
     });
     content.push({
-      text: '仅供参考。数据可能变动。不构成专业建筑或法律建议。',
+      text: disclaimer,
       fontSize: 7,
       color: '#cbd5e1',
       alignment: 'center',
@@ -255,8 +273,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json() as { planData?: ZHPlanData[]; language?: string };
+    const body = await req.json() as { planData?: ZHPlanData[]; language?: string; market?: unknown };
     const { planData, language } = body;
+    const market = isMarket(body.market) ? body.market : 'us';
 
     if (!planData || !Array.isArray(planData) || language !== 'zh') {
       return NextResponse.json({ error: 'planData[] and language:"zh" are required' }, { status: 400 });
@@ -278,7 +297,7 @@ export async function POST(req: NextRequest) {
     const branding: ZHBranding = { plan, companyName, logoBase64 };
 
     const { fonts, defaultFont } = getFonts();
-    const docDef = buildDocDefinition(planData, defaultFont, branding);
+    const docDef = buildDocDefinition(planData, defaultFont, branding, market);
     const buffer = await generatePdfBuffer(docDef, fonts);
 
     const filename = plan !== 'free' && companyName

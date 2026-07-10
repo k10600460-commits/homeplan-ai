@@ -4,7 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { jsPDF } from "jspdf";
 import { zillowSearchUrl } from "@/lib/external-links";
-import { marketFromHost, formatArea, areaValue, areaUnitLabel, type Market } from "@/lib/market";
+import {
+  marketFromHost,
+  formatArea,
+  formatCurrency,
+  areaValue,
+  areaUnitLabel,
+  getMarketPack,
+  indicativeRateAssumptionNote,
+  type Market,
+} from "@/lib/market";
 
 interface Room {
   name: string;
@@ -121,6 +130,7 @@ function MortgageCalculator({
   termYears,
   rateAsOf,
   rateSrc,
+  market,
   onDownPct,
   onRatePct,
   onTermYears,
@@ -131,12 +141,18 @@ function MortgageCalculator({
   termYears: number;
   rateAsOf: string;
   rateSrc: { sourceName: string; sourceLabel: string; sourceUrl: string } | null;
+  market: Market;
   onDownPct: (v: number) => void;
   onRatePct: (v: number) => void;
   onTermYears: (v: number) => void;
 }) {
   const result = calcMortgage({ homePrice, downPct, ratePct, termYears });
-  const fmt    = (n: number) => `$${n.toLocaleString()}`;
+  const isUsMarket = market === "us";
+  const fmt = (n: number) => isUsMarket ? `$${n.toLocaleString()}` : formatCurrency(n, market);
+  const nonUsRateNote = indicativeRateAssumptionNote(market, rateAsOf, rateSrc?.sourceName);
+  const termOptions = isUsMarket
+    ? [15, 20, 30]
+    : Array.from(new Set([15, 20, getMarketPack(market).financeDefaults.termYears, 30])).sort((a, b) => a - b);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -160,36 +176,38 @@ function MortgageCalculator({
           />
         </div>
 
-        {/* Interest rate */}
-        <div>
-          <div className="flex items-baseline justify-between mb-2">
-            <label className="text-xs font-semibold text-gray-600">Interest Rate</label>
-            <span className="text-sm font-bold text-gray-900">{ratePct.toFixed(1)}%</span>
+        {isUsMarket && (
+          /* Interest rate */
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <label className="text-xs font-semibold text-gray-600">Interest Rate</label>
+              <span className="text-sm font-bold text-gray-900">{ratePct.toFixed(1)}%</span>
+            </div>
+            <input
+              type="range" min={3} max={12} step={0.1} value={ratePct}
+              onChange={e => onRatePct(Number(e.target.value))}
+              className="w-full accent-blue-600"
+            />
+            {rateAsOf && (
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                {rateSrc?.sourceLabel ?? '30yr avg'} as of {new Date(rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {rateSrc?.sourceName ? (
+                  <> · Powered by{' '}
+                    {rateSrc.sourceUrl ? (
+                      <a href={rateSrc.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">{rateSrc.sourceName}</a>
+                    ) : rateSrc.sourceName}
+                  </>
+                ) : null}
+              </p>
+            )}
           </div>
-          <input
-            type="range" min={3} max={12} step={0.1} value={ratePct}
-            onChange={e => onRatePct(Number(e.target.value))}
-            className="w-full accent-blue-600"
-          />
-          {rateAsOf && (
-            <p className="text-[11px] text-gray-400 mt-1.5">
-              {rateSrc?.sourceLabel ?? '30yr avg'} as of {new Date(rateAsOf + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              {rateSrc?.sourceName ? (
-                <> · Powered by{' '}
-                  {rateSrc.sourceUrl ? (
-                    <a href={rateSrc.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">{rateSrc.sourceName}</a>
-                  ) : rateSrc.sourceName}
-                </>
-              ) : null}
-            </p>
-          )}
-        </div>
+        )}
 
         {/* Loan term */}
         <div>
           <label className="text-xs font-semibold text-gray-600 block mb-2">Loan Term</label>
-          <div className="grid grid-cols-3 gap-2">
-            {[15, 20, 30].map(y => (
+          <div className={`grid ${termOptions.length === 3 ? "grid-cols-3" : "grid-cols-4"} gap-2`}>
+            {termOptions.map(y => (
               <button
                 key={y}
                 onClick={() => onTermYears(y)}
@@ -225,7 +243,11 @@ function MortgageCalculator({
           <p className="text-xs text-gray-500 mt-0.5">Total Cost</p>
         </div>
       </div>
-      <p className="text-xs text-gray-400 mt-2 text-right">Estimate only · Taxes & insurance not included</p>
+      {isUsMarket ? (
+        <p className="text-xs text-gray-400 mt-2 text-right">Estimate only · Taxes & insurance not included</p>
+      ) : (
+        <p className="text-xs text-gray-400 mt-2 leading-snug">{nonUsRateNote}</p>
+      )}
     </div>
   );
 }
@@ -260,6 +282,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
   const isPro  = plan === 'pro';
   const companyLabel = branding?.companyName?.trim() || "Your Builder";
   const logoDataUrl  = branding?.logoDataUrl ?? null;
+  const pack = getMarketPack(market);
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   const PW = 210;
@@ -300,7 +323,13 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       }
       doc.setFontSize(6);
       doc.setTextColor(180, 180, 180);
-      doc.text("Floor-plan concepts are AI-generated for preliminary illustration only. They are not construction-ready drawings and may not comply with building codes or zoning. Verify with licensed professionals before relying on them.", ML, PH - 4);
+      const baseFooter = "Floor-plan concepts are AI-generated for preliminary illustration only. They are not construction-ready drawings and may not comply with building codes or zoning. Verify with licensed professionals before relying on them.";
+      if (market === "us") {
+        doc.text(baseFooter, ML, PH - 4);
+      } else {
+        const footerLines = doc.splitTextToSize(`${baseFooter} ${pack.legalFooter}`, CW) as string[];
+        doc.text(footerLines, ML, PH - 3 - (footerLines.length - 1) * 2.5);
+      }
     };
 
     // ── Header bar (white with bottom border) ─────────────────
@@ -378,7 +407,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
     doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
     doc.setTextColor(cr, cg, cb);
-    doc.text(`$${plan.estimatedCost.toLocaleString()}`, PW - ML, y, { align: "right" });
+    doc.text(market === "us" ? `$${plan.estimatedCost.toLocaleString()}` : formatCurrency(plan.estimatedCost, market), PW - ML, y, { align: "right" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(156, 163, 175);
@@ -388,7 +417,10 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       const mRate = mortgage?.ratePct ?? 6.5;
       const mTerm = mortgage?.termYears ?? 30;
       const mMonthly = calcMortgage({ homePrice: plan.estimatedCost, downPct: mDown, ratePct: mRate, termYears: mTerm });
-      doc.text(`≈ $${mMonthly.monthlyPayment.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}%`, PW - ML, y + 9, { align: "right" });
+      const monthlyText = market === "us"
+        ? `≈ $${mMonthly.monthlyPayment.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}%`
+        : `≈ ${formatCurrency(mMonthly.monthlyPayment, market)}/mo · ${mDown}% dn · ${mTerm}yr · indicative`;
+      doc.text(monthlyText, PW - ML, y + 9, { align: "right" });
     }
 
     if (formData) {
@@ -396,8 +428,9 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(156, 163, 175);
+      const budgetText = market === "us" ? `$${Number(formData.budget).toLocaleString()}` : formatCurrency(Number(formData.budget), market);
       doc.text(
-        `Lot: ${formatArea(Number(formData.lotSize), market)}  ·  Budget: $${Number(formData.budget).toLocaleString()}  ·  Family: ${formData.familySize}`,
+        `Lot: ${formatArea(Number(formData.lotSize), market)}  ·  Budget: ${budgetText}  ·  Family: ${formData.familySize}`,
         ML, y,
       );
     }
@@ -625,7 +658,18 @@ export default function Results() {
   const [rateAsOf, setRateAsOf] = useState('');
   const [rateSrc, setRateSrc] = useState<{ sourceName: string; sourceLabel: string; sourceUrl: string } | null>(null);
   const [mkt, setMkt] = useState<Market>("us");
-  useEffect(() => { setMkt(marketFromHost(window.location.host) ?? "us"); }, []);
+  useEffect(() => {
+    const resolvedMarket = marketFromHost(window.location.host) ?? "us";
+    setMkt(resolvedMarket);
+    if (resolvedMarket !== "us") {
+      const defaults = getMarketPack(resolvedMarket).financeDefaults;
+      setMortgageInputs({
+        downPct: defaults.downPct,
+        ratePct: defaults.mortgageRatePct,
+        termYears: defaults.termYears,
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("floorPlans");
@@ -709,6 +753,7 @@ export default function Results() {
             downPct: mortgageInputs.downPct,
             termYears: mortgageInputs.termYears,
             rateAsOf,
+            ...(mkt !== "us" && rateSrc?.sourceName ? { sourceName: rateSrc.sourceName } : {}),
           },
         }),
       });
@@ -733,7 +778,7 @@ export default function Results() {
     const res = await fetch("/api/generate-pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planData: targetPlans, language: "zh" }),
+      body: JSON.stringify({ planData: targetPlans, language: "zh", ...(mkt !== "us" ? { market: mkt } : {}) }),
     });
     if (!res.ok) throw new Error("PDF generation failed");
     const blob = await res.blob();
@@ -881,7 +926,7 @@ export default function Results() {
           <h1 className="text-3xl font-extrabold text-gray-900">Your 3 Floor Plan Proposals</h1>
           {formData && (
             <p className="mt-2 text-gray-500">
-              {`${formatArea(Number(formData.lotSize), mkt)} lot · $${Number(formData.budget).toLocaleString()} budget · ${formData.familySize} ${Number(formData.familySize) === 1 ? "person" : "people"}`}
+              {`${formatArea(Number(formData.lotSize), mkt)} lot · ${mkt === "us" ? `$${Number(formData.budget).toLocaleString()}` : formatCurrency(Number(formData.budget), mkt)} budget · ${formData.familySize} ${Number(formData.familySize) === 1 ? "person" : "people"}`}
             </p>
           )}
           {/* MLS badge + attribution */}
@@ -1023,6 +1068,7 @@ export default function Results() {
                         termYears={mortgageInputs.termYears}
                         rateAsOf={rateAsOf}
                         rateSrc={rateSrc}
+                        market={mkt}
                         onDownPct={v => setMortgageInputs(p => ({ ...p, downPct: v }))}
                         onRatePct={v => setMortgageInputs(p => ({ ...p, ratePct: v }))}
                         onTermYears={v => setMortgageInputs(p => ({ ...p, termYears: v }))}
