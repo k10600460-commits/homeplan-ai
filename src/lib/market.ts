@@ -31,6 +31,9 @@ export interface MarketPack {
     lotSizeLabel: string;
     budgetLabel: string;
     sqftLabel: string;
+    cityPlaceholder: string;
+    statePlaceholder: string;
+    streetPlaceholder: string;
   };
   legalFooter: string;
   figures: (typeof CHANGEABLE_MARKET_FIGURES)[Market];
@@ -52,6 +55,9 @@ export const MARKET_PACKS: Record<Market, MarketPack> = {
       lotSizeLabel: "Lot Size (sq ft)",
       budgetLabel: "Budget (USD)",
       sqftLabel: "sq ft",
+      cityPlaceholder: "e.g. Austin",
+      statePlaceholder: "e.g. TX",
+      streetPlaceholder: "e.g. 1234 Oak Lane, Austin, TX",
     },
     legalFooter: "Verify local zoning, permitting, taxes, insurance, and professional requirements before relying on any concept.",
     figures: CHANGEABLE_MARKET_FIGURES.us,
@@ -73,6 +79,9 @@ export const MARKET_PACKS: Record<Market, MarketPack> = {
       lotSizeLabel: "Lot size (m2)",
       budgetLabel: "Budget (AUD)",
       sqftLabel: "m2",
+      cityPlaceholder: "e.g. Brisbane",
+      statePlaceholder: "e.g. QLD",
+      streetPlaceholder: "e.g. 12 Wattle St, Brisbane QLD",
     },
     legalFooter: "Verify local planning controls, approvals, taxes, insurance, and professional requirements before relying on any concept.",
     figures: CHANGEABLE_MARKET_FIGURES.au,
@@ -96,6 +105,9 @@ export const MARKET_PACKS: Record<Market, MarketPack> = {
       lotSizeLabel: "Section size (m2)",
       budgetLabel: "Budget (NZD)",
       sqftLabel: "m2",
+      cityPlaceholder: "e.g. Christchurch",
+      statePlaceholder: "e.g. Canterbury",
+      streetPlaceholder: "e.g. 12 Kowhai Lane, Christchurch",
     },
     legalFooter: "Verify local planning rules, consents, taxes, insurance, and professional requirements before relying on any concept.",
     figures: CHANGEABLE_MARKET_FIGURES.nz,
@@ -117,6 +129,9 @@ export const MARKET_PACKS: Record<Market, MarketPack> = {
       lotSizeLabel: "Lot Size (sq ft)",
       budgetLabel: "Budget (CAD)",
       sqftLabel: "sq ft",
+      cityPlaceholder: "e.g. Toronto",
+      statePlaceholder: "e.g. ON",
+      streetPlaceholder: "e.g. 1234 Maple Ave, Toronto, ON",
     },
     legalFooter: "Verify local zoning, permits, taxes, insurance, and professional requirements before relying on any concept.",
     figures: CHANGEABLE_MARKET_FIGURES.ca,
