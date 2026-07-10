@@ -89,10 +89,11 @@ export const MARKET_PACKS: Record<Market, MarketPack> = {
     // NZ: short-term FIXED dominant (2yr most popular), ~25-30yr amortization, 20% deposit.
     // mortgageRatePct = labeled ESTIMATE shown in-product; no compliant free live feed yet
     // (RBNZ B20 is XLSX/WAF-blocked; Squirrel & interest.co.nz forbid redistribution).
-    financeDefaults: { downPct: 20, termYears: 30, mortgageRatePct: 5.75 }, // TODO(rate): manual review — ~NZ 2yr fixed indicative; verify vs RBNZ B20.
+    // indicative ~NZ 2yr special band 5.1–5.3 (Fable5 精査 2026-07-10); TODO(monthly-manual-review).
+    financeDefaults: { downPct: 20, termYears: 30, mortgageRatePct: 5.2 },
     vocab: {
       stateLabel: "Region",
-      lotSizeLabel: "Lot size (m2)",
+      lotSizeLabel: "Section size (m2)",
       budgetLabel: "Budget (NZD)",
       sqftLabel: "m2",
     },
@@ -125,6 +126,12 @@ export const MARKET_PACKS: Record<Market, MarketPack> = {
 const MARKET_SET = new Set<string>(MARKET_CODES);
 const MARKET_COOKIE = "splanai_market";
 const SQFT_PER_M2 = 10.76391041671;
+const RATE_SOURCE_NAME: Record<Market, string> = {
+  us: "FRED (Freddie Mac PMMS)",
+  au: "Reserve Bank of Australia",
+  nz: "Reserve Bank of New Zealand estimate",
+  ca: "Bank of Canada",
+};
 
 export function isMarket(value: unknown): value is Market {
   return typeof value === "string" && MARKET_SET.has(value);
@@ -215,6 +222,10 @@ export function formatArea(
   return `${formatted} m2`;
 }
 
+export function areaInputToSqft(market: Market = "us", value: number): number {
+  return MARKET_PACKS[market].areaUnit === "m2" ? value * SQFT_PER_M2 : value;
+}
+
 // Area figure in the market's unit, WITHOUT the unit suffix (for "label + value" stat rows).
 // us/ca -> square feet (unchanged), au/nz -> square metres.
 export function areaValue(sqft: number, market: Market = "us"): string {
@@ -226,6 +237,18 @@ export function areaValue(sqft: number, market: Market = "us"): string {
 // Unit label for the market ("sq ft" or "m2").
 export function areaUnitLabel(market: Market = "us"): string {
   return MARKET_PACKS[market].vocab.sqftLabel;
+}
+
+export function indicativeRateAssumptionNote(
+  market: Market,
+  asOf: string | null | undefined,
+  sourceName: string | null | undefined,
+): string {
+  const asOfText = asOf
+    ? new Date(`${asOf}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "today";
+  const sourceText = sourceName?.trim() || RATE_SOURCE_NAME[market];
+  return `Based on an indicative rate as of ${asOfText} (${sourceText}). Estimate only — not a quote and not financial or credit advice. Verify with your lender or adviser.`;
 }
 
 export function marketOrigin(market: Market): string {

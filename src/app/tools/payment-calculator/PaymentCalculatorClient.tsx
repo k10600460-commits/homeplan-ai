@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { track } from "@vercel/analytics";
 import { calcMonthly, calcMonthlyExact } from "@/lib/price-calculator";
+import { formatCurrency, getMarketPack, indicativeRateAssumptionNote, marketFromHost, type Market } from "@/lib/market";
 
 // Rough national ballparks for the optional taxes-&-insurance line.
 // Clearly labeled as estimates in the UI — property tax and insurance
@@ -30,6 +31,7 @@ function toNum(s: string): number {
 
 export default function PaymentCalculatorClient() {
   const [mode, setMode] = useState<PriceMode>("total");
+  const [mkt, setMkt] = useState<Market>("us");
   const [homePrice, setHomePrice] = useState("350000");
   const [lotBudget, setLotBudget] = useState("");
   const [buildBudget, setBuildBudget] = useState("");
@@ -38,6 +40,24 @@ export default function PaymentCalculatorClient() {
   const [rateInput, setRateInput] = useState("6.5");
   const [rateMeta, setRateMeta] = useState<RateMeta | null>(null);
   const rateEdited = useRef(false);
+  const pack = getMarketPack(mkt);
+  const isUsMarket = mkt === "us";
+  const fmtMarket = (n: number) => isUsMarket ? fmt(n) : formatCurrency(n, mkt);
+  const nonUsRateNote = indicativeRateAssumptionNote(mkt, rateMeta?.asOf, rateMeta?.sourceName);
+  const termOptions = isUsMarket
+    ? [15, 20, 30]
+    : Array.from(new Set([15, 20, pack.financeDefaults.termYears, 30])).sort((a, b) => a - b);
+
+  useEffect(() => {
+    const resolvedMarket = marketFromHost(window.location.host) ?? "us";
+    setMkt(resolvedMarket);
+    if (resolvedMarket !== "us") {
+      const defaults = getMarketPack(resolvedMarket).financeDefaults;
+      setDownPct(defaults.downPct);
+      setTermYears(defaults.termYears);
+      setRateInput(String(defaults.mortgageRatePct));
+    }
+  }, []);
 
   useEffect(() => {
     track("tools_view", { tool: "payment_calculator" });
@@ -88,7 +108,7 @@ export default function PaymentCalculatorClient() {
       <p className="text-slate-400 leading-relaxed mb-8 max-w-xl">
         &ldquo;What would that run me a month?&rdquo; is usually the first real question a buyer
         asks. Type a price — or a lot plus a build budget — and get the principal &amp; interest
-        number, with today&rsquo;s average 30-yr rate already filled in.
+        number, with {isUsMarket ? "today’s average 30-yr rate" : "an indicative local rate"} already filled in.
       </p>
 
       <div className="grid gap-6 md:grid-cols-2 items-start">
@@ -121,7 +141,7 @@ export default function PaymentCalculatorClient() {
             {mode === "total" ? (
               <div>
                 <label htmlFor="homePrice" className="block text-xs text-slate-500 mb-1.5">
-                  Total home price (USD)
+                  {isUsMarket ? "Total home price (USD)" : `Total home price (${pack.currency})`}
                 </label>
                 <input
                   id="homePrice"
@@ -137,7 +157,7 @@ export default function PaymentCalculatorClient() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="lotBudget" className="block text-xs text-slate-500 mb-1.5">
-                    Lot (USD)
+                    {isUsMarket ? "Lot (USD)" : `Lot (${pack.currency})`}
                   </label>
                   <input
                     id="lotBudget"
@@ -151,7 +171,7 @@ export default function PaymentCalculatorClient() {
                 </div>
                 <div>
                   <label htmlFor="buildBudget" className="block text-xs text-slate-500 mb-1.5">
-                    Build budget (USD)
+                    {isUsMarket ? "Build budget (USD)" : `Build budget (${pack.currency})`}
                   </label>
                   <input
                     id="buildBudget"
@@ -173,7 +193,7 @@ export default function PaymentCalculatorClient() {
                 Down payment
               </label>
               <span className="text-sm font-bold text-white">
-                {downPct}%{hasPrice && <span className="font-medium text-slate-500"> · {fmt(downAmount)}</span>}
+                {downPct}%{hasPrice && <span className="font-medium text-slate-500"> · {fmtMarket(downAmount)}</span>}
               </span>
             </div>
             <input
@@ -190,8 +210,8 @@ export default function PaymentCalculatorClient() {
 
           <div>
             <span className="block text-sm font-semibold text-slate-300 mb-2">Loan term</span>
-            <div className="grid grid-cols-3 gap-2">
-              {[15, 20, 30].map((y) => (
+            <div className={`grid ${termOptions.length === 3 ? "grid-cols-3" : "grid-cols-4"} gap-2`}>
+              {termOptions.map((y) => (
                 <button
                   key={y}
                   type="button"
@@ -208,31 +228,37 @@ export default function PaymentCalculatorClient() {
             </div>
           </div>
 
-          <div>
-            <label htmlFor="ratePct" className="block text-sm font-semibold text-slate-300 mb-1.5">
-              Interest rate (%)
-            </label>
-            <input
-              id="ratePct"
-              type="number"
-              min={0}
-              max={20}
-              step={0.05}
-              value={rateInput}
-              onChange={(e) => {
-                rateEdited.current = true;
-                setRateInput(e.target.value);
-              }}
-              className={inputCls}
-            />
-            <p className="text-[11px] text-slate-500 mt-1.5">
-              {rateMeta?.sourceLabel
-                ? `Preloaded with the ${rateMeta.sourceLabel} as of ${new Date(
-                    rateMeta.asOf + "T00:00:00",
-                  ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}${rateMeta.sourceName ? ` (${rateMeta.sourceName})` : ""}. Edit to match your lender's quote.`
-                : "Starts at a typical recent average — edit to match your lender's quote."}
+          {isUsMarket ? (
+            <div>
+              <label htmlFor="ratePct" className="block text-sm font-semibold text-slate-300 mb-1.5">
+                Interest rate (%)
+              </label>
+              <input
+                id="ratePct"
+                type="number"
+                min={0}
+                max={20}
+                step={0.05}
+                value={rateInput}
+                onChange={(e) => {
+                  rateEdited.current = true;
+                  setRateInput(e.target.value);
+                }}
+                className={inputCls}
+              />
+              <p className="text-[11px] text-slate-500 mt-1.5">
+                {rateMeta?.sourceLabel
+                  ? `Preloaded with the ${rateMeta.sourceLabel} as of ${new Date(
+                      rateMeta.asOf + "T00:00:00",
+                    ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}${rateMeta.sourceName ? ` (${rateMeta.sourceName})` : ""}. Edit to match your lender's quote.`
+                  : "Starts at a typical recent average — edit to match your lender's quote."}
+              </p>
+            </div>
+          ) : (
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              {nonUsRateNote}
             </p>
-          </div>
+          )}
         </div>
 
         {/* ── Results ────────────────────────────────────────────── */}
@@ -241,19 +267,25 @@ export default function PaymentCalculatorClient() {
             Monthly payment (P&amp;I)
           </p>
           <p className="text-4xl font-extrabold text-blue-400 mb-1">
-            {hasPrice ? fmt(monthlyPI) : "—"}
+            {hasPrice ? fmtMarket(monthlyPI) : "—"}
             <span className="text-base font-semibold text-slate-500"> / mo</span>
           </p>
-          <p className="text-xs text-slate-500 mb-6">
-            Principal &amp; interest only, {termYears}-yr fixed at {ratePct.toFixed(2)}%.
-          </p>
+          {isUsMarket ? (
+            <p className="text-xs text-slate-500 mb-6">
+              Principal &amp; interest only, {termYears}-yr fixed at {ratePct.toFixed(2)}%.
+            </p>
+          ) : (
+            <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+              Principal &amp; interest only. {nonUsRateNote}
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-3 mb-6">
             {[
-              { label: "Loan amount", value: hasPrice ? fmt(loanAmount) : "—" },
-              { label: "Down payment", value: hasPrice ? fmt(downAmount) : "—" },
-              { label: "Total interest", value: hasPrice ? fmt(totalInterest) : "—" },
-              { label: "Total of payments", value: hasPrice ? fmt(loanAmount + totalInterest) : "—" },
+              { label: "Loan amount", value: hasPrice ? fmtMarket(loanAmount) : "—" },
+              { label: "Down payment", value: hasPrice ? fmtMarket(downAmount) : "—" },
+              { label: "Total interest", value: hasPrice ? fmtMarket(totalInterest) : "—" },
+              { label: "Total of payments", value: hasPrice ? fmtMarket(loanAmount + totalInterest) : "—" },
             ].map((s) => (
               <div key={s.label} className="rounded-lg bg-slate-800/70 border border-slate-700/60 px-3 py-2.5">
                 <p className="text-[10px] uppercase tracking-wider text-slate-500">{s.label}</p>
@@ -262,15 +294,15 @@ export default function PaymentCalculatorClient() {
             ))}
           </div>
 
-          {hasPrice && (
+          {hasPrice && isUsMarket && (
             <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 px-4 py-3 mb-4">
               <p className="text-sm text-slate-300">
-                ≈ <span className="font-bold text-white">{fmt(monthlyPI + taxInsMonthly)}</span> / mo
+                ≈ <span className="font-bold text-white">{fmtMarket(monthlyPI + taxInsMonthly)}</span> / mo
                 with taxes &amp; insurance
               </p>
               <p className="text-[11px] text-slate-500 mt-1">
                 Estimate only — assumes ~{PROPERTY_TAX_PCT_PER_YEAR}%/yr property tax and ~
-                {fmt(INSURANCE_USD_PER_YEAR)}/yr insurance as a national ballpark. Both vary by
+                {fmtMarket(INSURANCE_USD_PER_YEAR)}/yr insurance as a national ballpark. Both vary by
                 county and insurer.
               </p>
             </div>

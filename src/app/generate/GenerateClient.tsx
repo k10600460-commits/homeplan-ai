@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { track } from "@vercel/analytics";
+import { getMarketPack, marketFromHost, type Market } from "@/lib/market";
 
 interface MlsLotData {
   listingId: string;
@@ -33,6 +34,7 @@ export default function GenerateClient() {
   const [form, setForm] = useState({ lotSize: "", budget: "", familySize: "", city: "", state: "", street: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mkt, setMkt] = useState<Market>("us");
 
   const [mlsConnected, setMlsConnected] = useState(false);
   const [mlsListingId, setMlsListingId] = useState("");
@@ -41,6 +43,20 @@ export default function GenerateClient() {
   const [mlsFetchError, setMlsFetchError] = useState<string | null>(null);
 
   const supabase = createClient();
+  const pack = getMarketPack(mkt);
+  const lotSizeMin = pack.areaUnit === "m2" ? 50 : 1000;
+  const lotSizePlaceholder = mkt === "us" ? "e.g. 8500" : pack.areaUnit === "m2" ? "e.g. 650" : "e.g. 8500";
+  const budgetPlaceholder = mkt === "us" ? "e.g. 350000" : pack.currency === "CAD" ? "e.g. 500000" : "e.g. 850000";
+  const storedFormFrom = (data: { normalizedInput?: { lotSize?: unknown } }) => {
+    const normalizedLotSize = data.normalizedInput?.lotSize;
+    return typeof normalizedLotSize === "number" && Number.isFinite(normalizedLotSize)
+      ? { ...form, lotSize: String(normalizedLotSize) }
+      : form;
+  };
+
+  useEffect(() => {
+    setMkt(marketFromHost(window.location.host) ?? "us");
+  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -86,13 +102,15 @@ export default function GenerateClient() {
     setLoading(true);
     setError("");
     try {
+      const body = {
+        ...form,
+        ...(mkt !== "us" ? { market: mkt } : {}),
+        ...(mlsLotData?.zoning ? { mlsZoning: mlsLotData.zoning } : {}),
+      };
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          ...(mlsLotData?.zoning ? { mlsZoning: mlsLotData.zoning } : {}),
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (res.status === 401) { router.push("/login"); return; }
@@ -100,8 +118,9 @@ export default function GenerateClient() {
         router.push(`/upgrade?current=${data.current}&limit=${data.limit}&plan=${data.plan}`); return;
       }
       if (!res.ok) throw new Error(data.error || "Something went wrong");
+      const storedForm = storedFormFrom(data);
       sessionStorage.setItem("floorPlans", JSON.stringify(data.plans));
-      sessionStorage.setItem("formData", JSON.stringify(form));
+      sessionStorage.setItem("formData", JSON.stringify(storedForm));
       if (form.city && form.state) sessionStorage.setItem("location", JSON.stringify({ city: form.city, state: form.state }));
       else sessionStorage.removeItem("location");
       if (mlsLotData) sessionStorage.setItem("mlsData", JSON.stringify(mlsLotData));
@@ -134,7 +153,7 @@ export default function GenerateClient() {
         <p className="text-sm text-gray-500 mb-8">Enter lot details to get 3 AI-generated proposals in ~30 seconds.</p>
 
         <form onSubmit={handleSubmit} className="bg-white border-2 border-slate-200 rounded-2xl shadow-xl p-8">
-          {mlsConnected && (
+          {mkt === "us" && mlsConnected && (
             <div className="mb-5 p-4 rounded-xl bg-blue-50 border border-blue-200">
               <label className="text-xs font-bold text-blue-700 uppercase tracking-wider block mb-2">
                 🏠 MLS Listing # <span className="text-blue-400 font-normal">(optional — auto-fills lot data)</span>
@@ -169,8 +188,8 @@ export default function GenerateClient() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {([
-              { label: "Lot Size (sq ft)", name: "lotSize", placeholder: "e.g. 8500", min: 1000 },
-              { label: "Budget (USD)", name: "budget", placeholder: "e.g. 350000", min: 50000 },
+              { label: mkt === "us" ? "Lot Size (sq ft)" : pack.vocab.lotSizeLabel, name: "lotSize", placeholder: lotSizePlaceholder, min: lotSizeMin },
+              { label: mkt === "us" ? "Budget (USD)" : pack.vocab.budgetLabel, name: "budget", placeholder: budgetPlaceholder, min: 50000 },
             ] as const).map(f => (
               <div key={f.name} className="flex flex-col gap-2">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{f.label}</label>
@@ -217,7 +236,7 @@ export default function GenerateClient() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-400">State</label>
+                <label className="text-xs font-semibold text-slate-400">{mkt === "us" ? "State" : pack.vocab.stateLabel}</label>
                 <input
                   type="text"
                   name="state"

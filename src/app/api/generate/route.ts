@@ -4,6 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { checkUsageLimit, recordApiUsage } from "@/lib/usage";
 import { validateGenerateInput, ValidationError } from "@/lib/security";
 import { checkRateLimitDB } from "@/lib/rate-limit-db";
+import {
+  areaInputToSqft,
+  formatArea,
+  getMarketPack,
+  isMarket,
+  resolveMarketFromRequest,
+  type Market,
+} from "@/lib/market";
 
 // Claude generation takes ~30s in practice; pin the function ceiling so the
 // route doesn't die on a plan-default timeout mid-generation (M2).
@@ -70,6 +78,68 @@ The "garages" field is an integer 0–3 representing the number of garage bays (
 
 Generate exactly 3 plans that are meaningfully different in style, layout, and architectural approach. All plans must fit within the given budget.`;
 
+function marketVocabularyLine(market: Market): string {
+  if (market === "au") {
+    return 'Use Australian residential vocabulary where natural: block, alfresco, ensuite, lounge, garage, and repayments.';
+  }
+  if (market === "nz") {
+    return 'Use New Zealand residential vocabulary where natural: section, ensuite, lounge, indoor-outdoor flow, garage, and repayments.';
+  }
+  if (market === "ca") {
+    return 'Use Canadian residential vocabulary and province-aware context where natural; frame pricing in CAD and keep area in square feet.';
+  }
+  return "";
+}
+
+function marketSystemPrompt(market: Market): string {
+  if (market === "us") return SYSTEM_PROMPT;
+  const pack = getMarketPack(market);
+  const metricLine = pack.areaUnit === "m2"
+    ? "Use metric-facing dimensions in prose when dimensions are mentioned (m² for area, metres for lengths), while keeping the required JSON numeric squareFootage and rooms[].sqft fields in square feet for application compatibility."
+    : "Keep square-foot area conventions for numeric fields and prose unless the user asks otherwise.";
+
+  return `${SYSTEM_PROMPT}
+
+Market-localization override for ${pack.label}: this request is not a US concept. ${metricLine} ${marketVocabularyLine(market)} Fit the local residential context and avoid US-specific style assumptions unless they clearly fit the brief.`;
+}
+
+function localizeAreaText(sqft: number, market: Market): string {
+  return formatArea(sqft, market).replace("m2", "m²");
+}
+
+function marketUserPrompt({
+  market,
+  lotSize,
+  budget,
+  familySize,
+  bedroomCount,
+  zoningLine,
+}: {
+  market: Market;
+  lotSize: number;
+  budget: number;
+  familySize: number;
+  bedroomCount: number;
+  zoningLine: string;
+}): string {
+  const pack = getMarketPack(market);
+  const lotLabel = market === "nz" ? "Section size" : market === "au" ? "Block / lot size" : "Lot size";
+  const budgetText = `${pack.currency} ${budget.toLocaleString(pack.locale)}`;
+  const metricInstruction = pack.areaUnit === "m2"
+    ? "- Use metric language in descriptions and features when dimensions are mentioned (m², metres). Keep JSON squareFootage and room sqft numbers in square feet.\n"
+    : "";
+
+  return `Generate 3 distinct residential floor plans for:
+- ${lotLabel}: ${localizeAreaText(lotSize, market)}
+- Total budget: ${budgetText}
+- Family size: ${familySize} person(s) — suggest approximately ${bedroomCount} bedrooms
+${zoningLine}
+Market context:
+- Design for ${pack.label} residential buyers and builders; avoid US-specific style assumptions unless they clearly fit the brief.
+- ${marketVocabularyLine(market)}
+${metricInstruction}Ensure all 3 plans are different architectural styles and each fits within the ${budgetText} budget.`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // ── Auth check ────────────────────────────────────────────
@@ -112,7 +182,15 @@ export async function POST(req: NextRequest) {
 
     // ── Input validation + prompt injection prevention ────────
     const rawBody = await req.json();
-    const { lotSize, budget, familySize } = validateGenerateInput(rawBody);
+    const market: Market = isMarket(rawBody?.market) ? rawBody.market : resolveMarketFromRequest(req);
+    const rawLotSize = Number(rawBody?.lotSize);
+    const validationBody = market === "us"
+      ? rawBody
+      : {
+          ...rawBody,
+          lotSize: Number.isFinite(rawLotSize) ? areaInputToSqft(market, rawLotSize) : rawLotSize,
+        };
+    const { lotSize, budget, familySize } = validateGenerateInput(validationBody);
 
     // Optional MLS zoning — sanitize to plain alphanumeric/spaces/dashes, max 100 chars
     const rawZoning = typeof rawBody.mlsZoning === "string" ? rawBody.mlsZoning : "";
@@ -121,6 +199,14 @@ export async function POST(req: NextRequest) {
     const bedroomCount = Math.max(2, Math.ceil(familySize * 0.7));
 
     const zoningLine = mlsZoning ? `- Zoning: ${mlsZoning} (from MLS — ensure plans comply with this designation)\n` : "";
+    const userPrompt = market === "us"
+      ? `Generate 3 distinct residential floor plans for:
+- Lot size: ${lotSize.toLocaleString()} sq ft
+- Total budget: $${budget.toLocaleString()}
+- Family size: ${familySize} person(s) — suggest approximately ${bedroomCount} bedrooms
+${zoningLine}
+Ensure all 3 plans are different architectural styles and each fits within the $${budget.toLocaleString()} budget.`
+      : marketUserPrompt({ market, lotSize, budget, familySize, bedroomCount, zoningLine });
 
     // ── Claude generation ─────────────────────────────────────
     const genStart = Date.now();
@@ -131,19 +217,14 @@ export async function POST(req: NextRequest) {
       system: [
         {
           type: "text",
-          text: SYSTEM_PROMPT,
+          text: marketSystemPrompt(market),
           cache_control: { type: "ephemeral" },
         },
       ],
       messages: [
         {
           role: "user",
-          content: `Generate 3 distinct residential floor plans for:
-- Lot size: ${lotSize.toLocaleString()} sq ft
-- Total budget: $${budget.toLocaleString()}
-- Family size: ${familySize} person(s) — suggest approximately ${bedroomCount} bedrooms
-${zoningLine}
-Ensure all 3 plans are different architectural styles and each fits within the $${budget.toLocaleString()} budget.`,
+          content: userPrompt,
         },
       ],
     });
@@ -201,8 +282,25 @@ Ensure all 3 plans are different architectural styles and each fits within the $
       });
     }
 
+    if (market === "us") {
+      return NextResponse.json({
+        plans: data.plans,
+        usage: {
+          inputTokens,
+          outputTokens,
+          cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
+          cacheCreationTokens: response.usage.cache_creation_input_tokens ?? 0,
+          remaining: usageCheck.remaining - 1,
+          limit: usageCheck.limit,
+        },
+      });
+    }
+
     return NextResponse.json({
       plans: data.plans,
+      normalizedInput: {
+        lotSize,
+      },
       usage: {
         inputTokens,
         outputTokens,

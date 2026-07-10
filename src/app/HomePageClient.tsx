@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ProductHuntBadge } from "@/components/ProductHuntBadge";
 import { SocialProofBar } from "@/components/SocialProofBar";
 import { track } from "@vercel/analytics";
+import { getMarketPack, marketFromHost, type Market } from "@/lib/market";
 
 // ── Constants ────────────────────────────────────────────────────────
 const CUSTOM_PLAN_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20Custom%20plan%20inquiry&body=Team%20size%3A%0D%0AProposals%20per%20month%3A%0D%0AMarkets%20%2F%20MLS%3A%0D%0A"
@@ -681,6 +682,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [lang, setLang] = useState<Lang>("en");
+  const [mkt, setMkt] = useState<Market>("us");
 
   // Limit-exceeded modal
   const [limitModal, setLimitModal] = useState<{ plan: 'free' | 'pro' | 'team'; current: number; limit: number; upgradePath: string } | null>(null);
@@ -695,6 +697,23 @@ export default function Home() {
 
   const t = T[lang];
   const supabase = createClient();
+  const pack = getMarketPack(mkt);
+  const lotSizeMin = pack.areaUnit === "m2" ? 50 : 1000;
+  const lotSizeLabel = mkt === "us" ? t.form.lotLabel : pack.vocab.lotSizeLabel;
+  const budgetLabel = mkt === "us" ? t.form.budgetLabel : pack.vocab.budgetLabel;
+  const stateLabel = mkt === "us" ? t.form.stateLabel : pack.vocab.stateLabel;
+  const lotSizePlaceholder = mkt === "us" ? t.form.lotPlaceholder : pack.areaUnit === "m2" ? "e.g. 650" : t.form.lotPlaceholder;
+  const budgetPlaceholder = mkt === "us" ? t.form.budgetPlaceholder : pack.currency === "CAD" ? "e.g. 500000" : "e.g. 850000";
+  const storedFormFrom = (data: { normalizedInput?: { lotSize?: unknown } }) => {
+    const normalizedLotSize = data.normalizedInput?.lotSize;
+    return typeof normalizedLotSize === "number" && Number.isFinite(normalizedLotSize)
+      ? { ...form, lotSize: String(normalizedLotSize) }
+      : form;
+  };
+
+  useEffect(() => {
+    setMkt(marketFromHost(window.location.host) ?? "us");
+  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -743,11 +762,13 @@ export default function Home() {
     setLoading(true);
     setError("");
     try {
+      const body = {
+        ...form,
+        ...(mkt !== "us" ? { market: mkt } : {}),
+        ...(mlsLotData?.zoning ? { mlsZoning: mlsLotData.zoning } : {}),
+      };
       const res = await fetch("/api/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-          ...form,
-          ...(mlsLotData?.zoning ? { mlsZoning: mlsLotData.zoning } : {}),
-        }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
       const data = await res.json();
       if (res.status === 401) { router.push("/login"); return; }
@@ -757,8 +778,9 @@ export default function Home() {
         return;
       }
       if (!res.ok) throw new Error(data.error || "Something went wrong");
+      const storedForm = storedFormFrom(data);
       sessionStorage.setItem("floorPlans", JSON.stringify(data.plans));
-      sessionStorage.setItem("formData", JSON.stringify(form));
+      sessionStorage.setItem("formData", JSON.stringify(storedForm));
       if (form.city && form.state) sessionStorage.setItem("location", JSON.stringify({ city: form.city, state: form.state }));
       else sessionStorage.removeItem("location");
       if (mlsLotData) sessionStorage.setItem("mlsData", JSON.stringify(mlsLotData));
@@ -918,7 +940,7 @@ export default function Home() {
           </div>
           <form onSubmit={handleSubmit} className="bg-white border-2 border-slate-200 rounded-2xl shadow-xl p-8">
             {/* MLS Listing # — only shown when connected */}
-            {mlsConnected && (
+            {mkt === "us" && mlsConnected && (
               <div className="mb-5 p-4 rounded-xl bg-blue-50 border border-blue-200">
                 <label className="text-xs font-bold text-blue-700 uppercase tracking-wider block mb-2">
                   MLS Listing # <span className="text-blue-400 font-normal">(optional — auto-fills lot data)</span>
@@ -952,8 +974,8 @@ export default function Home() {
             )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {[
-                { label: t.form.lotLabel, name: "lotSize", type: "number", placeholder: t.form.lotPlaceholder, min: 1000 },
-                { label: t.form.budgetLabel, name: "budget", type: "number", placeholder: t.form.budgetPlaceholder, min: 50000 },
+                { label: lotSizeLabel, name: "lotSize", type: "number", placeholder: lotSizePlaceholder, min: lotSizeMin },
+                { label: budgetLabel, name: "budget", type: "number", placeholder: budgetPlaceholder, min: 50000 },
               ].map(f => (
                 <div key={f.name} className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{f.label}</label>
@@ -981,7 +1003,7 @@ export default function Home() {
                     className="px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-400">{t.form.stateLabel}</label>
+                  <label className="text-xs font-semibold text-slate-400">{stateLabel}</label>
                   <input type="text" name="state" value={form.state} onChange={handleChange}
                     placeholder={t.form.statePlaceholder} maxLength={30}
                     className="px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
