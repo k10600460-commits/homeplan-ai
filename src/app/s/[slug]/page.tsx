@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { headers } from 'next/headers'
 import { createHash } from 'crypto'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+import { insertEvent } from '@/lib/analytics'
 import SharePortalClient from './SharePortalClient'
 import { checkExternalUsage, recordExternalUsage } from '@/lib/external-apis'
 import { geocodeCity, getNearbyPlaces, haversineKm, computeSafetyScore, PlaceResult } from '@/lib/neighborhood'
@@ -188,6 +190,12 @@ export default async function SharePage({ params }: Props) {
         p_ip_hash:    ipHash,
       })
       if (error) console.error('[share/view]', error)
+
+      const viewerClient = await createServerClient()
+      const { data: { user: viewer } } = await viewerClient.auth.getUser()
+      if (viewer?.id !== link.user_id) {
+        insertEvent('portal_viewed', link.user_id, { metadata: { slug } })
+      }
     }
   } catch (err) {
     console.error('[share/view]', err)

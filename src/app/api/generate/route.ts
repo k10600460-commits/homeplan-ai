@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkUsageLimit, recordApiUsage } from "@/lib/usage";
 import { validateGenerateInput, ValidationError } from "@/lib/security";
 import { checkRateLimitDB } from "@/lib/rate-limit-db";
+import { insertEvent } from "@/lib/analytics";
 import {
   areaInputToSqft,
   formatArea,
@@ -281,6 +282,8 @@ Ensure all 3 plans are different architectural styles and each fits within the $
         sendFirstPlanFollowupEmail(user.email!).catch(console.error);
       });
     }
+
+    insertEvent("plan_generated", user.id, { metadata: { generation_id: response.id } });
 
     if (market === "us") {
       return NextResponse.json({

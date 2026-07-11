@@ -14,61 +14,23 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const KEYWORD_POOL = [
-  "home builder proposal",
-  "custom home proposal template",
+  // Buyer stall
+  "why home builders lose deals",
+  "how to handle home buyer objections",
+  "how to sell a home before it is built",
+  // Lot → monthly payment
   "lot feasibility analysis",
   "custom home cost estimate",
-  "pre-construction planning for builders",
-  "how to win more custom home clients",
-  "why home builders lose deals",
-  "builder sales process",
-  "home builder lead conversion",
-  "cost per square foot custom home",
-  "MLS data for home builders",
-  "best software for custom home builders",
-  "real estate development feasibility",
-  "AI tools for home builders",
-  // --- expanded 2026-06-30 for daily auto-publish (clean, builder-intent long-tail) ---
-  "how to price a custom home build",
-  "custom home builder marketing strategies",
-  "how to get more custom home leads",
-  "home builder website that converts",
-  "builder follow up process for leads",
+  "monthly payment estimate for new construction",
+  // Proposal speed
+  "home builder proposal",
+  "custom home proposal template",
   "how to present floor plans to clients",
-  "spec home vs custom home sales",
-  "home builder referral strategy",
   "construction proposal software for builders",
-  "how to qualify home building leads",
-  "custom home buyer journey",
-  "home builder branding tips",
-  "new construction marketing ideas",
-  "home builder lead nurturing",
-  "how to handle home buyer objections",
-  "selling custom home upgrades",
-  "builder sales presentation tips",
-  "home builder competitive advantage",
-  "how to scale a custom home building business",
-  "construction draw schedule explained",
-  "home builder client communication",
-  "builder land acquisition strategy",
-  "custom home build timeline expectations",
-  "home builder pricing transparency",
-  "how builders compete with national builders",
-  "semi custom home sales process",
-  "how to use floor plans to sell homes",
-  "home builder email follow up templates",
+  // Financing view
   "custom home financing options for buyers",
-  "builder lead response time",
-  "how to reduce custom home build delays",
-  "home builder customer experience",
-  "construction estimate accuracy for builders",
-  "builder sales funnel",
-  "how to get more home builder reviews",
-  "new home community marketing",
-  "how to sell a home before it is built",
-  "builder discovery call questions",
-  "home builder value proposition",
-  "how to choose a custom home floor plan",
+  "new construction financing for custom home buyers",
+  "how to present financing options to custom home buyers",
 ];
 
 function toSlug(keyword: string): string {
@@ -136,6 +98,7 @@ Write a 1200-1500 word article targeting the keyword: "${keyword}"
 
 Audience: small home builders in the US (not homebuyers).
 Tone: expert, practical, peer-to-peer — like one builder talking to another.
+Stay strictly within one of these editorial clusters: buyer stall, lot-to-monthly-payment, proposal speed, or financing view. Do not cover branding, referral programs, or general marketing.
 
 Voice rules (STRICT — follow exactly):
 - Plain English, like a builder talking to another builder. No marketing hype.

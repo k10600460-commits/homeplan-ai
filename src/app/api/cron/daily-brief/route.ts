@@ -769,7 +769,7 @@ async function dailyBriefHandler(req: NextRequest) {
   // ── 2. Collect DB stats for the KPI block ───────────────────────────────
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [subsResult, financeResult, portalViewsResult, newSignupsResult, newPortalLeadsResult, outreachSentResult, outreachRepliedResult, newGenerationsResult, hotLeads, overuseFlags] = await Promise.all([
+  const [subsResult, financeResult, portalViewsResult, newSignupsResult, newPortalLeadsResult, outreachSentResult, outreachRepliedResult, newGenerationsResult, funnelSentResult, funnelRepliedResult, funnelPortalViewedResult, funnelTrialingResult, funnelActiveResult, hotLeads, overuseFlags] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("plan, status", { count: "exact" })
@@ -806,6 +806,26 @@ async function dailyBriefHandler(req: NextRequest) {
       .from("plan_generations")
       .select("id", { count: "exact" })
       .gte("created_at", since24h),
+    supabase
+      .from("outreach_log")
+      .select("id", { count: "exact", head: true })
+      .not("sent_at", "is", null),
+    supabase
+      .from("outreach_log")
+      .select("id", { count: "exact", head: true })
+      .not("replied_at", "is", null),
+    supabase
+      .from("analytics_events")
+      .select("id", { count: "exact", head: true })
+      .eq("event_name", "portal_viewed"),
+    supabase
+      .from("subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "trialing"),
+    supabase
+      .from("subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active"),
     fetchHotLeads(supabase),
     fetchOveruseFlags(supabase),
   ]);
@@ -824,6 +844,13 @@ async function dailyBriefHandler(req: NextRequest) {
   const outreachSent = outreachSentResult.count ?? 0;
   const outreachReplied = outreachRepliedResult.count ?? 0;
   const newGenerations = newGenerationsResult.count ?? 0;
+  const funnel = {
+    sent: funnelSentResult.count ?? 0,
+    replied: funnelRepliedResult.count ?? 0,
+    portalViewed: funnelPortalViewedResult.count ?? 0,
+    trialing: funnelTrialingResult.count ?? 0,
+    active: funnelActiveResult.count ?? 0,
+  };
 
   const uniquePortalIds = new Set(
     (portalViewsResult.data ?? []).map((e: { link_id: string }) => e.link_id),
@@ -1029,6 +1056,7 @@ Voice rules (STRICT):
     newGenerations,
     outreachSent,
     outreachReplied,
+    funnel,
     threads,
     actionableThreads: leadsAndSupport,
     drafts: claudeResult.drafts,
@@ -1401,6 +1429,13 @@ interface DigestParams {
   newGenerations: number;
   outreachSent: number;
   outreachReplied: number;
+  funnel: {
+    sent: number;
+    replied: number;
+    portalViewed: number;
+    trialing: number;
+    active: number;
+  };
   threads: EmailThread[];
   actionableThreads: ClauseResult["drafts"];
   drafts: ClauseResult["drafts"];
@@ -1554,6 +1589,7 @@ function buildDigestHtml(p: DigestParams): string {
     ["Portal Leads (24h)", String(p.newPortalLeads)],
     ["Outreach Sent (24h)", String(p.outreachSent)],
     ["Outreach Replied (24h)", String(p.outreachReplied)],
+    ["Funnel: sent → replied → portal_viewed → trialing → active", `${p.funnel.sent} → ${p.funnel.replied} → ${p.funnel.portalViewed} → ${p.funnel.trialing} → ${p.funnel.active}`],
   ];
 
   const kpiHtml = kpiRows
