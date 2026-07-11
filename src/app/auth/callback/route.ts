@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       }
       if (isNewUser) {
         const { insertEvent } = await import("@/lib/analytics");
-        insertEvent("signup", data.user.id, { metadata: { source: "oauth_callback" } });
+        insertEvent("signup_completed", data.user.id, { metadata: { source: "oauth_callback" } });
         const planQuery = plan === "team" || plan === "pro" ? `&plan=${plan}` : "";
         return NextResponse.redirect(`${origin}/dashboard?new_signup=1${planQuery}`);
       }
