@@ -272,6 +272,22 @@ async function xPostHandler(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
+  // Prevent orphan accumulation (2026-07-14): drafts are only selected for run_date=today
+  // (see the status='draft' query below), so any draft that missed its same-day ET window —
+  // e.g. its splanai.com link wasn't live yet (link_integrity hold) — is never retried and
+  // lingers as status='draft' forever. Expire past-date unposted drafts so they don't pile up.
+  // Today's posting behavior is unchanged (this only touches run_date < today), so no burst.
+  const { error: expireError } = await supabase
+    .from("x_post_draft")
+    .update({ status: "expired", updated_at: new Date().toISOString() })
+    .eq("platform", "x")
+    .eq("status", "draft")
+    .lt("run_date", clock.date);
+
+  if (expireError) {
+    console.error("[x-post] stale-expire error:", expireError.message);
+  }
+
   const { data: postedToday, error: postedError } = await supabase
     .from("x_post_draft")
     .select("id, draft_text")
