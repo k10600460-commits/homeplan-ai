@@ -72,11 +72,12 @@ export default function TermsPage() {
                 <li><strong>Custom</strong> — Sales-led plan for builders with 50+ employees. Includes higher generation volume, priority onboarding, multiple MLS connections, and pricing sized to your sales team. <a href="mailto:hello@splanai.com" className="text-blue-600 hover:underline">Contact us</a> to discuss.</li>
               </ul>
 
-              <h3 className="font-semibold text-slate-800 mb-2 mt-6">Free Trial</h3>
+              <h3 className="font-semibold text-slate-800 mb-2 mt-6">Free Trial &amp; Founder Pilot</h3>
               <p className="leading-relaxed mb-3">
-                Pro and Team plans include a 14-day free trial. A valid payment method is required at
-                sign-up. You will not be charged during the trial period. If you do not cancel before
-                the trial ends, your subscription will automatically convert to the paid plan.
+                No credit card is required to start the founder pilot or a free trial. We only collect a
+                payment method if and when you choose to continue on a paid plan, and you will not be
+                charged before then. If you provide a payment method to continue and do not cancel before
+                the trial ends, your subscription will convert to the paid plan.
               </p>
 
               <h3 className="font-semibold text-slate-800 mb-2 mt-6">Billing</h3>
