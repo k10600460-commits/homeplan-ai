@@ -1,21 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { SocialProofBar } from "@/components/SocialProofBar";
 import { track } from "@vercel/analytics";
-import { getMarketPack, marketFromHost, type Market } from "@/lib/market";
 
 // ── Constants ────────────────────────────────────────────────────────
-const CUSTOM_PLAN_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20Custom%20plan%20inquiry&body=Team%20size%3A%0D%0AProposals%20per%20month%3A%0D%0AMarkets%20%2F%20MLS%3A%0D%0A"
 // Founder-led pilot: builder sends a real lot; the founder builds the first example (no card, no login)
 const SEND_LOT_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20founder%20pilot%20%E2%80%94%20live%20lot&body=Lot%20address%20or%20link%3A%0D%0ABuyer%20requirements%20(beds%2Fbaths%2Fbudget)%3A%0D%0AAnything%20else%3A%0D%0A";
 
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
   en: {
-    nav: { how: "How it works", pricing: "Pricing", reviews: "Examples", blog: "Blog", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
+    nav: { how: "How it works", pricing: "Pricing", reviews: "Examples", blog: "Blog", dashboard: "Dashboard", signin: "Sign in", cta: "Send a real lot" },
     hero: {
       headline1: "Turn one live lot into",
       headline2: "something your buyer can react to.",
@@ -158,7 +155,7 @@ const T = {
     },
   },
   es: {
-    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Ejemplos", blog: "Blog", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
+    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Ejemplos", blog: "Blog", dashboard: "Panel", signin: "Iniciar sesión", cta: "Envía un lote real" },
     hero: {
       headline1: "Convierte un lote real en algo",
       headline2: "a lo que tu comprador pueda reaccionar.",
@@ -305,15 +302,6 @@ const T = {
 type Lang = keyof typeof T;
 
 // ── Micro-components ─────────────────────────────────────────────────
-function Spinner() {
-  return (
-    <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-    </svg>
-  );
-}
-
 function Stars({ count }: { count: number }) {
   return (
     <div className="flex gap-0.5">
@@ -650,158 +638,19 @@ function HeroPreview() {
   );
 }
 
-interface MlsLotData {
-  listingId: string;
-  address?: string;
-  lotSizeArea?: number;
-  lotSizeUnits?: string;
-  zoning?: string;
-  listPrice?: number;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  mlsProvider?: string;
-  attribution?: string;
-  disclaimer?: string;
-  dataTimestamp?: string;
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────
 export default function Home() {
-  const router = useRouter();
-  const [form, setForm] = useState({ lotSize: "", budget: "", familySize: "", city: "", state: "", street: "" });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [lang, setLang] = useState<Lang>("en");
-  const [mkt, setMkt] = useState<Market>("us");
-
-  // Limit-exceeded modal
-  const [limitModal, setLimitModal] = useState<{ plan: 'free' | 'pro' | 'team'; current: number; limit: number; upgradePath: string } | null>(null);
-  const [upgradeLoading, setUpgradeLoading] = useState(false);
-
-  // MLS state
-  const [mlsConnected, setMlsConnected] = useState(false);
-  const [mlsListingId, setMlsListingId] = useState("");
-  const [mlsLotData, setMlsLotData] = useState<MlsLotData | null>(null);
-  const [mlsFetching, setMlsFetching] = useState(false);
-  const [mlsFetchError, setMlsFetchError] = useState<string | null>(null);
 
   const t = T[lang];
   const supabase = createClient();
-  const pack = getMarketPack(mkt);
-  const lotSizeMin = pack.areaUnit === "m2" ? 50 : 1000;
-  const lotSizeLabel = mkt === "us" ? t.form.lotLabel : pack.vocab.lotSizeLabel;
-  const budgetLabel = mkt === "us" ? t.form.budgetLabel : pack.vocab.budgetLabel;
-  const stateLabel = mkt === "us" ? t.form.stateLabel : pack.vocab.stateLabel;
-  const lotSizePlaceholder = mkt === "us" ? t.form.lotPlaceholder : pack.areaUnit === "m2" ? "e.g. 650" : t.form.lotPlaceholder;
-  const budgetPlaceholder = mkt === "us" ? t.form.budgetPlaceholder : pack.currency === "CAD" ? "e.g. 500000" : "e.g. 850000";
-  const storedFormFrom = (data: { normalizedInput?: { lotSize?: unknown } }) => {
-    const normalizedLotSize = data.normalizedInput?.lotSize;
-    return typeof normalizedLotSize === "number" && Number.isFinite(normalizedLotSize)
-      ? { ...form, lotSize: String(normalizedLotSize) }
-      : form;
-  };
-
-  useEffect(() => {
-    setMkt(marketFromHost(window.location.host) ?? "us");
-  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null);
-      if (data.user) {
-        // Check MLS connection status
-        fetch("/api/mls/status")
-          .then(r => r.json())
-          .then((d: { connected: boolean }) => setMlsConnected(d.connected))
-          .catch(() => {});
-      }
     });
   }, [supabase]);
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setError("");
-  }
-
-  async function handleMlsFetch() {
-    if (!mlsListingId.trim()) return;
-    setMlsFetching(true);
-    setMlsFetchError(null);
-    setMlsLotData(null);
-    try {
-      const res = await fetch(`/api/mls/lot-data?provider=us-trestle&listingId=${encodeURIComponent(mlsListingId.trim())}`);
-      const data = await res.json() as MlsLotData & { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "MLS lookup failed");
-      setMlsLotData(data);
-      // Auto-fill form fields from MLS data
-      setForm(prev => ({
-        ...prev,
-        lotSize: data.lotSizeArea ? String(Math.round(data.lotSizeArea)) : prev.lotSize,
-        city:    data.city    ?? prev.city,
-        state:   data.state   ?? prev.state,
-      }));
-    } catch (err) {
-      setMlsFetchError(err instanceof Error ? err.message : "MLS data unavailable. Enter details manually.");
-    } finally {
-      setMlsFetching(false);
-    }
-  }
-
-  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const body = {
-        ...form,
-        ...(mkt !== "us" ? { market: mkt } : {}),
-        ...(mlsLotData?.zoning ? { mlsZoning: mlsLotData.zoning } : {}),
-      };
-      const res = await fetch("/api/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (res.status === 401) { router.push("/login"); return; }
-      if (res.status === 429 && data.code === "LIMIT_EXCEEDED") {
-        setLimitModal({ plan: data.plan as 'free' | 'pro' | 'team', current: data.current, limit: data.limit, upgradePath: data.upgradePath as string });
-        setLoading(false);
-        return;
-      }
-      if (!res.ok) throw new Error(data.error || "Something went wrong");
-      const storedForm = storedFormFrom(data);
-      sessionStorage.setItem("floorPlans", JSON.stringify(data.plans));
-      sessionStorage.setItem("formData", JSON.stringify(storedForm));
-      if (form.city && form.state) sessionStorage.setItem("location", JSON.stringify({ city: form.city, state: form.state }));
-      else sessionStorage.removeItem("location");
-      if (mlsLotData) sessionStorage.setItem("mlsData", JSON.stringify(mlsLotData));
-      else sessionStorage.removeItem("mlsData");
-      track("generate_success");
-      router.push("/results");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate plans");
-      setLoading(false);
-    }
-  }
-
-  const isValid = form.lotSize && form.budget && form.familySize;
-
-  async function handleUpgradeFromModal(upgradePath: string) {
-    if (upgradePath === 'custom') { window.location.href = CUSTOM_PLAN_MAILTO; return; }
-    setUpgradeLoading(true);
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: upgradePath }),
-      });
-      const data = await res.json() as { url?: string };
-      if (data.url) { window.location.href = data.url; return; }
-    } catch { /* fall through */ }
-    window.location.href = upgradePath === 'team' ? '/login?plan=team' : '/login?plan=pro';
-    setUpgradeLoading(false);
-  }
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800">
@@ -831,7 +680,7 @@ export default function Home() {
             ) : (
               <a href="/login" className="hidden sm:block text-sm text-slate-400 hover:text-white transition-colors">{t.nav.signin}</a>
             )}
-            <a href="#generate" className="px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors"
+            <a href={SEND_LOT_MAILTO} className="px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors"
               onClick={() => track("cta_click", { button: "nav_cta" })}
             >{t.nav.cta}</a>
           </div>
@@ -902,102 +751,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── Generate Form ────────────────────────────────────────────── */}
-      <section id="generate" className="py-16 px-6 scroll-mt-[64px] bg-slate-50">
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center mb-6">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.form.title}</p>
-            <p className="mt-2 text-sm text-slate-400">{t.form.signupNote}</p>
-          </div>
-          <form onSubmit={handleSubmit} className="bg-white border-2 border-slate-200 rounded-2xl shadow-xl p-8">
-            {/* MLS Listing # — only shown when connected */}
-            {mkt === "us" && mlsConnected && (
-              <div className="mb-5 p-4 rounded-xl bg-blue-50 border border-blue-200">
-                <label className="text-xs font-bold text-blue-700 uppercase tracking-wider block mb-2">
-                  MLS Listing # <span className="text-blue-400 font-normal">(optional — auto-fills lot data)</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={mlsListingId}
-                    onChange={e => { setMlsListingId(e.target.value); setMlsLotData(null); setMlsFetchError(null); }}
-                    placeholder="e.g. 1234567"
-                    className="flex-1 px-4 py-2.5 rounded-xl border-2 border-blue-200 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-500 transition text-sm bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleMlsFetch}
-                    disabled={!mlsListingId.trim() || mlsFetching}
-                    className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {mlsFetching ? "…" : "Fetch"}
-                  </button>
-                </div>
-                {mlsLotData && (
-                  <p className="mt-2 text-xs text-emerald-700 font-semibold">
-                    ✓ Lot data loaded from MLS — {mlsLotData.address ?? mlsLotData.listingId}
-                  </p>
-                )}
-                {mlsFetchError && (
-                  <p className="mt-2 text-xs text-amber-700">{mlsFetchError}</p>
-                )}
-              </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {[
-                { label: lotSizeLabel, name: "lotSize", type: "number", placeholder: lotSizePlaceholder, min: lotSizeMin },
-                { label: budgetLabel, name: "budget", type: "number", placeholder: budgetPlaceholder, min: 50000 },
-              ].map(f => (
-                <div key={f.name} className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{f.label}</label>
-                  <input type={f.type} name={f.name} value={form[f.name as "lotSize" | "budget"]}
-                    onChange={handleChange} placeholder={f.placeholder} min={f.min} required
-                    className="px-4 py-3 rounded-xl border-2 border-slate-200 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-500 transition text-sm" />
-                </div>
-              ))}
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t.form.familyLabel}</label>
-                <select name="familySize" value={form.familySize} onChange={handleChange} required
-                  className="px-4 py-3 rounded-xl border-2 border-slate-200 text-slate-900 focus:outline-none focus:border-blue-500 transition text-sm bg-white">
-                  <option value="">{t.form.familyPlaceholder}</option>
-                  {t.form.familyOptions.map((opt, i) => <option key={i} value={String(i + 1)}>{opt}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="mt-4">
-              <p className="text-xs text-slate-400 mb-2">{t.form.locationNote}</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-400">{t.form.cityLabel}</label>
-                  <input type="text" name="city" value={form.city} onChange={handleChange}
-                    placeholder={mkt === "us" ? t.form.cityPlaceholder : pack.vocab.cityPlaceholder} maxLength={60}
-                    className="px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-400">{stateLabel}</label>
-                  <input type="text" name="state" value={form.state} onChange={handleChange}
-                    placeholder={mkt === "us" ? t.form.statePlaceholder : pack.vocab.statePlaceholder} maxLength={30}
-                    className="px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <label className="text-xs font-semibold text-slate-400">{t.form.streetLabel}</label>
-                <input type="text" name="street" value={form.street} onChange={handleChange}
-                  placeholder={mkt === "us" ? t.form.streetPlaceholder : pack.vocab.streetPlaceholder} maxLength={120}
-                  className="w-full mt-1.5 px-4 py-2.5 rounded-xl border-2 border-slate-100 text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 transition text-sm" />
-                <p className="text-xs text-slate-500 mt-1">{t.form.streetHint}</p>
-              </div>
-            </div>
-            {error && <p className="mt-4 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-2.5 border border-red-100">{error}</p>}
-            <button type="submit" disabled={!isValid || loading}
-              className={`mt-6 w-full py-4 rounded-xl text-white text-base font-bold transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg ${loading ? "bg-blue-700" : isValid ? "bg-blue-500 hover:bg-blue-600" : "bg-slate-400"}`}>
-              {loading ? <><Spinner />Generating proposals… (~30 sec)</> : t.form.cta}
-            </button>
-          </form>
-          <p className="mt-4 text-xs text-center text-slate-400">{t.form.disclaimer}</p>
         </div>
       </section>
 
@@ -1373,51 +1126,6 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* ── Limit-exceeded modal ─────────────────────────────────────── */}
-      {limitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
-            <button onClick={() => setLimitModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors text-xl leading-none">✕</button>
-
-            {limitModal.plan === 'free' ? (
-              <>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">{t.modal.freeTitle}</h2>
-                <p className="text-slate-500 mb-6 text-sm leading-relaxed">{t.modal.freeBody}</p>
-                <button
-                  onClick={() => handleUpgradeFromModal('pro')}
-                  disabled={upgradeLoading}
-                  className="w-full py-3 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors disabled:opacity-60"
-                >
-                  {upgradeLoading ? t.modal.redirecting : t.modal.freeCta}
-                </button>
-              </>
-            ) : limitModal.plan === 'pro' ? (
-              <>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">{t.modal.proTitle}</h2>
-                <p className="text-slate-500 mb-4 text-sm leading-relaxed">{t.modal.proBody}</p>
-                <button
-                  onClick={() => handleUpgradeFromModal('team')}
-                  disabled={upgradeLoading}
-                  className="w-full py-3 rounded-xl font-bold text-slate-900 bg-amber-500 hover:bg-amber-600 transition-colors disabled:opacity-60 mb-3"
-                >
-                  {upgradeLoading ? t.modal.redirecting : t.modal.proCta}
-                </button>
-                <a href="mailto:hello@splanai.com" className="block text-center text-sm text-slate-400 hover:text-slate-700 transition-colors">
-                  {t.modal.proSecondary}
-                </a>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">{t.modal.otherTitle}</h2>
-                <p className="text-slate-500 mb-6 text-sm leading-relaxed">{t.modal.otherBody}</p>
-                <a href="mailto:hello@splanai.com" className="block text-center py-3 rounded-xl font-bold text-blue-600 border border-blue-600 hover:bg-blue-50 transition-colors">
-                  {t.modal.otherCta}
-                </a>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
