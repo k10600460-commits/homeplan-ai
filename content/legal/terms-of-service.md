@@ -15,7 +15,7 @@ You must be at least 18 years old and use the Service for business purposes. You
 ## 3. Subscriptions, Free Trials, Billing, and Cancellation
 
 - **Plans.** We offer Free, Pro, and Team plans as described on our pricing page. Paid plans are billed on a recurring monthly basis.
-- **Free trials.** Paid plans may include a 14-day free trial. **Unless you cancel before the trial ends, your subscription will automatically convert to a paid subscription and your payment method will be charged the then-current fee.**
+- **Free trials.** Paid plans may include a 14-day free trial. **No credit card is required to start the founder pilot or a free trial.** If you provide a payment method to continue on a paid plan and do not cancel before the trial ends, your subscription will convert to a paid subscription and your payment method will be charged the then-current fee.
 - **Automatic renewal.** Paid subscriptions automatically renew each billing period until cancelled. By subscribing, you authorize us, through our payment processor, to charge your payment method on a recurring basis.
 - **Cancellation.** You may cancel at any time through your account's billing portal. Cancellation takes effect at the end of the current billing period.
 - **Refunds.** Fees are non-refundable except where required by law.

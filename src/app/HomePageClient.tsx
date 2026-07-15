@@ -3,32 +3,29 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ProductHuntBadge } from "@/components/ProductHuntBadge";
 import { SocialProofBar } from "@/components/SocialProofBar";
 import { track } from "@vercel/analytics";
 import { getMarketPack, marketFromHost, type Market } from "@/lib/market";
 
 // ── Constants ────────────────────────────────────────────────────────
 const CUSTOM_PLAN_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20Custom%20plan%20inquiry&body=Team%20size%3A%0D%0AProposals%20per%20month%3A%0D%0AMarkets%20%2F%20MLS%3A%0D%0A"
-// Set NEXT_PUBLIC_CALENDLY_URL in Vercel env to activate Calendly CTA; falls back to mailto until configured
-const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL ?? "";
-const CALENDLY_READY = Boolean(CALENDLY_URL && !CALENDLY_URL.startsWith("<<FILL"));
+// Founder-led pilot: builder sends a real lot; the founder builds the first example (no card, no login)
+const SEND_LOT_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20founder%20pilot%20%E2%80%94%20live%20lot&body=Lot%20address%20or%20link%3A%0D%0ABuyer%20requirements%20(beds%2Fbaths%2Fbudget)%3A%0D%0AAnything%20else%3A%0D%0A";
 
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
   en: {
     nav: { how: "How it works", pricing: "Pricing", reviews: "Examples", blog: "Blog", dashboard: "Dashboard", signin: "Sign in", cta: "Start Free Trial" },
     hero: {
-      badge: "Featured on Product Hunt",
-      headline1: "Close more home-building deals.",
-      headline2: "Without the 3-day proposal wait.",
-      sub: "Enter lot details → get 3 buyer-ready home concept proposals in 30 seconds. Share a live portal. Close faster.",
-      ctaPrimary: "Generate Plans Free →",
-      ctaSecondary: "See how it works",
-      tryDemo: "Not ready to sign up? Try a sample proposal first — no email needed →",
-      stat1: { value: "30 sec", label: "to generate" },
-      stat2: { value: "3 plans", label: "per session" },
-      stat3: { value: "14-day", label: "free trial" },
+      headline1: "Turn one live lot into",
+      headline2: "something your buyer can react to.",
+      sub: "Send the lot and buyer requirements. I'll prepare three preliminary directions, then you review the price and payment assumptions before anything is shared.",
+      ctaPrimary: "Send a real lot",
+      ctaSecondary: "View a builder-approved sample",
+      ctaMicro: "First example built by the founder. No login required.",
+      stat1: { value: "3 directions", label: "per lot" },
+      stat2: { value: "~1 day", label: "first look" },
+      stat3: { value: "No card", label: "to start" },
     },
     trust: { label: "Powered by" },
     form: {
@@ -82,29 +79,30 @@ const T = {
         { title: "Neighborhood Intelligence", desc: "Auto-fetch nearby schools, police/fire stations, and market rents via Google Maps and RentCast." },
         { title: "Branded PDF in One Click", desc: "Professional proposals with your logo, room breakdown, and cost estimate. Print-ready." },
         { title: "Real-Time Client Tracking", desc: "Know the moment a client opens the link, see which concept they engaged, and send a ready-made follow-up." },
-        { title: "Buyers Configure It Live", desc: "Clients adjust size, beds, baths, and style — price and monthly payment update instantly." },
+        { title: "Price & Payment, Confirmed With You", desc: "I'll confirm the build-price and payment assumptions with you, so the numbers your buyer sees are ones you can stand behind." },
         { title: "Layout at a Glance", desc: "A clean visual of each concept's room layout — easy to read, no blueprint required." },
         { title: "A Portal That Stays Alive", desc: "Favorites, saved settings, and a 'new since your last visit' nudge bring buyers back." },
       ],
     },
     mission: {
-      heading: "Built for builders who close deals, not draw blueprints.",
+      heading: "Built for builders who sell homes, not draw blueprints.",
       body: "SplanAI isn't a design tool. It's the sales layer between your lot and your client's signature — home concept proposals, market data, financing, and client intelligence, all in one place.",
     },
     pricing: {
-      heading: "Simple, transparent pricing",
-      sub: "Start free. Upgrade when you're ready.",
+      heading: "One founder-led pilot",
+      sub: "One live lot, worked personally with you. No credit card to start.",
       free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 proposal generations / month", "SplanAI branded PDF export", "Neighborhood & market data", "Client sharing portal + view tracking", "All room types", "Email support"], cta: "Get started free" },
       pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 proposals/mo · 1 seat", "Branded PDF with your logo (Powered by SplanAI footer included)", "MLS listing data — real lot size & zoning in every plan (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
       team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Everything in Pro, plus:", "Unlimited proposals/mo (fair use*) · up to 15 seats", "Team dashboard & member KPIs", "White-label PDF — your logo only, zero SplanAI branding", "Dedicated support"], cta: "Start 14-day free trial" },
       custom: { label: "Custom", features: ["Everything in Team, plus:", "Higher generation volume", "Priority onboarding", "Multiple MLS connections", "Pricing sized to your sales team"], cta: "Talk to us" },
-      footer: "All plans include PDF export · No hidden fees · Cancel anytime",
+      pilot: { label: "Founder Pilot", price: "$149", period: " · one live lot", note: "One live lot, built personally by the founder. No credit card to start.", features: ["One live lot, worked personally by the founder", "Three preliminary home-concept directions for your buyer", "A shareable buyer portal for the concepts", "I'll confirm the build-price and payment assumptions with you before anything is shared", "First example built by the founder — no login required"], cta: "Send a real lot" },
+      footer: "No credit card to start · You approve the numbers first · Built with you by the founder",
     },
     faq: [
-      { q: "Is MLS integration legal?", a: "Yes. SplanAI connects to MLS data via the IDX policy framework established by the National Association of Realtors (NAR). Your MLS license is linked to your account, all API calls are logged in our audit system, and data is displayed in real time — never stored or redistributed. We comply with all NAR IDX guidelines and individual MLS board rules." },
+      { q: "How does MLS data work?", a: "You connect your own MLS license via Trestle. Listing data is displayed in real time — never stored or redistributed. You use MLS data under your own license and remain responsible for your MLS board's rules and any applicable IDX requirements." },
       { q: "What data sources do you use?", a: "SplanAI uses Google Maps (neighborhood places & geocoding), RentCast (market rent and sale price data), the St. Louis Fed (FRED) for current mortgage rates, Anthropic Claude AI (proposal generation), and optionally your MLS license for listing data. All sources are listed on your dashboard." },
       { q: "Is my client data secure?", a: "Yes. All data is stored in a Supabase database with row-level security — only you can access your plans and client links. Shared links expire and can be deactivated anytime. We never sell your data." },
-      { q: "Does it work in my state?", a: "SplanAI works nationwide for AI plan generation and market data. Neighborhood data (Google Maps) is available in all 50 states. MLS connectivity depends on your local MLS board — full coverage map coming soon." },
+      { q: "Does it work in my area?", a: "AI plan generation works with the lot details you enter. Neighborhood and market data depend on our data providers' coverage, and MLS connectivity depends on your local MLS board." },
       { q: "Can I cancel anytime?", a: "Absolutely. Cancel from your dashboard in one click — no phone calls, no forms. Your Pro access continues until the end of your billing period." },
     ],
     security: {
@@ -113,7 +111,7 @@ const T = {
       items: [
         { text: "Client data is never used to train AI models" },
         { text: "All plans and portal activity are encrypted" },
-        { text: "MLS-compliant audit logs on every data call" },
+        { text: "Audit logs on every data call" },
       ],
     },
     testimonials: {
@@ -121,29 +119,29 @@ const T = {
       sub: "Early access — be one of our founding builders",
       items: [] as const,
     },
-    ctaBanner: { heading: "Ready to close more deals?", sub: "Be one of the first builders to close deals with AI-generated proposals.", cta: "Start Free — No Credit Card" },
+    ctaBanner: { heading: "Ready to try the founder pilot?", sub: "Send one live lot. I'll build the first example myself — no card, no login.", cta: "Send a real lot" },
     footer: "© 2026 SplanAI. Built for home builders.",
     faqHeading: "Frequently Asked Questions",
-    reassure: ["No credit card to start free", "14-day trial on Pro & Team", "Cancel anytime, no questions"],
+    reassure: ["No credit card to start", "You review the price & assumptions first", "Work directly with the founder"],
     customPrice: "For 50+ employees",
     customPriceSub: "Volume pricing · Talk to us",
     wyg: {
       eyebrow: "What you get",
-      heading: "30 seconds. 3 proposals. Ready to close.",
-      sub: "Actual output from a live SplanAI session — generated with real AI and real market data.",
-      note: "Built by a solo founder. No design agency. No fluff.",
+      heading: "A real sample concept, built for your lot.",
+      sub: "A real sample concept from a live SplanAI session — generated with real AI and real market data.",
+      note: "Personally built by the founder. No design agency. No fluff.",
       sec: "~30 sec",
       s1Title: "AI generates 3 distinct home concept proposals",
       estRange: "Est. range — finishes-dependent.",
       sqft: "sq ft",
-      s1Foot: "Actual AI output — matches live portal at /s/nfhkewvz",
+      s1Foot: "A real sample concept — matches the live portal at /s/nfhkewvz",
       s2Title: "Share a live client portal — one click",
       s2Body: "Your client gets a personal portal with all 3 plans — floor-plan diagrams, cost ranges, and a mortgage calculator they can adjust. If they request pre-qualification, book a meeting, or tap \"I'm interested,\" you get an email right away. You also see the moment they open it.",
       s2Cta: "See a live portal example →",
       s3aTitle: "Download branded PDF",
       s3aBody: "Professional PDF with your logo, full room breakdown, cost range and mortgage estimate, and neighborhood data. Print-ready for client meetings.",
       s3bTitle: "MLS-enriched plans",
-      s3bBody: "Connect your own MLS license via Trestle to auto-fill real lot size & zoning into every concept plan. NAR/IDX-compliant — every data call is audit-logged. Requires your own MLS license.",
+      s3bBody: "Connect your own MLS license via Trestle to auto-fill real lot size & zoning into every concept plan. Every data call is audit-logged. Requires your own MLS license.",
     },
     modal: {
       redirecting: "Redirecting…",
@@ -162,16 +160,15 @@ const T = {
   es: {
     nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Ejemplos", blog: "Blog", dashboard: "Panel", signin: "Iniciar sesión", cta: "Prueba Gratis" },
     hero: {
-      badge: "Destacado en Product Hunt",
-      headline1: "Cierra más contratos de construcción.",
-      headline2: "Sin esperar 3 días por la propuesta.",
-      sub: "Ingresa los datos del lote → obtén 3 propuestas de concepto listas para el cliente en 30 segundos. Comparte un portal en vivo. Cierra más rápido.",
-      ctaPrimary: "Genera Propuestas Gratis →",
-      ctaSecondary: "Cómo funciona",
-      tryDemo: "¿Aún no quieres registrarte? Prueba una propuesta de ejemplo — sin correo →",
-      stat1: { value: "30 seg", label: "para generar" },
-      stat2: { value: "3 propuestas", label: "por sesión" },
-      stat3: { value: "14 días", label: "de prueba" },
+      headline1: "Convierte un lote real en algo",
+      headline2: "a lo que tu comprador pueda reaccionar.",
+      sub: "Envía el lote y los requisitos del comprador. Prepararé tres direcciones preliminares, y luego revisas el precio y los supuestos de pago antes de compartir nada.",
+      ctaPrimary: "Envía un lote real",
+      ctaSecondary: "Ver una muestra aprobada por un constructor",
+      ctaMicro: "Primer ejemplo creado por el fundador. Sin registro.",
+      stat1: { value: "3 direcciones", label: "por lote" },
+      stat2: { value: "~1 día", label: "primera vista" },
+      stat3: { value: "Sin tarjeta", label: "para empezar" },
     },
     trust: { label: "Con tecnología de" },
     form: {
@@ -225,29 +222,30 @@ const T = {
         { title: "Inteligencia de Vecindario", desc: "Escuelas, estaciones de policía/bomberos y renta del mercado vía Google Maps y RentCast." },
         { title: "PDF con Tu Marca en Un Clic", desc: "Propuestas profesionales con tu logo, distribución de habitaciones y estimado de costo." },
         { title: "Seguimiento en Tiempo Real", desc: "Sabe al instante cuando tu cliente abre el enlace, qué concepto le interesa, y envía un seguimiento listo para usar." },
-        { title: "El Cliente lo Configura en Vivo", desc: "Ajusta tamaño, recámaras, baños y estilo — el precio y el pago mensual se recalculan al instante." },
+        { title: "Precio y Pago, Confirmados Contigo", desc: "Confirmaré contigo el precio de construcción y los supuestos de pago, para que los números que ve tu comprador sean unos que puedas respaldar." },
         { title: "Distribución de un Vistazo", desc: "Una vista clara de la distribución de cada concepto, fácil de entender." },
         { title: "Un Portal que Sigue Vivo", desc: "Favoritos, ajustes guardados y un aviso de 'novedades desde tu última visita' hacen volver al cliente." },
       ],
     },
     mission: {
-      heading: "Construido para constructores que cierran contratos, no que dibujan planos.",
+      heading: "Construido para constructores que venden casas, no que dibujan planos.",
       body: "SplanAI no es una herramienta de diseño. Es la capa de ventas entre tu lote y la firma de tu cliente — propuestas, datos de mercado, financiamiento e inteligencia del cliente, todo en un solo lugar.",
     },
     pricing: {
-      heading: "Precios simples y transparentes",
-      sub: "Empieza gratis. Actualiza cuando estés listo.",
+      heading: "Un piloto guiado por el fundador",
+      sub: "Un lote real, trabajado personalmente contigo. Sin tarjeta para empezar.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Datos de vecindario y mercado", "Portal para clientes + seguimiento de vistas", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
       pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 propuestas/mes · 1 usuario", "PDF con tu logo (pie Powered by SplanAI incluido)", "Datos MLS — tamaño del lote y zonificación reales en cada propuesta (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
       team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Todo lo de Pro, más:", "Propuestas ilimitadas/mes (uso justo*) · hasta 15 usuarios", "Panel de equipo y KPIs por miembro", "PDF sin marca — solo tu logo, sin branding de SplanAI", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
       custom: { label: "Custom", features: ["Todo lo de Equipo, más:", "Mayor volumen de generaciones", "Incorporación prioritaria", "Múltiples conexiones MLS", "Precio según tu equipo de ventas"], cta: "Contáctanos" },
-      footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
+      pilot: { label: "Piloto del Fundador", price: "$149", period: " · un lote real", note: "Un lote real, creado personalmente por el fundador. Sin tarjeta para empezar.", features: ["Un lote real, trabajado personalmente por el fundador", "Tres direcciones preliminares de concepto para tu comprador", "Un portal para compartir los conceptos con el comprador", "Confirmaré contigo el precio de construcción y los supuestos de pago antes de compartir nada", "Primer ejemplo creado por el fundador — sin registro"], cta: "Envía un lote real" },
+      footer: "Sin tarjeta para empezar · Tú apruebas los números primero · Creado contigo por el fundador",
     },
     faq: [
-      { q: "¿Es legal la integración MLS?", a: "Sí. SplanAI se conecta a datos MLS bajo el marco de política IDX de la NAR. Tu licencia MLS se vincula a tu cuenta, todas las llamadas API se registran, y los datos se muestran en tiempo real — nunca almacenados ni redistribuidos." },
+      { q: "¿Cómo funcionan los datos MLS?", a: "Conectas tu propia licencia MLS vía Trestle. Los datos de listados se muestran en tiempo real — nunca se almacenan ni se redistribuyen. Los usas bajo tu propia licencia MLS y eres responsable de las reglas de tu junta MLS y de los requisitos IDX aplicables." },
       { q: "¿Qué fuentes de datos usa?", a: "Google Maps (vecindario y geocodificación), RentCast (datos de renta y precios de venta del mercado), la Reserva Federal de St. Louis (FRED) para tasas hipotecarias, Anthropic Claude AI (generación de propuestas) y opcionalmente tu licencia MLS para datos de listados." },
       { q: "¿Mis datos de clientes son seguros?", a: "Sí. Todos los datos se almacenan con seguridad de nivel de fila en Supabase — solo tú accedes a tus propuestas y enlaces. Los enlaces compartidos se pueden desactivar en cualquier momento." },
-      { q: "¿Funciona en mi estado?", a: "SplanAI funciona en los 50 estados para generación de propuestas y datos de mercado. La conectividad MLS depende de tu junta MLS local." },
+      { q: "¿Funciona en mi zona?", a: "La generación de propuestas funciona con los datos del lote que ingresas. Los datos de vecindario y mercado dependen de la cobertura de nuestros proveedores, y la conectividad MLS depende de tu junta MLS local." },
       { q: "¿Puedo cancelar en cualquier momento?", a: "Por supuesto. Cancela desde tu panel con un solo clic — sin llamadas telefónicas ni formularios. Tu acceso Pro continúa hasta el final del período de facturación." },
     ],
     security: {
@@ -256,7 +254,7 @@ const T = {
       items: [
         { text: "Los datos de clientes nunca se usan para entrenar modelos de IA" },
         { text: "Todas las propuestas y actividad del portal están encriptadas" },
-        { text: "Registros de auditoría conformes con MLS en cada consulta de datos" },
+        { text: "Registros de auditoría en cada consulta de datos" },
       ],
     },
     testimonials: {
@@ -264,29 +262,29 @@ const T = {
       sub: "Acceso anticipado — sé uno de nuestros primeros constructores",
       items: [] as const,
     },
-    ctaBanner: { heading: "¿Listo para cerrar más contratos?", sub: "Sé uno de los primeros constructores en cerrar contratos con propuestas de IA.", cta: "Empieza Gratis — Sin Tarjeta" },
+    ctaBanner: { heading: "¿Listo para probar el piloto del fundador?", sub: "Envía un lote real. Yo construiré el primer ejemplo — sin tarjeta, sin registro.", cta: "Envía un lote real" },
     footer: "© 2026 SplanAI. Construido para constructores.",
     faqHeading: "Preguntas frecuentes",
-    reassure: ["Sin tarjeta para empezar gratis", "Prueba de 14 días en Pro y Equipo", "Cancela cuando quieras, sin preguntas"],
+    reassure: ["Sin tarjeta para empezar", "Revisas el precio y los supuestos primero", "Trabaja directamente con el fundador"],
     customPrice: "Para equipos de 50+ empleados",
     customPriceSub: "Precio por volumen · Hablemos",
     wyg: {
       eyebrow: "Lo que obtienes",
-      heading: "30 segundos. 3 propuestas. Listo para cerrar.",
-      sub: "Resultado real de una sesión en vivo de SplanAI — generado con IA real y datos de mercado reales.",
-      note: "Hecho por un fundador en solitario. Sin agencia de diseño. Sin rodeos.",
+      heading: "Un concepto de muestra real, hecho para tu lote.",
+      sub: "Un concepto de muestra real de una sesión en vivo de SplanAI — generado con IA real y datos de mercado reales.",
+      note: "Creado personalmente por el fundador. Sin agencia de diseño. Sin rodeos.",
       sec: "~30 seg",
       s1Title: "La IA genera 3 propuestas de concepto distintas",
       estRange: "Rango est. — depende de los acabados.",
       sqft: "pies²",
-      s1Foot: "Resultado real de IA — coincide con el portal en vivo en /s/nfhkewvz",
+      s1Foot: "Un concepto de muestra real — coincide con el portal en vivo en /s/nfhkewvz",
       s2Title: "Comparte un portal de cliente en vivo — un clic",
       s2Body: "Tu cliente recibe un portal personal con las 3 propuestas — diagramas del plano, rangos de costo y una calculadora hipotecaria que puede ajustar. Si solicita precalificación, agenda una reunión o toca \"Me interesa\", recibes un email al instante. También ves el momento en que lo abre.",
       s2Cta: "Ver un portal en vivo de ejemplo →",
       s3aTitle: "Descarga un PDF con tu marca",
       s3aBody: "PDF profesional con tu logo, desglose completo de habitaciones, rango de costo y estimado de hipoteca, y datos del vecindario. Listo para imprimir para reuniones con clientes.",
       s3bTitle: "Planes enriquecidos con MLS",
-      s3bBody: "Conecta tu propia licencia MLS vía Trestle para autocompletar el tamaño real del lote y la zonificación en cada concepto. Cumple con NAR/IDX — cada consulta queda registrada en auditoría. Requiere tu propia licencia MLS.",
+      s3bBody: "Conecta tu propia licencia MLS vía Trestle para autocompletar el tamaño real del lote y la zonificación en cada concepto. Cada consulta queda registrada en auditoría. Requiere tu propia licencia MLS.",
     },
     modal: {
       redirecting: "Redirigiendo…",
@@ -611,12 +609,6 @@ function HeroPreview() {
               ))}
             </div>
 
-            {/* Mortgage bar */}
-            <div className="mb-3 rounded-lg bg-slate-800 p-2.5 flex items-center justify-between" style={fi(chipVisible, 360)}>
-              <span className="text-xs text-slate-400">Mortgage (20% down, 30yr, ~6.5%)</span>
-              <span className="text-sm font-extrabold text-white">$1,876<span className="text-slate-400 text-xs font-normal">/mo</span></span>
-            </div>
-
             {/* Plan cards */}
             <div className="grid grid-cols-3 gap-2">
               {HERO_PLANS.map((p, i) => (
@@ -652,7 +644,7 @@ function HeroPreview() {
       >
         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
         <span className="text-xs font-semibold text-slate-700">Client viewed plan</span>
-        <span className="text-xs text-slate-400">just now</span>
+        <span className="text-xs text-slate-400">— sample UI</span>
       </div>
     </div>
   );
@@ -795,23 +787,6 @@ export default function Home() {
 
   const isValid = form.lotSize && form.budget && form.familySize;
 
-  const [teamCheckoutLoading, setTeamCheckoutLoading] = useState(false);
-  async function handleLPTeamCTA() {
-    if (!userEmail) { window.location.href = "/login?plan=team"; return; }
-    setTeamCheckoutLoading(true);
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: "team" }),
-      });
-      const data = await res.json() as { url?: string };
-      if (data.url) { window.location.href = data.url; return; }
-    } catch { /* fall through */ }
-    window.location.href = "/login?plan=team";
-    setTeamCheckoutLoading(false);
-  }
-
   async function handleUpgradeFromModal(upgradePath: string) {
     if (upgradePath === 'custom') { window.location.href = CUSTOM_PLAN_MAILTO; return; }
     setUpgradeLoading(true);
@@ -870,24 +845,23 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
           <div className="flex flex-col lg:flex-row items-center gap-16">
             <div className="flex-1 text-center lg:text-left max-w-xl mx-auto lg:mx-0">
-              <ProductHuntBadge state="post-launch" lang={lang} />
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-balance text-white mb-5">
                 {t.hero.headline1}{" "}
                 <span className="text-blue-400">{t.hero.headline2}</span>
               </h1>
               <p className="text-lg text-slate-400 leading-relaxed mb-8 max-w-lg">{t.hero.sub}</p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10">
-                <a href="#generate" className="px-7 py-4 rounded-xl text-white font-bold text-base bg-blue-500 hover:bg-blue-600 shadow-[0_0_30px_rgba(59,130,246,0.35)] transition-colors"
+                <a href={SEND_LOT_MAILTO} className="px-7 py-4 rounded-xl text-white font-bold text-base bg-blue-500 hover:bg-blue-600 shadow-[0_0_30px_rgba(59,130,246,0.35)] transition-colors"
                   onClick={() => track("cta_click", { button: "hero_primary" })}
                 >{t.hero.ctaPrimary}</a>
-                <a href="#how" className="px-7 py-4 rounded-xl font-semibold text-base border-2 border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white transition-all">
+                <a href="/s/nfhkewvz" target="_blank" rel="noopener noreferrer" className="px-7 py-4 rounded-xl font-semibold text-base border-2 border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white transition-all"
+                  onClick={() => track("cta_click", { button: "hero_sample" })}
+                >
                   {t.hero.ctaSecondary}
                 </a>
               </div>
-              <p className="-mt-6 mb-10 text-center lg:text-left">
-                <a href="/try" className="text-sm text-slate-400 hover:text-blue-300 underline underline-offset-4 transition-colors"
-                  onClick={() => track("cta_click", { button: "hero_try_demo" })}
-                >{t.hero.tryDemo}</a>
+              <p className="-mt-6 mb-10 text-center lg:text-left text-sm text-slate-500">
+                {t.hero.ctaMicro}
               </p>
               <div className="flex items-center gap-8 justify-center lg:justify-start">
                 {[t.hero.stat1, t.hero.stat2, t.hero.stat3].map((s, i) => (
@@ -1125,13 +1099,6 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-                <div className="rounded-xl p-3 flex items-center justify-between border border-slate-200 bg-white mb-4">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <span>🏦</span> Mortgage est. <span className="font-semibold text-slate-800">$1,876/mo</span>
-                    <span className="text-xs text-slate-400">(20% down · 30yr · ~6.5%)</span>
-                  </div>
-                  <span className="text-xs px-2 py-1 rounded-full text-emerald-700 font-semibold" style={{ background: "#ECFDF5", border: "1px solid #A7F3D0" }}>Live</span>
-                </div>
                 {/* AI-generated plans shown after lot context is established */}
                 <div className="grid grid-cols-3 gap-3">
                   {[
@@ -1195,99 +1162,29 @@ export default function Home() {
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance mb-3 text-white">{t.pricing.heading}</h2>
             <p className="text-slate-400">{t.pricing.sub}</p>
           </AnimateIn>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Free */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-700/60 bg-slate-800">
+          <div className="max-w-md mx-auto">
+            {/* Founder pilot — single offer (replaces the former Free/Pro/Team/Custom grid) */}
+            <div className="rounded-2xl p-8 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40 bg-slate-900 shadow-[0_8px_40px_rgba(59,130,246,0.30)]">
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.free.label}</p>
-                <p className="text-4xl font-extrabold text-white mt-2">{t.pricing.free.price}</p>
-                <p className="text-sm text-slate-500 mt-1">{t.pricing.free.note}</p>
-              </div>
-              <ul className="flex flex-col gap-3 flex-1">
-                {t.pricing.free.features.map(f => (
-                  <li key={f} className="flex items-center gap-2.5 text-sm text-slate-300">
-                    <svg className="w-4 h-4 flex-shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>{f}
-                  </li>
-                ))}
-              </ul>
-              <a href="/login?tab=signup" className="block text-center py-3 rounded-xl border border-slate-600 font-bold text-slate-300 hover:border-slate-400 hover:text-white transition-all text-sm">
-                {t.pricing.free.cta}
-              </a>
-            </div>
-            {/* Pro */}
-            <div className="rounded-2xl p-7 sm:py-10 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40 bg-slate-900 shadow-[0_8px_40px_rgba(59,130,246,0.30)]">
-              <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white bg-blue-500">
-                {t.pricing.pro.badge}
-              </div>
-              <div>
-                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{t.pricing.pro.label}</p>
+                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{t.pricing.pilot.label}</p>
                 <p className="text-4xl font-extrabold text-white mt-2">
-                  {t.pricing.pro.price}<span className="text-base font-medium text-slate-400">{t.pricing.pro.period}</span>
+                  {t.pricing.pilot.price}<span className="text-base font-medium text-slate-400">{t.pricing.pilot.period}</span>
                 </p>
-                <p className="text-sm text-slate-400 mt-1">{t.pricing.pro.note}</p>
+                <p className="text-sm text-slate-400 mt-1">{t.pricing.pilot.note}</p>
               </div>
               <ul className="flex flex-col gap-3 flex-1">
-                {t.pricing.pro.features.map((f, i) => (
-                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "text-blue-300 font-medium" : "text-slate-200"}`}>
-                    <svg className="w-4 h-4 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                {t.pricing.pilot.features.map(f => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm text-slate-200">
+                    <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>{f}
                   </li>
                 ))}
               </ul>
-              <a href="/login?tab=signup" className="block text-center py-3 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors shadow-lg text-sm"
-              >{t.pricing.pro.cta}</a>
-            </div>
-            {/* Team — gold left border accent */}
-            <div className="rounded-2xl p-7 sm:py-9 flex flex-col gap-5 relative overflow-hidden shadow-2xl bg-slate-900 border border-amber-500/15 border-l-4 border-l-amber-500">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-amber-500">{t.pricing.team.label}</p>
-                <p className="text-4xl font-extrabold text-white mt-2">
-                  {t.pricing.team.price}<span className="text-base font-medium text-slate-400">{t.pricing.team.period}</span>
-                </p>
-                <p className="text-sm text-slate-400 mt-1">{t.pricing.team.note}</p>
-              </div>
-              <ul className="flex flex-col gap-3 flex-1">
-                {t.pricing.team.features.map((f, i) => (
-                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "font-medium text-amber-500" : "text-slate-200"}`}>
-                    <svg className="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>{f}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={handleLPTeamCTA}
-                disabled={teamCheckoutLoading}
-                className="block w-full text-center py-3 rounded-xl font-bold text-slate-900 bg-amber-500 hover:bg-amber-600 transition-colors shadow-lg text-sm disabled:opacity-60 cursor-pointer"
-              >{teamCheckoutLoading ? t.modal.redirecting : t.pricing.team.cta}</button>
-            </div>
-
-            {/* Custom — sales-led, no price shown */}
-            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-600/60 bg-slate-900">
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.custom.label}</p>
-                <p className="text-2xl font-extrabold text-white mt-2">{t.customPrice}</p>
-                <p className="text-sm text-slate-500 mt-1">{t.customPriceSub}</p>
-              </div>
-              <ul className="flex flex-col gap-3 flex-1">
-                {t.pricing.custom.features.map((f, i) => (
-                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "text-slate-300 font-medium" : "text-slate-400"}`}>
-                    <svg className="w-4 h-4 flex-shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>{f}
-                  </li>
-                ))}
-              </ul>
-              {/* Calendly when NEXT_PUBLIC_CALENDLY_URL is set; fallback to mailto */}
-              <a
-                href={CALENDLY_READY ? CALENDLY_URL : CUSTOM_PLAN_MAILTO}
-                target={CALENDLY_READY ? "_blank" : undefined}
-                rel={CALENDLY_READY ? "noopener noreferrer" : undefined}
-                className="block text-center py-3 rounded-xl border border-slate-500 font-bold text-slate-300 hover:border-slate-300 hover:text-white transition-all text-sm"
-              >{t.pricing.custom.cta}</a>
+              <a href={SEND_LOT_MAILTO}
+                onClick={() => track("cta_click", { button: "pricing_pilot" })}
+                className="block text-center py-3 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors shadow-lg text-sm"
+              >{t.pricing.pilot.cta}</a>
             </div>
           </div>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
@@ -1301,13 +1198,6 @@ export default function Home() {
             ))}
           </div>
           <p className="mt-4 text-sm text-center text-slate-400">{t.pricing.footer}</p>
-          <p className="mt-3 text-xs text-center text-slate-400">
-            *{lang === 'en' ? (
-              <>Subject to our <a href="/terms#fair-use" className="underline hover:text-white transition-colors">Fair Use Policy</a>.</>
-            ) : (
-              <>Sujeto a nuestra <a href="/terms#fair-use" className="underline hover:text-white transition-colors">Política de Uso Justo</a>.</>
-            )}
-          </p>
         </div>
       </section>
 
@@ -1447,7 +1337,7 @@ export default function Home() {
         <AnimateIn className="relative max-w-3xl mx-auto text-center">
           <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-balance text-white mb-5">{t.ctaBanner.heading}</h2>
           <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto leading-relaxed">{t.ctaBanner.sub}</p>
-          <a href="#generate"
+          <a href={SEND_LOT_MAILTO}
             className="inline-flex items-center gap-3 px-6 sm:px-10 py-5 rounded-2xl text-white text-lg sm:text-xl font-bold bg-blue-500 hover:bg-blue-600 shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-colors"
           >
             {t.ctaBanner.cta}
