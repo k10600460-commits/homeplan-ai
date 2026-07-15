@@ -189,14 +189,14 @@ export default async function BlogArticlePage({ params }: Params) {
 
         {/* CTA */}
         <div className="mt-16 p-6 rounded-xl border border-blue-200 bg-blue-50 text-center">
-          <p className="font-bold text-slate-900 text-lg">Generate floor plans in 30 seconds</p>
-          <p className="text-slate-500 text-sm mt-1 mb-4">Free to start — no credit card required.</p>
+          <p className="font-bold text-slate-900 text-lg">Have a lot you&apos;re selling?</p>
+          <p className="text-slate-500 text-sm mt-1 mb-4">Send me one live lot and I&apos;ll build a buyer-ready concept for your review — no charge, no login.</p>
           <Link
-            href="/#generate"
+            href="mailto:hello@splanai.com?subject=SplanAI%20founder%20pilot%20%E2%80%94%20live%20lot&body=Lot%20address%20or%20link%3A%0D%0ABuyer%20requirements%20(beds%2Fbaths%2Fbudget)%3A%0D%0AAnything%20else%3A%0D%0A"
             className="inline-block px-6 py-3 rounded-lg text-sm font-bold text-white"
             style={{ background: "#3B82F6" }}
           >
-            Try SplanAI Free →
+            Send a real lot →
           </Link>
         </div>
       </main>
