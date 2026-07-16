@@ -50,9 +50,19 @@ export async function recordClaudeCost(
   usage: Anthropic.Usage | null | undefined,
 ): Promise<void> {
   try {
-    const inputTokens = usage?.input_tokens ?? 0;
+    // Count cache tokens too, so a future cache_control rollout can't silently
+    // under-report input (they bill at reduced rates but are real spend).
+    const inputTokens =
+      (usage?.input_tokens ?? 0) +
+      (usage?.cache_creation_input_tokens ?? 0) +
+      (usage?.cache_read_input_tokens ?? 0);
     const outputTokens = usage?.output_tokens ?? 0;
-    const est = estimateCostUsd(model, inputTokens, outputTokens);
+    // web_search is a SERVER tool billed per search ($10 / 1,000) ON TOP of tokens —
+    // previously uncounted, which hid part of the daily-brief:research spend.
+    // usage.server_tool_use isn't in the SDK's typed Usage yet → read defensively.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const webSearches = Number((usage as any)?.server_tool_use?.web_search_requests) || 0;
+    const est = estimateCostUsd(model, inputTokens, outputTokens) + (webSearches / 1000) * 10;
     const supabase = serviceClient();
     if (!supabase) {
       console.error(`[cost] ${job}: missing Supabase env — cannot record`);
