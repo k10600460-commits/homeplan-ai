@@ -63,7 +63,7 @@ export default function TermsPage() {
 
               <h3 className="font-semibold text-slate-800 mb-2 mt-4">Plans</h3>
               <p className="leading-relaxed mb-3">
-                SplanAI offers three plans:
+                SplanAI offers four plans:
               </p>
               <ul className="list-disc pl-6 space-y-1 leading-relaxed">
                 <li><strong>Free</strong> — Up to 3 floor plan generations per month, including neighborhood &amp; market data and client sharing portal, at no cost.</li>

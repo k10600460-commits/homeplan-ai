@@ -8,6 +8,10 @@ import { track } from "@vercel/analytics";
 // ── Constants ────────────────────────────────────────────────────────
 // Founder-led pilot: builder sends a real lot; the founder builds the first example (no card, no login)
 const SEND_LOT_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20founder%20pilot%20%E2%80%94%20live%20lot&body=Lot%20address%20or%20link%3A%0D%0ABuyer%20requirements%20(beds%2Fbaths%2Fbudget)%3A%0D%0AAnything%20else%3A%0D%0A";
+const CUSTOM_PLAN_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20Custom%20plan%20inquiry&body=Team%20size%3A%0D%0AProposals%20per%20month%3A%0D%0AMarkets%20%2F%20MLS%3A%0D%0A"
+// Set NEXT_PUBLIC_CALENDLY_URL in Vercel env to activate Calendly CTA; falls back to mailto until configured
+const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL ?? "";
+const CALENDLY_READY = Boolean(CALENDLY_URL && !CALENDLY_URL.startsWith("<<FILL"));
 
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
@@ -86,14 +90,13 @@ const T = {
       body: "SplanAI isn't a design tool. It's the sales layer between your lot and your client's signature — home concept proposals, market data, financing, and client intelligence, all in one place.",
     },
     pricing: {
-      heading: "One founder-led pilot",
-      sub: "One live lot, worked personally with you. No credit card to start.",
+      heading: "Simple, transparent pricing",
+      sub: "Start free. Upgrade when you're ready.",
       free: { label: "Free", price: "$0", note: "No credit card required", features: ["3 proposal generations / month", "SplanAI branded PDF export", "Neighborhood & market data", "Client sharing portal + view tracking", "All room types", "Email support"], cta: "Get started free" },
       pro: { label: "Pro", price: "$49", period: "/mo", note: "14-day free trial, then $49/mo. Cancel anytime before it ends.", badge: "MOST POPULAR", features: ["Everything in Free, plus:", "100 proposals/mo · 1 seat", "Branded PDF with your logo (Powered by SplanAI footer included)", "MLS listing data — real lot size & zoning in every plan (requires your MLS license)", "Priority support"], cta: "Start 14-day free trial" },
       team: { label: "Team", price: "$149", period: "/mo", note: "14-day free trial, then $149/mo. Cancel anytime before it ends.", features: ["Everything in Pro, plus:", "Unlimited proposals/mo (fair use*) · up to 15 seats", "Team dashboard & member KPIs", "White-label PDF — your logo only, zero SplanAI branding", "Dedicated support"], cta: "Start 14-day free trial" },
       custom: { label: "Custom", features: ["Everything in Team, plus:", "Higher generation volume", "Priority onboarding", "Multiple MLS connections", "Pricing sized to your sales team"], cta: "Talk to us" },
-      pilot: { label: "Founder Pilot", price: "$149", period: " · one live lot", note: "One live lot, built personally by the founder. No credit card to start.", features: ["One live lot, worked personally by the founder", "Three preliminary home-concept directions for your buyer", "A shareable buyer portal for the concepts", "I'll confirm the build-price and payment assumptions with you before anything is shared", "First example built by the founder — no login required"], cta: "Send a real lot" },
-      footer: "No credit card to start · You approve the numbers first · Built with you by the founder",
+      footer: "All plans include PDF export · No hidden fees · Cancel anytime",
     },
     faq: [
       { q: "How does MLS data work?", a: "You connect your own MLS license via Trestle. Listing data is displayed in real time — never stored or redistributed. You use MLS data under your own license and remain responsible for your MLS board's rules and any applicable IDX requirements." },
@@ -119,7 +122,7 @@ const T = {
     ctaBanner: { heading: "Ready to try the founder pilot?", sub: "Send one live lot. I'll build the first example myself — no card, no login.", cta: "Send a real lot" },
     footer: "© 2026 SplanAI. Built for home builders.",
     faqHeading: "Frequently Asked Questions",
-    reassure: ["No credit card to start", "You review the price & assumptions first", "Work directly with the founder"],
+    reassure: ["No credit card to start free", "14-day trial on Pro & Team", "Cancel anytime, no questions"],
     customPrice: "For 50+ employees",
     customPriceSub: "Volume pricing · Talk to us",
     wyg: {
@@ -229,14 +232,13 @@ const T = {
       body: "SplanAI no es una herramienta de diseño. Es la capa de ventas entre tu lote y la firma de tu cliente — propuestas, datos de mercado, financiamiento e inteligencia del cliente, todo en un solo lugar.",
     },
     pricing: {
-      heading: "Un piloto guiado por el fundador",
-      sub: "Un lote real, trabajado personalmente contigo. Sin tarjeta para empezar.",
+      heading: "Precios simples y transparentes",
+      sub: "Empieza gratis. Actualiza cuando estés listo.",
       free: { label: "Gratis", price: "$0", note: "Sin tarjeta de crédito", features: ["3 generaciones / mes", "PDF con marca SplanAI", "Datos de vecindario y mercado", "Portal para clientes + seguimiento de vistas", "Todos los tipos de habitación", "Soporte por email"], cta: "Empezar gratis" },
       pro: { label: "Pro", price: "$49", period: "/mes", note: "14 días de prueba gratis, luego $49/mes. Cancela antes que termine.", badge: "MÁS POPULAR", features: ["Todo lo de Gratis, más:", "100 propuestas/mes · 1 usuario", "PDF con tu logo (pie Powered by SplanAI incluido)", "Datos MLS — tamaño del lote y zonificación reales en cada propuesta (requiere tu licencia MLS)", "Soporte prioritario"], cta: "Iniciar prueba gratis" },
       team: { label: "Equipo", price: "$149", period: "/mes", note: "14 días de prueba gratis, luego $149/mes. Cancela antes que termine.", features: ["Todo lo de Pro, más:", "Propuestas ilimitadas/mes (uso justo*) · hasta 15 usuarios", "Panel de equipo y KPIs por miembro", "PDF sin marca — solo tu logo, sin branding de SplanAI", "Soporte dedicado"], cta: "Iniciar prueba gratis" },
       custom: { label: "Custom", features: ["Todo lo de Equipo, más:", "Mayor volumen de generaciones", "Incorporación prioritaria", "Múltiples conexiones MLS", "Precio según tu equipo de ventas"], cta: "Contáctanos" },
-      pilot: { label: "Piloto del Fundador", price: "$149", period: " · un lote real", note: "Un lote real, creado personalmente por el fundador. Sin tarjeta para empezar.", features: ["Un lote real, trabajado personalmente por el fundador", "Tres direcciones preliminares de concepto para tu comprador", "Un portal para compartir los conceptos con el comprador", "Confirmaré contigo el precio de construcción y los supuestos de pago antes de compartir nada", "Primer ejemplo creado por el fundador — sin registro"], cta: "Envía un lote real" },
-      footer: "Sin tarjeta para empezar · Tú apruebas los números primero · Creado contigo por el fundador",
+      footer: "Todos los planes incluyen PDF · Sin costos ocultos · Cancela cuando quieras",
     },
     faq: [
       { q: "¿Cómo funcionan los datos MLS?", a: "Conectas tu propia licencia MLS vía Trestle. Los datos de listados se muestran en tiempo real — nunca se almacenan ni se redistribuyen. Los usas bajo tu propia licencia MLS y eres responsable de las reglas de tu junta MLS y de los requisitos IDX aplicables." },
@@ -262,7 +264,7 @@ const T = {
     ctaBanner: { heading: "¿Listo para probar el piloto del fundador?", sub: "Envía un lote real. Yo construiré el primer ejemplo — sin tarjeta, sin registro.", cta: "Envía un lote real" },
     footer: "© 2026 SplanAI. Construido para constructores.",
     faqHeading: "Preguntas frecuentes",
-    reassure: ["Sin tarjeta para empezar", "Revisas el precio y los supuestos primero", "Trabaja directamente con el fundador"],
+    reassure: ["Sin tarjeta para empezar gratis", "Prueba de 14 días en Pro y Equipo", "Cancela cuando quieras, sin preguntas"],
     customPrice: "Para equipos de 50+ empleados",
     customPriceSub: "Precio por volumen · Hablemos",
     wyg: {
@@ -652,6 +654,23 @@ export default function Home() {
     });
   }, [supabase]);
 
+  const [teamCheckoutLoading, setTeamCheckoutLoading] = useState(false);
+  async function handleLPTeamCTA() {
+    if (!userEmail) { window.location.href = "/login?plan=team"; return; }
+    setTeamCheckoutLoading(true);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "team" }),
+      });
+      const data = await res.json() as { url?: string };
+      if (data.url) { window.location.href = data.url; return; }
+    } catch { /* fall through */ }
+    window.location.href = "/login?plan=team";
+    setTeamCheckoutLoading(false);
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800">
 
@@ -915,29 +934,99 @@ export default function Home() {
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance mb-3 text-white">{t.pricing.heading}</h2>
             <p className="text-slate-400">{t.pricing.sub}</p>
           </AnimateIn>
-          <div className="max-w-md mx-auto">
-            {/* Founder pilot — single offer (replaces the former Free/Pro/Team/Custom grid) */}
-            <div className="rounded-2xl p-8 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40 bg-slate-900 shadow-[0_8px_40px_rgba(59,130,246,0.30)]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Free */}
+            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-700/60 bg-slate-800">
               <div>
-                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{t.pricing.pilot.label}</p>
-                <p className="text-4xl font-extrabold text-white mt-2">
-                  {t.pricing.pilot.price}<span className="text-base font-medium text-slate-400">{t.pricing.pilot.period}</span>
-                </p>
-                <p className="text-sm text-slate-400 mt-1">{t.pricing.pilot.note}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.free.label}</p>
+                <p className="text-4xl font-extrabold text-white mt-2">{t.pricing.free.price}</p>
+                <p className="text-sm text-slate-500 mt-1">{t.pricing.free.note}</p>
               </div>
               <ul className="flex flex-col gap-3 flex-1">
-                {t.pricing.pilot.features.map(f => (
-                  <li key={f} className="flex items-start gap-2.5 text-sm text-slate-200">
-                    <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                {t.pricing.free.features.map(f => (
+                  <li key={f} className="flex items-center gap-2.5 text-sm text-slate-300">
+                    <svg className="w-4 h-4 flex-shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>{f}
                   </li>
                 ))}
               </ul>
-              <a href={SEND_LOT_MAILTO}
-                onClick={() => track("cta_click", { button: "pricing_pilot" })}
-                className="block text-center py-3 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors shadow-lg text-sm"
-              >{t.pricing.pilot.cta}</a>
+              <a href="/login?tab=signup" className="block text-center py-3 rounded-xl border border-slate-600 font-bold text-slate-300 hover:border-slate-400 hover:text-white transition-all text-sm">
+                {t.pricing.free.cta}
+              </a>
+            </div>
+            {/* Pro */}
+            <div className="rounded-2xl p-7 sm:py-10 flex flex-col gap-5 relative overflow-hidden border border-blue-500/40 bg-slate-900 shadow-[0_8px_40px_rgba(59,130,246,0.30)]">
+              <div className="absolute top-4 right-4 text-xs font-bold px-2.5 py-1 rounded-full text-white bg-blue-500">
+                {t.pricing.pro.badge}
+              </div>
+              <div>
+                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{t.pricing.pro.label}</p>
+                <p className="text-4xl font-extrabold text-white mt-2">
+                  {t.pricing.pro.price}<span className="text-base font-medium text-slate-400">{t.pricing.pro.period}</span>
+                </p>
+                <p className="text-sm text-slate-400 mt-1">{t.pricing.pro.note}</p>
+              </div>
+              <ul className="flex flex-col gap-3 flex-1">
+                {t.pricing.pro.features.map((f, i) => (
+                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "text-blue-300 font-medium" : "text-slate-200"}`}>
+                    <svg className="w-4 h-4 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>{f}
+                  </li>
+                ))}
+              </ul>
+              <a href="/login?tab=signup" className="block text-center py-3 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors shadow-lg text-sm"
+              >{t.pricing.pro.cta}</a>
+            </div>
+            {/* Team — gold left border accent */}
+            <div className="rounded-2xl p-7 sm:py-9 flex flex-col gap-5 relative overflow-hidden shadow-2xl bg-slate-900 border border-amber-500/15 border-l-4 border-l-amber-500">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-amber-500">{t.pricing.team.label}</p>
+                <p className="text-4xl font-extrabold text-white mt-2">
+                  {t.pricing.team.price}<span className="text-base font-medium text-slate-400">{t.pricing.team.period}</span>
+                </p>
+                <p className="text-sm text-slate-400 mt-1">{t.pricing.team.note}</p>
+              </div>
+              <ul className="flex flex-col gap-3 flex-1">
+                {t.pricing.team.features.map((f, i) => (
+                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "font-medium text-amber-500" : "text-slate-200"}`}>
+                    <svg className="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>{f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={handleLPTeamCTA}
+                disabled={teamCheckoutLoading}
+                className="block w-full text-center py-3 rounded-xl font-bold text-slate-900 bg-amber-500 hover:bg-amber-600 transition-colors shadow-lg text-sm disabled:opacity-60 cursor-pointer"
+              >{teamCheckoutLoading ? t.modal.redirecting : t.pricing.team.cta}</button>
+            </div>
+
+            {/* Custom — sales-led, no price shown */}
+            <div className="rounded-2xl p-7 flex flex-col gap-5 border border-slate-600/60 bg-slate-900">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.pricing.custom.label}</p>
+                <p className="text-2xl font-extrabold text-white mt-2">{t.customPrice}</p>
+                <p className="text-sm text-slate-500 mt-1">{t.customPriceSub}</p>
+              </div>
+              <ul className="flex flex-col gap-3 flex-1">
+                {t.pricing.custom.features.map((f, i) => (
+                  <li key={f} className={`flex items-center gap-2.5 text-sm ${i === 0 ? "text-slate-300 font-medium" : "text-slate-400"}`}>
+                    <svg className="w-4 h-4 flex-shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>{f}
+                  </li>
+                ))}
+              </ul>
+              {/* Calendly when NEXT_PUBLIC_CALENDLY_URL is set; fallback to mailto */}
+              <a
+                href={CALENDLY_READY ? CALENDLY_URL : CUSTOM_PLAN_MAILTO}
+                target={CALENDLY_READY ? "_blank" : undefined}
+                rel={CALENDLY_READY ? "noopener noreferrer" : undefined}
+                className="block text-center py-3 rounded-xl border border-slate-500 font-bold text-slate-300 hover:border-slate-300 hover:text-white transition-all text-sm"
+              >{t.pricing.custom.cta}</a>
             </div>
           </div>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
@@ -951,6 +1040,20 @@ export default function Home() {
             ))}
           </div>
           <p className="mt-4 text-sm text-center text-slate-400">{t.pricing.footer}</p>
+          <p className="mt-3 text-xs text-center text-slate-400">
+            *{lang === 'en' ? (
+              <>Subject to our <a href="/terms#fair-use" className="underline hover:text-white transition-colors">Fair Use Policy</a>.</>
+            ) : (
+              <>Sujeto a nuestra <a href="/terms#fair-use" className="underline hover:text-white transition-colors">Política de Uso Justo</a>.</>
+            )}
+          </p>
+          <p className="mt-2 text-sm text-center text-slate-400">
+            {lang === 'en' ? (
+              <>Not ready to sign up? <a href="/try" className="underline hover:text-white transition-colors">Try a sample proposal</a> — no signup needed.</>
+            ) : (
+              <>¿Aún no quieres registrarte? <a href="/try" className="underline hover:text-white transition-colors">Prueba una propuesta de muestra</a> — sin registro.</>
+            )}
+          </p>
         </div>
       </section>
 

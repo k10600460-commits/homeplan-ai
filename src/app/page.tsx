@@ -53,6 +53,12 @@ function buildJsonLd(origin: string) {
           price: "149",
           priceCurrency: "USD",
         },
+        {
+          // Sales-led volume plan — no public list price, so no price field here
+          "@type": "Offer",
+          name: "Custom",
+          description: "Volume pricing for teams of 50+ — contact us",
+        },
       ],
     },
   ],
