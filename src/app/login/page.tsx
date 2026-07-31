@@ -78,9 +78,16 @@ function LoginContent() {
       return;
     }
 
-    // If session is returned immediately (email confirmation disabled), go to checkout
+    // If session is returned immediately (email confirmation disabled):
+    // only auto-checkout when a paid plan was explicitly requested — a plain
+    // "Get started free" signup must land on the free dashboard, never in Pro checkout.
     if (data.session) {
-      await startCheckout(planParam === "team" ? "team" : "pro");
+      if (planParam === "team" || planParam === "pro") {
+        await startCheckout(planParam);
+        return;
+      }
+      router.push("/dashboard");
+      router.refresh();
       return;
     }
 

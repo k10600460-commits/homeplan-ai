@@ -976,7 +976,7 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <a href="/login?tab=signup" className="block text-center py-3 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors shadow-lg text-sm"
+              <a href="/login?tab=signup&plan=pro" className="block text-center py-3 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors shadow-lg text-sm"
               >{t.pricing.pro.cta}</a>
             </div>
             {/* Team — gold left border accent */}

@@ -74,10 +74,10 @@ export default function TermsPage() {
 
               <h3 className="font-semibold text-slate-800 mb-2 mt-6">Free Trial &amp; Founder Pilot</h3>
               <p className="leading-relaxed mb-3">
-                No credit card is required to start the founder pilot or a free trial. We only collect a
-                payment method if and when you choose to continue on a paid plan, and you will not be
-                charged before then. If you provide a payment method to continue and do not cancel before
-                the trial ends, your subscription will convert to the paid plan.
+                No credit card is required to start the founder pilot or to use the Free plan. Paid-plan
+                trials (Pro and Team) collect a payment method when you start the 14-day trial, but you
+                will not be charged during the trial. If you do not cancel before the trial ends, your
+                subscription will convert to the paid plan and billing will begin.
               </p>
 
               <h3 className="font-semibold text-slate-800 mb-2 mt-6">Billing</h3>
