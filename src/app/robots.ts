@@ -12,6 +12,14 @@ import { requestOriginFromHeaders } from "@/lib/request-url";
 // is ever observed. Pairs with public/llms.txt.
 const PRIVATE_PATHS = ["/dashboard", "/results", "/s/", "/api/", "/invite", "/try"];
 
+// Deliberately NOT listed above: /login, /forgot-password, /reset-password,
+// /upgrade, /generate. Those carry a noindex instead (see lib/seo-noindex.ts).
+// Blocking them here would prevent Googlebot from fetching the page, so it
+// could never read the noindex — and /login was already indexed (2026-08-15),
+// which means a Disallow would freeze it in the index rather than remove it.
+// Once they have dropped out of the index, they may be moved into PRIVATE_PATHS
+// to save crawl budget.
+
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const origin = requestOriginFromHeaders(await headers());
   return {

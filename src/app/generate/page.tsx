@@ -1,8 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { NOINDEX_METADATA } from "@/lib/seo-noindex";
 import GenerateClient from "./GenerateClient";
 
-export const metadata = { title: "Generate Floor Plans — SplanAI" };
+export const metadata = {
+  title: "Generate Floor Plans — SplanAI",
+  ...NOINDEX_METADATA,
+};
 
 export default async function GeneratePage() {
   const supabase = await createClient();
