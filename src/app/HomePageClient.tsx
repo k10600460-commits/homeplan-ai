@@ -6,8 +6,7 @@ import { SocialProofBar } from "@/components/SocialProofBar";
 import { track } from "@vercel/analytics";
 
 // ── Constants ────────────────────────────────────────────────────────
-// Founder-led pilot: builder sends a real lot; the founder builds the first example (no card, no login)
-const SEND_LOT_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20founder%20pilot%20%E2%80%94%20live%20lot&body=Lot%20address%20or%20link%3A%0D%0ABuyer%20requirements%20(beds%2Fbaths%2Fbudget)%3A%0D%0AAnything%20else%3A%0D%0A";
+// Fishing-pond mode (DEC-0815B): self-serve is the primary entrance — /try (no signup) → free account (3/mo) → trial.
 const CUSTOM_PLAN_MAILTO = "mailto:hello@splanai.com?subject=SplanAI%20Custom%20plan%20inquiry&body=Team%20size%3A%0D%0AProposals%20per%20month%3A%0D%0AMarkets%20%2F%20MLS%3A%0D%0A"
 // Set NEXT_PUBLIC_CALENDLY_URL in Vercel env to activate Calendly CTA; falls back to mailto until configured
 const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL ?? "";
@@ -16,16 +15,15 @@ const CALENDLY_READY = Boolean(CALENDLY_URL && !CALENDLY_URL.startsWith("<<FILL"
 // ── i18n ─────────────────────────────────────────────────────────────
 const T = {
   en: {
-    nav: { how: "How it works", pricing: "Pricing", reviews: "Examples", blog: "Blog", dashboard: "Dashboard", signin: "Sign in", cta: "Send a real lot" },
+    nav: { how: "How it works", pricing: "Pricing", reviews: "Examples", blog: "Blog", dashboard: "Dashboard", signin: "Sign in", cta: "Start free" },
     hero: {
       headline1: "Turn one live lot into",
       headline2: "something your buyer can react to.",
-      sub: "Send the lot and buyer requirements. I'll prepare three preliminary directions, then you review the price and payment assumptions before anything is shared.",
-      ctaPrimary: "Send a real lot",
-      ctaSecondary: "View a builder-approved sample",
-      ctaMicro: "First example built by the founder. No login required.",
+      sub: "Enter a lot and the buyer's requirements. SplanAI drafts three concept directions with neighborhood data and payment assumptions, ready to review in about 30 seconds.",
+      ctaPrimary: "Try it on a sample lot",
+      ctaSecondary: "Start free — 3 proposals a month",
       stat1: { value: "3 directions", label: "per lot" },
-      stat2: { value: "~1 day", label: "first look" },
+      stat2: { value: "~30 sec", label: "first draft" },
       stat3: { value: "No card", label: "to start" },
     },
     trust: { label: "Powered by" },
@@ -119,7 +117,7 @@ const T = {
       sub: "Early access — be one of our founding builders",
       items: [] as const,
     },
-    ctaBanner: { heading: "Ready to try the founder pilot?", sub: "Send one live lot. I'll build the first example myself — no card, no login.", cta: "Send a real lot" },
+    ctaBanner: { heading: "Ready when you have a lot in hand.", sub: "Three concepts, neighborhood data, and payment assumptions — free to try, no card.", cta: "Start free" },
     footer: "© 2026 SplanAI. Built for home builders.",
     faqHeading: "Frequently Asked Questions",
     reassure: ["No credit card to start free", "14-day trial on Pro & Team", "Cancel anytime, no questions"],
@@ -158,16 +156,15 @@ const T = {
     },
   },
   es: {
-    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Ejemplos", blog: "Blog", dashboard: "Panel", signin: "Iniciar sesión", cta: "Envía un lote real" },
+    nav: { how: "Cómo funciona", pricing: "Precios", reviews: "Ejemplos", blog: "Blog", dashboard: "Panel", signin: "Iniciar sesión", cta: "Empieza gratis" },
     hero: {
       headline1: "Convierte un lote real en algo",
       headline2: "a lo que tu comprador pueda reaccionar.",
-      sub: "Envía el lote y los requisitos del comprador. Prepararé tres direcciones preliminares, y luego revisas el precio y los supuestos de pago antes de compartir nada.",
-      ctaPrimary: "Envía un lote real",
-      ctaSecondary: "Ver una muestra aprobada por un constructor",
-      ctaMicro: "Primer ejemplo creado por el fundador. Sin registro.",
+      sub: "Ingresa un lote y los requisitos del comprador. SplanAI prepara tres direcciones de concepto con datos del vecindario y supuestos de pago, listas para revisar en unos 30 segundos.",
+      ctaPrimary: "Pruébalo con un lote de muestra",
+      ctaSecondary: "Empieza gratis — 3 propuestas al mes",
       stat1: { value: "3 direcciones", label: "por lote" },
-      stat2: { value: "~1 día", label: "primera vista" },
+      stat2: { value: "~30 seg", label: "primer borrador" },
       stat3: { value: "Sin tarjeta", label: "para empezar" },
     },
     trust: { label: "Con tecnología de" },
@@ -261,7 +258,7 @@ const T = {
       sub: "Acceso anticipado — sé uno de nuestros primeros constructores",
       items: [] as const,
     },
-    ctaBanner: { heading: "¿Listo para probar el piloto del fundador?", sub: "Envía un lote real. Yo construiré el primer ejemplo — sin tarjeta, sin registro.", cta: "Envía un lote real" },
+    ctaBanner: { heading: "Listo cuando tengas un lote en mano.", sub: "Tres conceptos, datos del vecindario y supuestos de pago — pruébalo gratis, sin tarjeta.", cta: "Empieza gratis" },
     footer: "© 2026 SplanAI. Construido para constructores.",
     faqHeading: "Preguntas frecuentes",
     reassure: ["Sin tarjeta para empezar gratis", "Prueba de 14 días en Pro y Equipo", "Cancela cuando quieras, sin preguntas"],
@@ -699,7 +696,7 @@ export default function Home() {
             ) : (
               <a href="/login" className="hidden sm:block text-sm text-slate-400 hover:text-white transition-colors">{t.nav.signin}</a>
             )}
-            <a href={SEND_LOT_MAILTO} className="px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors"
+            <a href="/login?tab=signup" className="px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors"
               onClick={() => track("cta_click", { button: "nav_cta" })}
             >{t.nav.cta}</a>
           </div>
@@ -719,17 +716,21 @@ export default function Home() {
               </h1>
               <p className="text-lg text-slate-400 leading-relaxed mb-8 max-w-lg">{t.hero.sub}</p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10">
-                <a href={SEND_LOT_MAILTO} className="px-7 py-4 rounded-xl text-white font-bold text-base bg-blue-500 hover:bg-blue-600 shadow-[0_0_30px_rgba(59,130,246,0.35)] transition-colors"
+                <a href="/try" className="px-7 py-4 rounded-xl text-white font-bold text-base bg-blue-500 hover:bg-blue-600 shadow-[0_0_30px_rgba(59,130,246,0.35)] transition-colors"
                   onClick={() => track("cta_click", { button: "hero_primary" })}
                 >{t.hero.ctaPrimary}</a>
-                <a href="/s/nfhkewvz" target="_blank" rel="noopener noreferrer" className="px-7 py-4 rounded-xl font-semibold text-base border-2 border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white transition-all"
-                  onClick={() => track("cta_click", { button: "hero_sample" })}
+                <a href="/login?tab=signup" className="px-7 py-4 rounded-xl font-semibold text-base border-2 border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white transition-all"
+                  onClick={() => track("cta_click", { button: "hero_secondary_signup" })}
                 >
                   {t.hero.ctaSecondary}
                 </a>
               </div>
               <p className="-mt-6 mb-10 text-center lg:text-left text-sm text-slate-500">
-                {t.hero.ctaMicro}
+                {lang === "en" ? (
+                  <>No card required. Want a finished example first? <a href="/s/nfhkewvz" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-300 transition-colors" onClick={() => track("cta_click", { button: "hero_sample_micro" })}>View a builder-approved sample</a>.</>
+                ) : (
+                  <>Sin tarjeta. ¿Prefieres ver un ejemplo terminado? <a href="/s/nfhkewvz" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-300 transition-colors" onClick={() => track("cta_click", { button: "hero_sample_micro" })}>Ver una muestra aprobada</a>.</>
+                )}
               </p>
               <div className="flex items-center gap-8 justify-center lg:justify-start">
                 {[t.hero.stat1, t.hero.stat2, t.hero.stat3].map((s, i) => (
@@ -1193,7 +1194,8 @@ export default function Home() {
         <AnimateIn className="relative max-w-3xl mx-auto text-center">
           <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-balance text-white mb-5">{t.ctaBanner.heading}</h2>
           <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto leading-relaxed">{t.ctaBanner.sub}</p>
-          <a href={SEND_LOT_MAILTO}
+          <a href="/login?tab=signup"
+            onClick={() => track("cta_click", { button: "banner_signup" })}
             className="inline-flex items-center gap-3 px-6 sm:px-10 py-5 rounded-2xl text-white text-lg sm:text-xl font-bold bg-blue-500 hover:bg-blue-600 shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-colors"
           >
             {t.ctaBanner.cta}
