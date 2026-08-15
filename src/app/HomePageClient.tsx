@@ -1224,6 +1224,7 @@ export default function Home() {
           {/* Nav links */}
           <div className="flex items-center gap-5 text-sm text-slate-500 sm:ml-auto">
             <a href="#pricing" className="py-2 hover:text-slate-300 transition-colors">{t.nav.pricing}</a>
+            <a href="/partners" className="py-2 hover:text-slate-300 transition-colors">Partners</a>
             <a href="/terms" className="py-2 hover:text-slate-300 transition-colors">Terms</a>
             <a href="/privacy" className="py-2 hover:text-slate-300 transition-colors">Privacy</a>
             <a href="/login" className="py-2 hover:text-slate-300 transition-colors">{t.nav.signin}</a>
