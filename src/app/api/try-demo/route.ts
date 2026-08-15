@@ -16,9 +16,13 @@ export const maxDuration = 60;
 const DEMO_COOKIE = "splanai_demo_id";
 // Low-cost by design: haiku-class model ($1/$5 per MTok vs sonnet's $3/$15),
 // ONE concept only, tight output cap. Worst case at the 50/day guard cap this
-// stays under ~$0.25/day.
+// stays under ~$0.35/day.
+// Cap raised 1600 -> 2000 (2026-08-15): the spec sheet now itemises every bed,
+// bath and circulation so the room list reconciles with squareFootage, which
+// costs ~100 more output tokens. Truncation would break JSON.parse and fail the
+// demo, so the margin matters more than the fraction of a cent.
 const DEMO_MODEL = "claude-haiku-4-5";
-const DEMO_MAX_TOKENS = 1600;
+const DEMO_MAX_TOKENS = 2000;
 const GENERATION_TIMEOUT_MS = 45_000;
 
 // Budget is a fixed menu on /try — server enforces the same whitelist.
@@ -35,6 +39,12 @@ const client = new Anthropic();
 const DEMO_SYSTEM_PROMPT = `You are an expert residential architect in the United States. Design ONE buyer-ready home concept for the given lot.
 
 Follow contemporary American conventions: open-concept Great Room, Primary Suite with walk-in closet (never "master"), foyer entry, attached garage with bay count, mudroom drop zone. Keep the footprint to 20-40% of the lot and construction within budget (typical $150-$250/sq ft).
+
+The "rooms" array is a builder-facing spec sheet. Builders read these for a living, so it MUST reconcile with the headline numbers:
+- List every bedroom AND every bathroom as its own entry. The number of bedrooms in "rooms" must equal "bedrooms", and the bathrooms must equal "bathrooms" (count a half bath as a "Powder Room" = 0.5).
+- Only name a room "Den/Office" when it is NOT included in the "bedrooms" count.
+- The sum of every "sqft" value EXCLUDING the Garage must equal "squareFootage" (within 2%). Use a "Hallways & Circulation" entry to absorb the remainder — do not leave the sum short.
+- Always write "Primary Bedroom / Primary Bath / Primary Suite", never "master".
 
 Respond with ONLY valid JSON — no explanation, no markdown. Exactly this structure:
 
@@ -53,14 +63,28 @@ Respond with ONLY valid JSON — no explanation, no markdown. Exactly this struc
       "description": "2-3 sentence description.",
       "features": ["Feature 1", "Feature 2", "Feature 3", "Feature 4", "Feature 5"],
       "rooms": [
-        { "name": "Primary Suite", "sqft": 320 },
-        { "name": "Kitchen", "sqft": 180 },
-        { "name": "Great Room", "sqft": 320 }
+        { "name": "Primary Suite", "sqft": 340 },
+        { "name": "Primary Bath", "sqft": 100 },
+        { "name": "Walk-In Closet", "sqft": 70 },
+        { "name": "Bedroom 2", "sqft": 160 },
+        { "name": "Bedroom 3", "sqft": 150 },
+        { "name": "Full Bath", "sqft": 75 },
+        { "name": "Powder Room", "sqft": 25 },
+        { "name": "Kitchen", "sqft": 210 },
+        { "name": "Great Room", "sqft": 380 },
+        { "name": "Dining Area", "sqft": 160 },
+        { "name": "Laundry", "sqft": 65 },
+        { "name": "Foyer", "sqft": 80 },
+        { "name": "Mudroom", "sqft": 65 },
+        { "name": "Hallways & Circulation", "sqft": 320 },
+        { "name": "Garage", "sqft": 440 }
       ],
       "highlights": ["Key selling point 1", "Key selling point 2", "Key selling point 3"]
     }
   ]
 }
+
+In that example the non-Garage rooms sum to exactly 2200 = "squareFootage", the 3 bedrooms are Primary Suite / Bedroom 2 / Bedroom 3, and the 2.5 baths are Primary Bath / Full Bath / Powder Room. Match that internal consistency.
 
 Generate exactly 1 plan. It must fit the budget.`;
 
