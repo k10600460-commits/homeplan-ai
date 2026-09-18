@@ -42,6 +42,8 @@ export async function GET(req: NextRequest) {
 
   const healed: string[] = [];
   const unresolved: string[] = [];
+  const orphaned: string[] = [];
+  const failed: string[] = [];
   const staleLocal: string[] = [];
 
   try {
@@ -89,6 +91,11 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
+      // One un-healable subscription must NEVER abort the run. The first live
+      // run proved why: a single orphan (below) threw and killed the whole
+      // pass, which would have meant a genuine paying customer further down the
+      // list silently never getting healed — the exact failure this job exists
+      // to prevent.
       const { error: upErr } = await supabase.from("subscriptions").upsert(
         {
           user_id: resolution.userId,
@@ -106,7 +113,21 @@ export async function GET(req: NextRequest) {
         },
         { onConflict: "user_id" },
       );
-      if (upErr) throw new Error(`heal upsert failed for ${sub.id}: ${upErr.message}`);
+
+      if (upErr) {
+        // 23503 = foreign_key_violation. subscriptions.user_id references
+        // auth.users ON DELETE CASCADE, and resolveSubscriptionUserId can hand
+        // back a uuid straight out of Stripe metadata for an account that was
+        // since deleted (test-account cleanup, OI-017). Stripe keeps the
+        // subscription; the app user is gone. Nothing to heal — record it and
+        // move on rather than retrying forever.
+        if ((upErr as { code?: string }).code === "23503") {
+          orphaned.push(`${sub.id} (${sub.status}, user ${resolution.userId} no longer exists)`);
+        } else {
+          failed.push(`${sub.id}: ${upErr.message}`);
+        }
+        continue;
+      }
 
       healed.push(
         `${sub.id}: ${local ? `${local.status}/${local.plan}` : "MISSING"} -> ${sub.status}/${expectedPlan}`,
@@ -124,22 +145,31 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const drift = healed.length + unresolved.length + staleLocal.length;
+    // Orphans are deliberately NOT actionable: a deleted test account with a
+    // leftover Stripe subscription is a permanent, benign state. Paging a human
+    // about it every single day is how monitoring gets ignored — and then the
+    // one alert that matters gets ignored with it. Reported in the response and
+    // in the heartbeat, never pushed.
+    const actionable = healed.length + unresolved.length + staleLocal.length + failed.length;
     const summary = {
       ok: true,
       stripe_subscriptions: stripeSubs.length,
       local_rows: localRows?.length ?? 0,
       healed: healed.length,
       unresolved: unresolved.length,
+      orphaned: orphaned.length,
+      failed: failed.length,
       stale_local: staleLocal.length,
-      detail: { healed, unresolved, staleLocal },
+      detail: { healed, unresolved, orphaned, failed, staleLocal },
     };
 
-    if (drift > 0) {
+    if (actionable > 0) {
       const lines = [
-        `Stripe/DB drift: healed ${healed.length}, unresolved ${unresolved.length}, stale ${staleLocal.length}`,
+        `Stripe/DB drift: healed ${healed.length}, unresolved ${unresolved.length}, ` +
+          `failed ${failed.length}, stale ${staleLocal.length} (orphaned ${orphaned.length}, ignored)`,
         ...healed.map((h) => `healed ${h}`),
         ...unresolved.map((u) => `UNRESOLVED ${u}`),
+        ...failed.map((f) => `FAILED ${f}`),
         ...staleLocal.map((s) => `STALE ${s}`),
       ];
       await recordError(`cron/${JOB}`, 500, lines.join(" | "));
@@ -149,6 +179,8 @@ export async function GET(req: NextRequest) {
       // Healing succeeded, so the run is a success — but it must not look
       // identical to a clean day, hence WARN rather than ok.
       await recordHeartbeat(JOB, { ok: true, warn: lines[0] });
+    } else if (orphaned.length > 0) {
+      await recordHeartbeat(JOB, { ok: true, warn: `${orphaned.length} orphaned Stripe subscription(s), no action possible` });
     } else {
       await recordHeartbeat(JOB, { ok: true });
     }
