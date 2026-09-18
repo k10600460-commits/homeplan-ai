@@ -253,7 +253,7 @@ export default function TryClient({ token }: { token: string }) {
                   placeholder="e.g. TX"
                   value={form.state}
                   onChange={(e) => setForm({ ...form, state: e.target.value })}
-                  className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-blue-400 uppercase"
+                  className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-blue-400 uppercase placeholder:normal-case"
                 />
               </div>
 

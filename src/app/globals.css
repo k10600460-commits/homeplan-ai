@@ -118,3 +118,41 @@ body {
   95%  { width: 93%; }
   100% { width: 96%; }
 }
+
+/* ── Blueprint grid — DESIGN.md signature element, ink surfaces only ────────
+   A CSS class instead of an inline backgroundImage literal (ban-list #4).
+   #3b82f6 = the `action` token. The host element must be `relative`. */
+.blueprint-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image: linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ── Landing-page entrance reveal (DESIGN.md motion: 1 section = 1 effect) ──
+   CSS scroll-driven, zero JS. Nothing is hidden in the server HTML: browsers
+   without animation-timeline (and reduced-motion users) get the content
+   exactly as sent. Chrome 115+, Edge, Safari 26 animate; Firefox is static. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+    .reveal-s1 { animation-range: entry 8% entry 43%; }
+    .reveal-s2 { animation-range: entry 16% entry 51%; }
+    @keyframes reveal-up {
+      from { opacity: 0; transform: translateY(22px); }
+      to   { opacity: 1; transform: none; }
+    }
+  }
+}
+/* Print evaluates scroll-driven animations at scroll offset 0 — without this,
+   everything below the first page would print at the `from` keyframe. */
+@media print {
+  .reveal { animation: none; }
+}
