@@ -49,7 +49,7 @@ assert.ok(lp.includes("LP_ROUTES.signupPro"), "Pro CTA must use LP_ROUTES.signup
 // 4. Speed guards
 assert.doesNotMatch(lp, /supabase\/client/, "LP must not ship the Supabase browser client (nav state comes from the server)");
 assert.doesNotMatch(lp, /IntersectionObserver/, "entrance reveal must be CSS scroll-driven, not JS");
-assert.doesNotMatch(lp, /translateY\(22px\)/, "no JS-driven initial opacity:0 in SSR HTML");
+assert.doesNotMatch(lp, /style=\{\{[^}]*opacity/, "no inline opacity styles — a JS-driven reveal bakes opacity:0 into the SSR HTML");
 
 // 5. EN/ES structural parity
 function shape(v: unknown): unknown {
@@ -74,7 +74,8 @@ for (const lang of ["en", "es"] as const) {
 }
 assert.ok(T.en.pricing.pro.features.some((f) => /requires your MLS license/.test(f)), "MLS legal gating text");
 assert.ok(T.en.pricing.pro.features.some((f) => /Powered by SplanAI footer included/.test(f)), "Pro PDF footer text");
-assert.ok(lp.includes("/terms#fair-use"), "fair-use policy link");
+assert.equal(LP_ROUTES.fairUse, "/terms#fair-use");
+assert.ok(lp.includes("LP_ROUTES.fairUse"), "fair-use policy link must be routed through LP_ROUTES");
 
 // 7. HUMANIZE — banned words never ship in EN copy
 const banned = /AI-powered|revolutionary|game-changing|seamless|cutting-edge|effortless/i;
@@ -94,7 +95,7 @@ assert.doesNotMatch(lp, /SocialProofBar/, "redundant no-card strip removed (the 
 
 // 10. DESIGN.md ban list, executable: no emoji icons in LP chrome, no inline hex
 //     colour literals, single font family (no font-mono)
-assert.doesNotMatch(lp, /[\u{1F3EB}\u{1F6E1}\u{1F4CA}\u{1F6D2}]/u, "emoji used as an icon in LP chrome");
+assert.doesNotMatch(lp, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, "emoji used as an icon in LP chrome (stroke SVG only)");
 assert.doesNotMatch(lp, /style=\{\{[^}]*#[0-9A-Fa-f]{6}/, "inline hex colour literal — use Tailwind tokens");
 assert.doesNotMatch(lp, /font-mono/, "second font family (Geist Mono is not loaded)");
 

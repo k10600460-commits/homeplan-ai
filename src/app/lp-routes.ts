@@ -7,6 +7,7 @@
  * the anchor is /#pricing.
  */
 export const LP_ROUTES = {
+  home: "/",
   try: "/try",
   signupFree: "/login?tab=signup",
   signupPro: "/login?tab=signup&plan=pro",

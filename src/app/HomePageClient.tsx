@@ -62,7 +62,7 @@ function SampleProposalCard({ t }: { t: SampleCopy }) {
               <div className="min-w-0">
                 <p className="font-bold text-white text-sm leading-snug">{p.name}</p>
                 <p className="text-xs text-slate-500 mt-0.5">{p.style}</p>
-                <p className="text-xs text-slate-300 mt-1 tabular-nums whitespace-nowrap">
+                <p className="text-xs text-slate-300 mt-1 tabular-nums">
                   {formatSqft(p.sqft)} {t.sqft} · {p.beds} {t.bd} · {p.baths} {t.ba} · {p.stories} {p.stories === 1 ? t.story : t.stories}
                 </p>
               </div>
@@ -109,16 +109,15 @@ export default function Home({ signedIn = false }: { signedIn?: boolean }) {
       {/* ── 1. Nav ───────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-slate-800/60 bg-slate-900">
         <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- plain anchors on the LP: no prefetch, no client router */}
-          <a href="/" className="text-xl font-extrabold tracking-tight text-white shrink-0">
+          {/* Plain anchors throughout the LP (no next/link): no prefetch, no client router — the page must stay light. */}
+          <a href={LP_ROUTES.home} className="text-xl font-extrabold tracking-tight text-white shrink-0">
             Splan<span className="text-blue-400">AI</span>
           </a>
           <nav className="hidden md:flex items-center gap-7 text-sm text-slate-400 absolute left-1/2 -translate-x-1/2">
             <a href="#how" className="hover:text-white transition-colors">{t.nav.how}</a>
-            <a href="#pricing" className="hover:text-white transition-colors">{t.nav.pricing}</a>
+            <a href={LP_ROUTES.pricing} className="hover:text-white transition-colors">{t.nav.pricing}</a>
             <a href="#reviews" className="hover:text-white transition-colors">{t.nav.reviews}</a>
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- plain anchor: no prefetch on the LP */}
-            <a href="/blog" className="hover:text-white transition-colors">{t.nav.blog}</a>
+            <a href={LP_ROUTES.blog} className="hover:text-white transition-colors">{t.nav.blog}</a>
           </nav>
           <div className="flex items-center gap-3 ml-auto shrink-0">
             <button
@@ -367,7 +366,12 @@ export default function Home({ signedIn = false }: { signedIn?: boolean }) {
             </div>
           </div>
           <p className="sm:hidden mt-6 text-center text-sm text-slate-400">
-            <a href={CALENDLY_READY ? CALENDLY_URL : CUSTOM_PLAN_MAILTO} className="underline hover:text-white transition-colors">{t.pricing.custom.mobileCta}</a>
+            <a
+              href={CALENDLY_READY ? CALENDLY_URL : CUSTOM_PLAN_MAILTO}
+              target={CALENDLY_READY ? "_blank" : undefined}
+              rel={CALENDLY_READY ? "noopener noreferrer" : undefined}
+              className="underline hover:text-white transition-colors"
+            >{t.pricing.custom.mobileCta}</a>
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
             {t.reassure.map(item => (
@@ -382,9 +386,9 @@ export default function Home({ signedIn = false }: { signedIn?: boolean }) {
           <p className="mt-4 text-sm text-center text-slate-400">{t.pricing.footer}</p>
           <p className="mt-3 text-xs text-center text-slate-400">
             *{lang === 'en' ? (
-              <>Subject to our <a href="/terms#fair-use" className="underline hover:text-white transition-colors">Fair Use Policy</a>.</>
+              <>Subject to our <a href={LP_ROUTES.fairUse} className="underline hover:text-white transition-colors">Fair Use Policy</a>.</>
             ) : (
-              <>Sujeto a nuestra <a href="/terms#fair-use" className="underline hover:text-white transition-colors">Política de Uso Justo</a>.</>
+              <>Sujeto a nuestra <a href={LP_ROUTES.fairUse} className="underline hover:text-white transition-colors">Política de Uso Justo</a>.</>
             )}
           </p>
           <p className="mt-2 text-sm text-center text-slate-400">
@@ -454,10 +458,10 @@ export default function Home({ signedIn = false }: { signedIn?: boolean }) {
 
           {/* Nav links */}
           <div className="flex items-center gap-5 text-sm text-slate-500 sm:ml-auto">
-            <a href="#pricing" className="py-2 hover:text-slate-300 transition-colors">{t.nav.pricing}</a>
-            <a href="/partners" className="py-2 hover:text-slate-300 transition-colors">Partners</a>
-            <a href="/terms" className="py-2 hover:text-slate-300 transition-colors">Terms</a>
-            <a href="/privacy" className="py-2 hover:text-slate-300 transition-colors">Privacy</a>
+            <a href={LP_ROUTES.pricing} className="py-2 hover:text-slate-300 transition-colors">{t.nav.pricing}</a>
+            <a href={LP_ROUTES.partners} className="py-2 hover:text-slate-300 transition-colors">Partners</a>
+            <a href={LP_ROUTES.terms} className="py-2 hover:text-slate-300 transition-colors">Terms</a>
+            <a href={LP_ROUTES.privacy} className="py-2 hover:text-slate-300 transition-colors">Privacy</a>
             <a href={LP_ROUTES.signin} className="py-2 hover:text-slate-300 transition-colors">{t.nav.signin}</a>
           </div>
         </div>

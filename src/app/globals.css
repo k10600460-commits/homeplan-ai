@@ -151,3 +151,8 @@ body {
     }
   }
 }
+/* Print evaluates scroll-driven animations at scroll offset 0 — without this,
+   everything below the first page would print at the `from` keyframe. */
+@media print {
+  .reveal { animation: none; }
+}
