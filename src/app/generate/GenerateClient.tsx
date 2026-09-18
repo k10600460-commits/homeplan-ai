@@ -102,8 +102,30 @@ export default function GenerateClient() {
     setLoading(true);
     setError("");
     try {
+      // City/State are free text and they drive geocoding for the neighborhood
+      // and market sections of the shared portal. A visitor who copies the
+      // example text produces an unresolvable location and the portal then
+      // ships *silently* without those sections. Observed in production on
+      // 2026-09-18: shared_links "2o7ami0j" stored city="e.g.Austin",
+      // state="e.g.TX" and came out with has_neighborhood = has_market = false.
+      // Catch the obviously-invalid cases here rather than degrade in silence.
+      const city = form.city.trim();
+      const state = form.state.trim();
+      const looksLikeExample = (v: string) => /^e\.?\s*g\.?[\s.]/i.test(v) || /^e\.?g\.?$/i.test(v);
+      if (looksLikeExample(city)) {
+        throw new Error('Please enter a real city — "e.g. Austin" is only an example.');
+      }
+      if (looksLikeExample(state)) {
+        throw new Error('Please enter a real state — "e.g. TX" is only an example.');
+      }
+      if (mkt === "us" && state && !/^[A-Za-z]{2}$/.test(state)) {
+        throw new Error("State must be a 2-letter code (for example TX).");
+      }
+
       const body = {
         ...form,
+        city,
+        state,
         ...(mkt !== "us" ? { market: mkt } : {}),
         ...(mlsLotData?.zoning ? { mlsZoning: mlsLotData.zoning } : {}),
       };
