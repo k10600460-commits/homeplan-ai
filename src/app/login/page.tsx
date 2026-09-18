@@ -23,6 +23,10 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const planParam = searchParams.get("plan"); // "team" | "pro" | null
+  // Only a signup that explicitly carries ?plan=pro|team is a paid trial. Without
+  // it the visitor is creating a free account (PLAN_LIMITS.free = 3/month), so the
+  // trial/pricing copy below must not be shown to them.
+  const isPaidSignup = planParam === "team" || planParam === "pro";
   const initialTab: Tab = searchParams.get("tab") === "signup" ? "signup" : "signin";
 
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -146,7 +150,7 @@ function LoginContent() {
                     : "text-gray-500 hover:text-gray-700 bg-gray-50"
                 }`}
               >
-                Start Free Trial
+                {isPaidSignup ? "Start Free Trial" : "Create Free Account"}
               </button>
             </div>
 
@@ -219,17 +223,40 @@ function LoginContent() {
                 </>
               ) : (
                 <>
-                  <h1 className="text-2xl font-bold text-gray-900 mb-1">Start your free trial</h1>
-                  <p className="text-sm text-gray-500 mb-4">14 days free, then $49/month. Cancel anytime.</p>
+                  <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                    {isPaidSignup ? "Start your free trial" : "Create your free account"}
+                  </h1>
+                  <p className="text-sm text-gray-500 mb-4">
+                    {isPaidSignup
+                      ? `14 days free, then ${planParam === "team" ? "$149" : "$49"}/month. Cancel anytime.`
+                      : "3 proposals a month. No credit card required."}
+                  </p>
 
-                  {/* Trial features */}
+                  {/* Plan features — must match PLAN_LIMITS in src/lib/usage.ts and the
+                      pricing table on the landing page. Previously this pane always said
+                      "14 days free, then $49/month" and "Unlimited floor plan generation"
+                      even for a plain free signup, which contradicted the LP's own
+                      "No credit card required / 3 proposals a month" promise and
+                      overstated Pro (which is 100/month, not unlimited). */}
                   <div className="bg-blue-50 rounded-xl px-4 py-3 mb-6 flex flex-col gap-1.5">
-                    {[
-                      "14-day free trial — no charge today",
-                      "Unlimited floor plan generation",
-                      "PDF export with your branding",
-                      "Cancel anytime before trial ends",
-                    ].map((item) => (
+                    {(isPaidSignup
+                      ? [
+                          "14-day free trial — no charge today",
+                          planParam === "team"
+                            ? "Unlimited proposals (fair use)"
+                            : "100 proposals a month",
+                          planParam === "team"
+                            ? "White-label PDF export"
+                            : "PDF export with your branding",
+                          "Cancel anytime before trial ends",
+                        ]
+                      : [
+                          "3 proposals a month",
+                          "No credit card required",
+                          "PDF export included",
+                          "Upgrade anytime",
+                        ]
+                    ).map((item) => (
                       <div key={item} className="flex items-center gap-2 text-sm text-blue-800">
                         <svg className="w-4 h-4 text-blue-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />

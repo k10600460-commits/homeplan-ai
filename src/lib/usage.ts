@@ -115,5 +115,23 @@ export async function recordApiUsage(
     p_cost:    costUsd,
   })
 
-  if (error) console.error('[recordApiUsage] error:', error)
+  if (error) {
+    // Fail loud (OI-037). A silent failure here is exactly how the last outage
+    // hid for months: production had two overloads of increment_api_usage
+    // (int vs bigint p_tokens), PostgREST could not resolve one from a JSON
+    // body (PGRST203), every call failed — and this console.error was the only
+    // trace. The damage is invisible but severe: api_usage is never written, so
+    // the free 3/month cap goes unenforced AND checkUsageLimit reports
+    // current=0 forever, which means no free user ever reaches /upgrade.
+    // Metering must never fail quietly again.
+    console.error('[recordApiUsage] error:', error)
+    const { recordError } = await import('./observability')
+    await recordError(
+      'lib/usage.recordApiUsage',
+      500,
+      `increment_api_usage failed [${error.code ?? 'unknown'}] ${error.message}` +
+        ' — usage is NOT being metered: free cap unenforced and /upgrade unreachable',
+      error.details ?? null,
+    )
+  }
 }
