@@ -29,15 +29,38 @@ function getCurrentMonth(): string {
 }
 
 // ─── ユーザーのプラン取得 ──────────────────────
+/** How long after trial_end a `trialing` row keeps its entitlement. */
+const TRIALING_GRACE_MS = 7 * 24 * 60 * 60 * 1000
+
 export async function getUserPlan(userId: string): Promise<Plan> {
   // 1. 直接サブスクリプションを確認
+  // maybeSingle, not single: "no row" is the normal case for a free user and
+  // must not surface as an error.
   const { data: sub } = await supabaseAdmin
     .from('subscriptions')
-    .select('plan, status')
+    .select('plan, status, trial_end')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
 
-  if (sub?.status === 'active' || sub?.status === 'trialing') {
+  // A `trialing` row only entitles while the trial is actually running.
+  // Reading status alone meant a row whose trial had ended stayed entitled
+  // forever — found in production on 2026-09-18 with trial_end 110 days in the
+  // past, still returning 'pro' (100 generations/month) on every call. Harmless
+  // that time because it was a founder test account; on a real customer it is a
+  // straight revenue leak.
+  //
+  // The 7-day grace is deliberately generous. Stripe flips trialing -> active
+  // only when the first invoice settles, and the webhook recording it can lag;
+  // cutting off a paying customer during that window is by far the worse error.
+  // A row still wrong after 7 days has already given the daily
+  // reconcile-subscriptions cron six chances to correct it from Stripe. The two
+  // are designed as a pair: this is the strict read, that is the repair.
+  const trialStillValid =
+    !sub?.trial_end || Date.now() - new Date(sub.trial_end).getTime() < TRIALING_GRACE_MS
+  const entitled =
+    sub?.status === 'active' || (sub?.status === 'trialing' && trialStillValid)
+
+  if (entitled) {
     if (sub.plan === 'team') return 'team'
     if (sub.plan === 'pro')  return 'pro'
   }
