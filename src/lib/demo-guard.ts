@@ -116,11 +116,22 @@ function admin() {
 export function createSupabaseDemoStore(): DemoStore {
   const supabase = admin();
   return {
-    async findExisting(ipHash, cookieId) {
+    async findExisting(_ipHash, cookieId) {
+      // Identity for "here is your sample again" is the cookie ONLY.
+      //
+      // This used to also match on ip_hash, with no expiry. Everyone behind the
+      // same NAT — an office, a coworking space, a mobile carrier's CGNAT — was
+      // treated as one visitor, so the second person either saw *someone else's*
+      // sample presented as their own, or was refused with "you already tried
+      // this" on their first ever visit. For the primary entrance of a
+      // self-serve funnel that is the worst possible first impression.
+      //
+      // ip_hash is still written on every row and still feeds the global daily
+      // cap (countCreatedSince), which is where abuse control belongs.
       const { data, error } = await supabase
         .from("demo_usage")
         .select("id, result, created_at")
-        .or(`cookie_id.eq.${cookieId},ip_hash.eq.${ipHash}`)
+        .eq("cookie_id", cookieId)
         .limit(1)
         .maybeSingle();
       if (error) throw error;

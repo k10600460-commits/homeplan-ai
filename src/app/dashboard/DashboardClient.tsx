@@ -72,9 +72,17 @@ interface NurtureDraft {
   shared_links: { slug: string; client_name: string | null } | null;
 }
 
+interface Usage {
+  plan: "free" | "pro" | "team";
+  current: number;
+  limit: number;
+  remaining: number;
+}
+
 interface Props {
   user: User;
   subscription: Subscription | null;
+  usage: Usage;
   isNewSignup?: boolean;
   newSignupPlan?: "team" | "pro";
   checkoutSuccess?: boolean;
@@ -85,7 +93,10 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   active:   { label: "Active",     color: "bg-emerald-100 text-emerald-700" },
   past_due: { label: "Past Due",   color: "bg-amber-100 text-amber-700" },
   canceled: { label: "Canceled",   color: "bg-gray-100 text-gray-600" },
-  inactive: { label: "No Plan",    color: "bg-gray-100 text-gray-600" },
+  // Not "No Plan": a user without a subscription row still has the Free
+  // allowance (PLAN_LIMITS.free = 3/month). Telling them they have nothing was
+  // pushing brand-new users at the $49 checkout before they had generated once.
+  inactive: { label: "Free plan",  color: "bg-emerald-100 text-emerald-700" },
 };
 
 function formatDate(iso: string | null) {
@@ -117,7 +128,7 @@ function formatDateTime(iso: string | null) {
 // ── MLS connection state ──────────────────────────────────────────────────────
 type MlsStatus = "idle" | "connected" | "connecting" | "error";
 
-export default function DashboardClient({ user, subscription, isNewSignup = false, newSignupPlan, checkoutSuccess = false }: Props) {
+export default function DashboardClient({ user, subscription, usage, isNewSignup = false, newSignupPlan, checkoutSuccess = false }: Props) {
   const router = useRouter();
   const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -1724,7 +1735,16 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
                 {subscription.status === "canceled" && <p>Your subscription has been canceled.</p>}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 mb-6">No active subscription. Start your 14-day free trial.</p>
+              /* Free tier — state the allowance they already have, not "you have nothing". */
+              <div className="space-y-1.5 text-sm text-gray-600 mb-6">
+                <p>
+                  <span className="font-semibold text-gray-900">
+                    {usage.remaining} of {usage.limit}
+                  </span>{" "}
+                  proposals left this month
+                </p>
+                <p className="text-gray-500">No credit card needed. Resets at the start of each month.</p>
+              </div>
             )}
             {subscription?.isActive && subscription.customerId ? (
               <button onClick={handleManageBilling} disabled={portalLoading}
@@ -1734,7 +1754,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
             ) : (
               <button onClick={handleSubscribe} disabled={checkoutLoading}
                 className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50">
-                {checkoutLoading ? "Loading…" : "Start Free Trial →"}
+                {checkoutLoading ? "Loading…" : "Start 14-day Pro trial →"}
               </button>
             )}
           </div>
