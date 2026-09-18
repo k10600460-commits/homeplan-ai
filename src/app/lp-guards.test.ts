@@ -86,4 +86,28 @@ const login = src("login/page.tsx");
 assert.ok(login.includes("signupCopy("), "login page must render signup copy via signupCopy()");
 assert.doesNotMatch(login, /Start Free Trial|14 days free|Unlimited|Start your free trial/, "hand-typed plan copy in login page");
 
+// 9. The hero shows the real sample portal, not an invented mock (DESIGN.md 芯:
+//    証拠は実プロダクトの出力そのもの・数字は全て実物)
+assert.ok(lp.includes("SAMPLE_PORTAL"), "hero must render SAMPLE_PORTAL (the live /s/nfhkewvz data)");
+assert.doesNotMatch(lp, /HeroPreview|HERO_PLANS|HERO_CHIPS/, "invented hero mock must be gone");
+assert.doesNotMatch(lp, /SocialProofBar/, "redundant no-card strip removed (the hero secondary link says it)");
+
+// 10. DESIGN.md ban list, executable: no emoji icons in LP chrome, no inline hex
+//     colour literals, single font family (no font-mono)
+assert.doesNotMatch(lp, /[\u{1F3EB}\u{1F6E1}\u{1F4CA}\u{1F6D2}]/u, "emoji used as an icon in LP chrome");
+assert.doesNotMatch(lp, /style=\{\{[^}]*#[0-9A-Fa-f]{6}/, "inline hex colour literal — use Tailwind tokens");
+assert.doesNotMatch(lp, /font-mono/, "second font family (Geist Mono is not loaded)");
+
+// 11. Copy structure after the reorder: numbered steps, no Mission/Trust wall,
+//     secondary CTA says no card, one-line security strip
+for (const lang of ["en", "es"] as const) {
+  const c = T[lang];
+  assert.deepEqual(c.how.steps.map((s) => s.step), ["01", "02", "03"], `${lang}: numbered steps`);
+  assert.match(c.hero.ctaSecondary, /no card|sin tarjeta/i, `${lang}: secondary CTA states no card`);
+  assert.ok(!("mission" in c), `${lang}: Mission section removed (duplicated the Diff heading)`);
+  assert.ok(!("trust" in c), `${lang}: vendor "Powered by" wall removed`);
+  assert.ok(typeof c.security.line === "string" && c.security.line.length > 20, `${lang}: security is a one-line strip`);
+  assert.equal(c.data.items.length, 3, `${lang}: three data sources (Google Maps, RentCast, FRED)`);
+}
+
 console.log("lp-guards.test.ts: all assertions passed ✅");

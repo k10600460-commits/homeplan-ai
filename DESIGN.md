@@ -31,11 +31,11 @@ components:
   button-secondary: "border-2 border-slate-600 text-slate-300 hover:border-slate-400 (dark) / border-slate-200 (light)"
   card: "rounded-2xl border (1px) — hover: border/shadow shift only, no translate"
   icon: "inline stroke SVG, currentColor, strokeWidth 2, w-5/w-6 — one set, no emoji in LP chrome"
-  blueprint-grid: "60px grid overlay @ 4–6% opacity on ink surfaces — the signature element"
+  blueprint-grid: "60px grid overlay @ 6% opacity on ink surfaces — the signature element (CSS class .blueprint-grid, never an inline style)"
 motion:
   rule: "1 section = 1 effect"
   entrance: "CSS scroll-driven reveal (.reveal in globals.css — animation-timeline: view(), zero JS, nothing hidden in server HTML; unsupported browsers/reduced-motion = static) — the ONLY scroll effect"
-  hero: "4-phase product loop is the hero's one effect (no parallax on top)"
+  hero: "static — the real sample portal card (SAMPLE_PORTAL = /s/nfhkewvz, zero JS); the dimension line is its only ornament, no loop, no glow"
   reduced-motion: "always respected (existing pattern — keep)"
 ---
 
@@ -57,7 +57,7 @@ SplanAI は、米国の中小ホームビルダー（年10–50棟）が**客の
 | 行動 | action `#3B82F6` | CTA・リンク・フォーカス＝**唯一のインタラクティブ色** |
 | 実稼働 | live `#10B981` | "Live"・共有✓・チェックマークのみ |
 | 上位 | premium `#F59E0B` | Team カード・PRO gating チップのみ |
-| プラン三色 | blue/emerald/violet | **プロダクトのミラー（browser-chrome mockup）内のみ**＝製品の実UI規約 |
+| プラン三色 | blue/emerald/violet | **プロダクトのミラー（hero の実サンプルカードの PLAN 1/2/3 バッジ）内のみ**＝製品の実UI規約。架空の browser-chrome mockup は 2026-09-18 に廃止（証拠は実出力のみ） |
 
 ## 禁止リスト（AI-slop＝平均回帰パターン・A-032）
 
