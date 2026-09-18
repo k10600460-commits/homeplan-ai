@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { signupCopy } from "@/lib/signup-copy";
 
 type Tab = "signin" | "signup";
 
@@ -24,9 +25,9 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const planParam = searchParams.get("plan"); // "team" | "pro" | null
   // Only a signup that explicitly carries ?plan=pro|team is a paid trial. Without
-  // it the visitor is creating a free account (PLAN_LIMITS.free = 3/month), so the
-  // trial/pricing copy below must not be shown to them.
-  const isPaidSignup = planParam === "team" || planParam === "pro";
+  // it the visitor is creating a free account (PLAN_LIMITS.free = 3/month), so
+  // every visible string comes from signupCopy() — pinned by signup-copy.test.ts.
+  const copy = signupCopy(planParam);
   const initialTab: Tab = searchParams.get("tab") === "signup" ? "signup" : "signin";
 
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -110,7 +111,7 @@ function LoginContent() {
     const data = await res.json() as { url?: string; error?: string };
 
     if (data.url) {
-      window.location.href = data.url;
+      window.location.assign(data.url);
     } else {
       setError(data.error ?? "Failed to start checkout. Please try again.");
       setLoading(false);
@@ -150,7 +151,7 @@ function LoginContent() {
                     : "text-gray-500 hover:text-gray-700 bg-gray-50"
                 }`}
               >
-                {isPaidSignup ? "Start Free Trial" : "Create Free Account"}
+                {copy.tabLabel}
               </button>
             </div>
 
@@ -217,46 +218,19 @@ function LoginContent() {
                       onClick={() => { setTab("signup"); setError(""); }}
                       className="text-blue-600 font-semibold hover:underline"
                     >
-                      Start your free trial
+                      {copy.switchToSignup}
                     </button>
                   </p>
                 </>
               ) : (
                 <>
-                  <h1 className="text-2xl font-bold text-gray-900 mb-1">
-                    {isPaidSignup ? "Start your free trial" : "Create your free account"}
-                  </h1>
-                  <p className="text-sm text-gray-500 mb-4">
-                    {isPaidSignup
-                      ? `14 days free, then ${planParam === "team" ? "$149" : "$49"}/month. Cancel anytime.`
-                      : "3 proposals a month. No credit card required."}
-                  </p>
+                  <h1 className="text-2xl font-bold text-gray-900 mb-1">{copy.heading}</h1>
+                  <p className="text-sm text-gray-500 mb-4">{copy.sub}</p>
 
-                  {/* Plan features — must match PLAN_LIMITS in src/lib/usage.ts and the
-                      pricing table on the landing page. Previously this pane always said
-                      "14 days free, then $49/month" and "Unlimited floor plan generation"
-                      even for a plain free signup, which contradicted the LP's own
-                      "No credit card required / 3 proposals a month" promise and
-                      overstated Pro (which is 100/month, not unlimited). */}
+                  {/* Plan features — every string comes from signupCopy() (src/lib/signup-copy.ts),
+                      which mirrors PLAN_LIMITS and is pinned by signup-copy.test.ts. */}
                   <div className="bg-blue-50 rounded-xl px-4 py-3 mb-6 flex flex-col gap-1.5">
-                    {(isPaidSignup
-                      ? [
-                          "14-day free trial — no charge today",
-                          planParam === "team"
-                            ? "Unlimited proposals (fair use)"
-                            : "100 proposals a month",
-                          planParam === "team"
-                            ? "White-label PDF export"
-                            : "PDF export with your branding",
-                          "Cancel anytime before trial ends",
-                        ]
-                      : [
-                          "3 proposals a month",
-                          "No credit card required",
-                          "PDF export included",
-                          "Upgrade anytime",
-                        ]
-                    ).map((item) => (
+                    {copy.bullets.map((item) => (
                       <div key={item} className="flex items-center gap-2 text-sm text-blue-800">
                         <svg className="w-4 h-4 text-blue-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -327,7 +301,7 @@ function LoginContent() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                         </svg>
-                      ) : "Start Free Trial →"}
+                      ) : copy.submit}
                     </button>
                   </form>
 
