@@ -751,7 +751,17 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
     }
   }
 
-  // Auto-fire checkout for new signups arriving via /dashboard?new_signup=1.
+  // Auto-fire checkout ONLY when the visitor explicitly picked a paid plan
+  // (?plan=pro|team). A plain free signup must land on the dashboard and use
+  // its 3 free generations.
+  //
+  // OI-033 (2026-09-17): the old `else` branch sent EVERY new signup straight
+  // to a $49 Stripe card form before they had seen the product. /auth/confirm
+  // redirects to /dashboard?new_signup=1 with no plan param, so free signups
+  // fell through to handleSubscribe(). Measured on the only real external
+  // signup we have ever had: email confirmed 12:18:50Z -> checkout_started
+  // 12:18:59Z (9 seconds later, unprompted) -> bounced, zero plans generated.
+  //
   // ref guard prevents double-fire under React StrictMode (effect runs twice in dev).
   const autoSubscribeFiredRef = useRef(false);
   useEffect(() => {
@@ -761,7 +771,7 @@ export default function DashboardClient({ user, subscription, isNewSignup = fals
     window.history.replaceState({}, "", "/dashboard");
     if (newSignupPlan === "team") {
       handleTeamCheckout();
-    } else {
+    } else if (newSignupPlan === "pro") {
       handleSubscribe();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
