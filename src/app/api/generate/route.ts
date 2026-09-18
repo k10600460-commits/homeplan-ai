@@ -256,9 +256,17 @@ Ensure all 3 plans are different architectural styles and each fits within the $
 
     // ── Record plan generation row (non-blocking) ─────────────
     const estimatedCostUsd = (inputTokens / 1_000_000) * 3.0 + (outputTokens / 1_000_000) * 15.0;
-    (async () => {
-      try {
-        const { error } = await supabase.from('plan_generations').insert({
+    // Awaited (was fire-and-forget) so the row id can be handed to the client.
+    // /results used to live only in sessionStorage: closing the tab, or opening
+    // the link in another one, destroyed the three concepts, the PDF and the
+    // share link permanently — while the row sat right here in the database
+    // with no way to read it back. The id turns this row into that way back.
+    // One extra round trip against a ~20s generation; worth it.
+    let generationId: string | null = null;
+    try {
+      const { data: genRow, error } = await supabase
+        .from('plan_generations')
+        .insert({
           user_id:            user.id,
           lot_size:           lotSize,
           budget,
@@ -267,12 +275,14 @@ Ensure all 3 plans are different architectural styles and each fits within the $
           input_tokens:       inputTokens,
           output_tokens:      outputTokens,
           estimated_cost_usd: estimatedCostUsd,
-        });
-        if (error) console.error('[plan_generations] insert error:', error);
-      } catch (e) {
-        console.error('[plan_generations] insert failed:', e);
-      }
-    })();
+        })
+        .select('id')
+        .single();
+      if (error) console.error('[plan_generations] insert error:', error);
+      else generationId = (genRow?.id as string) ?? null;
+    } catch (e) {
+      console.error('[plan_generations] insert failed:', e);
+    }
 
     // ── First-plan follow-up email (non-blocking) ─────────────
     // usageCheck.current is the count BEFORE this request, so 0 means this
@@ -288,6 +298,7 @@ Ensure all 3 plans are different architectural styles and each fits within the $
     if (market === "us") {
       return NextResponse.json({
         plans: data.plans,
+        generationId,
         usage: {
           inputTokens,
           outputTokens,
@@ -301,6 +312,7 @@ Ensure all 3 plans are different architectural styles and each fits within the $
 
     return NextResponse.json({
       plans: data.plans,
+      generationId,
       normalizedInput: {
         lotSize,
       },

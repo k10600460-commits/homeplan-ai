@@ -148,7 +148,14 @@ export default function GenerateClient() {
       if (mlsLotData) sessionStorage.setItem("mlsData", JSON.stringify(mlsLotData));
       else sessionStorage.removeItem("mlsData");
       track("generate_success");
-      router.push("/results");
+      // Carry the row id so /results can recover from the server when this tab's
+      // sessionStorage is gone (closed tab, opened in a second tab, browser
+      // restart). Without it the three concepts were unrecoverable.
+      const genId =
+        typeof (data as { generationId?: unknown }).generationId === "string"
+          ? (data as { generationId: string }).generationId
+          : null;
+      router.push(genId ? `/results?id=${genId}` : "/results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate plans");
       setLoading(false);

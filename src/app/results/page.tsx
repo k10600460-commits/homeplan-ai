@@ -677,6 +677,32 @@ export default function Results() {
     const storedLocation = sessionStorage.getItem("location");
 
     if (!stored) {
+      // sessionStorage is empty — a closed tab, a second tab, or a browser
+      // restart. The generation itself still exists server-side, so recover it
+      // instead of silently bouncing the user to "/" and losing work they may
+      // have spent one of three monthly credits on.
+      // window.location is used rather than useSearchParams() so this page does
+      // not need a Suspense boundary.
+      const recoverId = new URLSearchParams(window.location.search).get("id");
+      if (recoverId) {
+        (async () => {
+          try {
+            const res = await fetch(`/api/generations/${recoverId}`);
+            if (!res.ok) throw new Error(String(res.status));
+            const d = (await res.json()) as { plans: FloorPlan[]; formData?: unknown };
+            if (!Array.isArray(d.plans) || d.plans.length === 0) throw new Error("empty");
+            // Re-seed sessionStorage so PDF export and sharing behave exactly as
+            // they do on the freshly-generated path.
+            sessionStorage.setItem("floorPlans", JSON.stringify(d.plans));
+            if (d.formData) sessionStorage.setItem("formData", JSON.stringify(d.formData));
+            setPlans(d.plans);
+            if (d.formData) setFormData(d.formData as typeof formData);
+          } catch {
+            router.push("/");
+          }
+        })();
+        return;
+      }
       router.push("/");
       return;
     }
