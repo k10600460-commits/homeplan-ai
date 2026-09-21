@@ -31,7 +31,11 @@ const DEMO_FAMILY_SIZE = 3;
 
 // Signed timestamp issued by the /try server component. Humans need at least
 // a few seconds to fill the form; tokens expire after an hour.
-const TOKEN_MIN_AGE_MS = 3_000;
+// 3s rejected real people: browser autofill and returning visitors submit
+// faster than that, and the message they got was the misleading "This form
+// expired". 1s still blocks the instant POST a script makes, which is all this
+// floor was ever for.
+const TOKEN_MIN_AGE_MS = 1_000;
 const TOKEN_MAX_AGE_MS = 60 * 60 * 1000;
 
 const client = new Anthropic();
