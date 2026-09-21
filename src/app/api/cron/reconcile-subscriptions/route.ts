@@ -194,20 +194,54 @@ export async function GET(req: NextRequest) {
       detail: { healed, unresolved, orphaned, failed, staleLocal },
     };
 
+    // What earns a phone buzz is far narrower than what earns a record.
+    // Only these two mean a human has to do something:
+    //   unresolved — money arrived for somebody with no app account
+    //   failed     — the repair itself is broken
+    // `healed` is the system working as designed, and `stale`/`orphaned` are
+    // states that sit unchanged for days. Pushing those every day is what
+    // turned this job into four consecutive days of unreadable LINE messages
+    // about a bug of its own making — the precise mechanism by which the one
+    // alert that matters later gets ignored. They stay in error_events and the
+    // heartbeat, and in the morning health check, which is where a daily
+    // summary belongs.
+    const needsHuman = unresolved.length + failed.length;
+
+    const headline =
+      `Stripe/DB drift: healed ${healed.length}, unresolved ${unresolved.length}, ` +
+      `failed ${failed.length}, stale ${staleLocal.length} (orphaned ${orphaned.length}, ignored)`;
+
     if (actionable > 0) {
-      const lines = [
-        `Stripe/DB drift: healed ${healed.length}, unresolved ${unresolved.length}, ` +
-          `failed ${failed.length}, stale ${staleLocal.length} (orphaned ${orphaned.length}, ignored)`,
-        ...healed.map((h) => `healed ${h}`),
-        ...unresolved.map((u) => `UNRESOLVED ${u}`),
-        ...failed.map((f) => `FAILED ${f}`),
-        ...staleLocal.map((s) => `STALE ${s}`),
-      ];
-      await recordError(`cron/${JOB}`, 500, lines.join(" | "));
-      await pushMessages([
-        { type: "text", text: `SplanAI 課金同期のズレ\n${lines.slice(0, 6).join("\n")}` },
-      ]);
-      await recordHeartbeat(JOB, { ok: true, warn: lines[0] });
+      await recordError(
+        `cron/${JOB}`,
+        500,
+        [
+          headline,
+          ...healed.map((h) => `healed ${h}`),
+          ...unresolved.map((u) => `UNRESOLVED ${u}`),
+          ...failed.map((f) => `FAILED ${f}`),
+          ...staleLocal.map((s) => `STALE ${s}`),
+        ].join(" | "),
+      );
+    }
+
+    if (needsHuman > 0) {
+      // Plain language, and it says what to do. The reader is on a phone.
+      const msg = [
+        `SplanAI: 課金で人手が必要です（${needsHuman}件）`,
+        ...(unresolved.length
+          ? [`・支払いはあるのにアカウントが見つからない: ${unresolved.length}件`]
+          : []),
+        ...(failed.length ? [`・自動修復が失敗: ${failed.length}件`] : []),
+        `Stripeの顧客一覧と Vercel logs（cron/${JOB}）を確認してください。`,
+      ].join("\n");
+      await pushMessages([{ type: "text", text: msg }]);
+    }
+
+    // Exactly one heartbeat per run. Writing it in more than one branch is how
+    // a WARN gets silently overwritten by a later "clean" write.
+    if (actionable > 0) {
+      await recordHeartbeat(JOB, { ok: true, warn: headline });
     } else if (orphaned.length > 0) {
       await recordHeartbeat(JOB, {
         ok: true,
