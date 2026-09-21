@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { buildMarketLanguageAlternates } from "@/lib/market";
 import { requestOriginFromHeaders } from "@/lib/request-url";
+import { hasSupabaseSessionCookie } from "@/lib/supabase/session-cookie";
 import HomePageClient from "./HomePageClient";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -71,13 +72,17 @@ function serializeJsonLd(data: unknown): string {
 
 export default async function Page() {
   const origin = requestOriginFromHeaders(await headers());
+  // Nav label only ("Sign in" vs "Dashboard"): decided here from cookie names so
+  // the landing page ships no Supabase client and fires no auth request per view.
+  // /dashboard authenticates for real. The page is already dynamic (headers()).
+  const signedIn = hasSupabaseSessionCookie((await cookies()).getAll());
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildJsonLd(origin)) }}
       />
-      <HomePageClient />
+      <HomePageClient signedIn={signedIn} />
     </>
   );
 }

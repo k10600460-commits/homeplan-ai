@@ -34,7 +34,7 @@ components:
   blueprint-grid: "60px grid overlay @ 4–6% opacity on ink surfaces — the signature element"
 motion:
   rule: "1 section = 1 effect"
-  entrance: "AnimateIn fade+up 0.55s, child stagger ≤100ms — the ONLY scroll effect"
+  entrance: "CSS scroll-driven reveal (.reveal in globals.css — animation-timeline: view(), zero JS, nothing hidden in server HTML; unsupported browsers/reduced-motion = static) — the ONLY scroll effect"
   hero: "4-phase product loop is the hero's one effect (no parallax on top)"
   reduced-motion: "always respected (existing pattern — keep)"
 ---
@@ -78,6 +78,7 @@ SplanAI は、米国の中小ホームビルダー（年10–50棟）が**客の
 - **価格の正**: LP表示は Pro $49 / Team $149・Free=3/月・Pro=100/月・Team=無制限(fair use)。founding $29/$99 は coupon 方式で**LPに出さない**。
 - **gating文言は法務由来**: MLS（NAR/IDX・requires your MLS license）・fair use の `/terms#fair-use` リンク・"Powered by SplanAI footer included"（Pro）は正確に維持。
 - **SEO/OGP/JSON-LD**: `page.tsx` の JSON-LD・`layout.tsx` の metadata・robots=AIクローラ許可（A-021 GEO）を削らない。
-- **CTA動線**: nav→#generate・hero→#generate/#how・pricing→/login?tab=signup・Team→checkout・/try デモ・/s/nfhkewvz ライブポータル例。
+- **CTA動線（釣り堀 DEC-0815B・2026-09-18 更新）**: hero主→`/try`（登録不要サンプル）・hero副/nav/末尾バナー/Free→`/login?tab=signup`（**plan無し＝無料登録**）・Pro→`/login?tab=signup&plan=pro`（**唯一の有料トライアル**）・Team→checkout（未ログインは `/login?plan=team`）・`/s/nfhkewvz` ライブポータル例・料金アンカーは `/#pricing`（**`/pricing` は存在しない**）。行き先は `src/app/lp-routes.ts` に一元化し、`src/app/lp-guards.test.ts`（`npm test`）が回帰を止める。
+- **速度（要件・美観ではない）**: LPは Supabase ブラウザクライアントを同梱しない（nav の認証状態は `page.tsx` が cookie 名で判定）・入場アニメは CSS のみで SSR HTML に `opacity:0` を焼き込まない（JS到着前に白紙にしない）。同テストで固定。
 - **repo名≠製品名は意図的**（homeplan-ai / SplanAI）。
 - アーキ不変条件（RLS全テーブル・Stripe Live・cron冪等 等）は追記予定地——このファイルは薄く保つ。
