@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const plan = await getUserPlan(user.id);
     if (plan === "free") {
       return NextResponse.json(
-        { error: "MLS integration requires Pro or Team plan.", upgradeUrl: "/pricing" },
+        { error: "MLS integration requires Pro or Team plan.", upgradeUrl: "/#pricing" },
         { status: 403 },
       );
     }

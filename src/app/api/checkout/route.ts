@@ -48,6 +48,20 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user.id)
       .maybeSingle();
 
+    // Already paying? Do not sell them a second subscription. Stripe will
+    // happily create one and charge for both, while public.subscriptions keeps
+    // a single row per user — so the duplicate is invisible here and only shows
+    // up on the customer's statement. Send them to the billing portal instead.
+    if (sub?.status === "active" || sub?.status === "trialing") {
+      return NextResponse.json(
+        {
+          error: "You already have an active subscription. Manage it from your dashboard.",
+          code: "ALREADY_SUBSCRIBED",
+        },
+        { status: 409 },
+      );
+    }
+
     const rawCustomerId = sub?.stripe_customer_id as string | null | undefined;
     // Skip trial if user already had one (existing subscription record)
     const trialDays = sub ? 0 : TRIAL_PERIOD_DAYS;

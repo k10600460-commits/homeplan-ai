@@ -39,6 +39,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'plans array required' }, { status: 400 })
   }
 
+  // city/state drive geocoding for the neighborhood and market sections of the
+  // shared portal. An unresolvable value does not fail — the portal just ships
+  // without those sections and the builder is never told why. Seen in
+  // production: shared_links "2o7ami0j" stored city="e.g.Austin" /
+  // state="e.g.TX" and came out with has_neighborhood = has_market = false.
+  // The client validates too; this is the copy that actually guards the column.
+  const looksLikeExample = (v: unknown) =>
+    typeof v === 'string' && (/^e\.?\s*g\.?[\s.]/i.test(v) || /^e\.?g\.?$/i.test(v))
+  if (looksLikeExample(location?.city) || looksLikeExample(location?.state)) {
+    return NextResponse.json(
+      { error: 'city/state look like the placeholder example, not a real location' },
+      { status: 400 },
+    )
+  }
+
   const admin = createAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,

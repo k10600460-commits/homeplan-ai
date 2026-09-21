@@ -43,6 +43,17 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user.id)
       .maybeSingle();
 
+    // Already paying? Do not sell them a second subscription (see /api/checkout).
+    if (sub?.status === "active" || sub?.status === "trialing") {
+      return NextResponse.json(
+        {
+          error: "You already have an active subscription. Manage it from your dashboard.",
+          code: "ALREADY_SUBSCRIBED",
+        },
+        { status: 409 },
+      );
+    }
+
     const rawCustomerId = sub?.stripe_customer_id as string | null | undefined;
     const trialDays = sub ? 0 : TRIAL_PERIOD_DAYS;
 
