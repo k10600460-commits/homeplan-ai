@@ -43,6 +43,7 @@ motion:
 
 > AIエージェントへ: LP/UIを変更する前にこのファイルを読む。ここに無い装飾・色・動きを足さない。
 > Sprint10 (2026-07-04) で制定。手法: design-first（PPP-034/A-042）。
+> 2026-09-23 PPP-080: 禁止リスト 11〜14 を追補（LLM既定値・`src/app/lp-anti-slop.test.ts` で機械化）。優先順位＝**DESIGN.md（芯）＞ `.claude/skills/lp-anti-slop`（既定値禁止）＞ 上流 taste-skill**。
 
 ## 芯（SplanAIらしさ・1段落）
 
@@ -71,6 +72,10 @@ SplanAI は、米国の中小ホームビルダー（年10–50棟）が**客の
 8. **装飾の積み増し**: グロー/blur をセクションに2つ以上・パララックス＋ループ＋グローの同時使用。モーションは1セクション1エフェクト。派手なら「控えめに」へ倒す。
 9. **行末の孤立語**（見出しの orphan）: 375px で必ず確認。
 10. **汎用SaaSテンプレ臭**: 意味のないロゴ壁・"Trusted by 10,000+ teams"系・スタートアップ的チャラさ。参照は借りても丸ごと真似ない。
+11. **em-dash を散文の区切りに使う**（LLM の第一の癖・PPP-080）: 既存（EN15/ES14・JSX 18）は `lp-anti-slop.test.ts` の ratchet で凍結＝**増やさない**。目標0だが書き換えは外向き文面＝Shoji 承認。en-dash は数値範囲（$623–$685K）のみ。
+12. **AI定型ラベル・偽の証拠**: "Step 1 / Phase 1 / Paso 1"（内容自体をラベルにする。編集的な "01 02 03" は可）・scroll cue（"Scroll to explore"）・偽の社会的証明（"Trusted by 10,000+"・"Quietly trusted by"）・プレースホルダ名（Acme / Jane Doe）・作り物の数字（99.99%）・version label（BETA / v1.2）。**HUMANIZE 追補語**: Elevate / Unleash / Next-Gen / Revolutionize / Supercharge。
+13. **eyebrow の量産**: セクション見出し（h2）の直上の小さな大文字ラベルは **ceil(セクション数/3) 以下**（現在 1/6）。プラン名・PRO・"Live sample" 等のバッジは数に含めない。
+14. **JS でスクロールを取る**: `window.addEventListener('scroll')`・`onScroll`・`requestAnimationFrame` ループ・素の `h-screen`。動きは `.reveal`（CSS scroll-driven）のみ＝motion 規約の実装側。
 
 ## 不変条件（壊すと事業事故）
 
@@ -80,5 +85,6 @@ SplanAI は、米国の中小ホームビルダー（年10–50棟）が**客の
 - **SEO/OGP/JSON-LD**: `page.tsx` の JSON-LD・`layout.tsx` の metadata・robots=AIクローラ許可（A-021 GEO）を削らない。
 - **CTA動線（釣り堀 DEC-0815B・2026-09-18 更新）**: hero主→`/try`（登録不要サンプル）・hero副/nav/末尾バナー/Free→`/login?tab=signup`（**plan無し＝無料登録**）・Pro→`/login?tab=signup&plan=pro`（**唯一の有料トライアル**）・Team→checkout（未ログインは `/login?plan=team`）・`/s/nfhkewvz` ライブポータル例・料金アンカーは `/#pricing`（**`/pricing` は存在しない**）。行き先は `src/app/lp-routes.ts` に一元化し、`src/app/lp-guards.test.ts`（`npm test`）が回帰を止める。
 - **速度（要件・美観ではない）**: LPは Supabase ブラウザクライアントを同梱しない（nav の認証状態は `page.tsx` が cookie 名で判定）・入場アニメは CSS のみで SSR HTML に `opacity:0` を焼き込まない（JS到着前に白紙にしない）。同テストで固定。
+- **アンチスロップ規約（PPP-080）**: 禁止リスト 11〜14 は `src/app/lp-anti-slop.test.ts`（`npm test`）で固定。上流 taste-skill の既定ダイヤル 8/6/4・Page Theme Lock・手描きSVG禁止・ダークモード必須・en-dash 全面禁止は**採用しない**（ink/paper 交互・inline stroke SVG 一式・単一テーマ・数値範囲の en-dash は本ファイルが正）。
 - **repo名≠製品名は意図的**（homeplan-ai / SplanAI）。
 - アーキ不変条件（RLS全テーブル・Stripe Live・cron冪等 等）は追記予定地——このファイルは薄く保つ。
