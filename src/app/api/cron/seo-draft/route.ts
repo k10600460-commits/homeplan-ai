@@ -1,3 +1,4 @@
+import { AI_MODELS } from "@/lib/ai-models";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
@@ -136,7 +137,7 @@ Respond in this exact JSON format (raw JSON only, no code blocks, no extra text)
   let result: { title: string; description: string; content: string };
   try {
     const msg = await trackedMessage("cron/seo-draft", anthropic, {
-      model: "claude-haiku-4-5-20251001",
+      model: AI_MODELS.editorial.model,
       max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     });

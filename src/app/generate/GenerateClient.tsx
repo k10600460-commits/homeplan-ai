@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { track } from "@vercel/analytics";
 import { getMarketPack, marketFromHost, type Market } from "@/lib/market";
+import { TRY_BRIEF_KEY, parseTryBrief } from "@/lib/try-journey";
 
 interface MlsLotData {
   listingId: string;
@@ -29,12 +31,29 @@ function Spinner() {
 
 const FAMILY_OPTIONS = ["1 person", "2 people", "3 people", "4 people", "5 people", "6+ people"];
 
+const subscribeToBrowser = (notify: () => void) => {
+  window.addEventListener("storage", notify);
+  return () => window.removeEventListener("storage", notify);
+};
+const browserMarket = (): Market => marketFromHost(window.location.host) ?? "us";
+const serverMarket = (): Market => "us";
+const browserBrief = () => { try { return localStorage.getItem(TRY_BRIEF_KEY); } catch { return null; } };
+const serverBrief = () => null;
+
 export default function GenerateClient() {
   const router = useRouter();
-  const [form, setForm] = useState({ lotSize: "", budget: "", familySize: "", city: "", state: "", street: "" });
+  const [editedForm, setForm] = useState({ lotSize: null as string | null, budget: null as string | null, familySize: "", city: "", state: "", street: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [mkt, setMkt] = useState<Market>("us");
+  const mkt = useSyncExternalStore(subscribeToBrowser, browserMarket, serverMarket);
+  const rawBrief = useSyncExternalStore(subscribeToBrowser, browserBrief, serverBrief);
+  const brief = mkt === "us" ? parseTryBrief(rawBrief) : null;
+  const restoredBrief = Boolean(brief);
+  // null means untouched. An intentionally cleared field ("") stays cleared.
+  const form = { ...editedForm,
+    lotSize: editedForm.lotSize ?? (brief ? String(brief.lotSize) : ""),
+    budget: editedForm.budget ?? (brief ? String(brief.budget) : ""),
+  };
 
   const [mlsConnected, setMlsConnected] = useState(false);
   const [mlsListingId, setMlsListingId] = useState("");
@@ -55,8 +74,10 @@ export default function GenerateClient() {
   };
 
   useEffect(() => {
-    setMkt(marketFromHost(window.location.host) ?? "us");
-  }, []);
+    if (rawBrief && !parseTryBrief(rawBrief)) {
+      try { localStorage.removeItem(TRY_BRIEF_KEY); } catch { /* optional storage */ }
+    }
+  }, [rawBrief]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -148,6 +169,7 @@ export default function GenerateClient() {
       if (mlsLotData) sessionStorage.setItem("mlsData", JSON.stringify(mlsLotData));
       else sessionStorage.removeItem("mlsData");
       track("generate_success");
+      try { localStorage.removeItem(TRY_BRIEF_KEY); } catch { /* optional handoff */ }
       // Carry the row id so /results can recover from the server when this tab's
       // sessionStorage is gone (closed tab, opened in a second tab, browser
       // restart). Without it the three concepts were unrecoverable.
@@ -168,18 +190,21 @@ export default function GenerateClient() {
     <div className="min-h-screen" style={{ background: "#F8FAFC" }}>
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="text-xl font-bold tracking-tight text-gray-900">
+          <Link href="/" className="text-xl font-bold tracking-tight text-gray-900">
             Splan<span className="text-blue-600">AI</span>
-          </a>
-          <a href="/dashboard" className="text-sm text-gray-500 hover:text-gray-800 transition-colors">
+          </Link>
+          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-800 transition-colors">
             ← Dashboard
-          </a>
+          </Link>
         </div>
       </header>
 
       <div className="max-w-2xl mx-auto px-6 py-12">
         <h1 className="text-2xl font-extrabold text-gray-900 mb-2">Generate Floor Plans</h1>
         <p className="text-sm text-gray-500 mb-8">Enter lot details to get 3 AI-generated proposals in ~30 seconds.</p>
+        {restoredBrief && <p className="mb-5 rounded-lg bg-blue-50 p-3 text-sm text-blue-800" role="status">
+          Your sample lot size and budget are filled in. Review them, then add your family size and location.
+        </p>}
 
         <form onSubmit={handleSubmit} className="bg-white border-2 border-slate-200 rounded-2xl shadow-xl p-8">
           {mkt === "us" && mlsConnected && (

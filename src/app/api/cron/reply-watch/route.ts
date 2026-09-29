@@ -1,3 +1,4 @@
+import { AI_MODELS } from "@/lib/ai-models";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
@@ -72,7 +73,7 @@ const MESSAGE_CAP = 25; // per-run PROCESSING cap; watermark stops at the last p
 const LIST_HARD_CAP = 500; // pagination cap; hitting it = pathological flood → fail loud
 const BODY_SAVE_CAP = 8000; // reply_drafts.original_body cap
 const BODY_PROMPT_CAP = 4000; // inbound body chars fed to the draft prompt
-const DRAFT_MODEL = "claude-haiku-4-5-20251001"; // same model convention as daily-brief triage
+const DRAFT_MODEL = AI_MODELS.editorial.model; // same model convention as daily-brief triage
 
 type Msg = {
   id: string;

@@ -1,3 +1,8 @@
+import { AI_MODELS } from "@/lib/ai-models";
+import { DEMO_SYSTEM_PROMPT, demoUserPrompt } from "@/lib/ai-prompts";
+import { parsePlanOutput, planQualityIssues } from "@/lib/plan-output";
+import { insertEvent } from "@/lib/analytics";
+import { tryAttribution } from "@/lib/try-journey";
 import Anthropic from "@anthropic-ai/sdk";
 import { createHmac, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
@@ -21,9 +26,9 @@ const DEMO_COOKIE = "splanai_demo_id";
 // bath and circulation so the room list reconciles with squareFootage, which
 // costs ~100 more output tokens. Truncation would break JSON.parse and fail the
 // demo, so the margin matters more than the fraction of a cent.
-const DEMO_MODEL = "claude-haiku-4-5";
-const DEMO_MAX_TOKENS = 2000;
-const GENERATION_TIMEOUT_MS = 45_000;
+const DEMO_MODEL = AI_MODELS.demo.model;
+const DEMO_MAX_TOKENS = AI_MODELS.demo.maxTokens;
+
 
 // Budget is a fixed menu on /try — server enforces the same whitelist.
 const ALLOWED_BUDGETS = new Set([250_000, 350_000, 500_000]);
@@ -38,59 +43,7 @@ const DEMO_FAMILY_SIZE = 3;
 const TOKEN_MIN_AGE_MS = 1_000;
 const TOKEN_MAX_AGE_MS = 60 * 60 * 1000;
 
-const client = new Anthropic();
-
-const DEMO_SYSTEM_PROMPT = `You are an expert residential architect in the United States. Design ONE buyer-ready home concept for the given lot.
-
-Follow contemporary American conventions: open-concept Great Room, Primary Suite with walk-in closet (never "master"), foyer entry, attached garage with bay count, mudroom drop zone. Keep the footprint to 20-40% of the lot and construction within budget (typical $150-$250/sq ft).
-
-The "rooms" array is a builder-facing spec sheet. Builders read these for a living, so it MUST reconcile with the headline numbers:
-- List every bedroom AND every bathroom as its own entry. The number of bedrooms in "rooms" must equal "bedrooms", and the bathrooms must equal "bathrooms" (count a half bath as a "Powder Room" = 0.5).
-- Only name a room "Den/Office" when it is NOT included in the "bedrooms" count.
-- The sum of every "sqft" value EXCLUDING the Garage must equal "squareFootage" (within 2%). Use a "Hallways & Circulation" entry to absorb the remainder — do not leave the sum short.
-- Always write "Primary Bedroom / Primary Bath / Primary Suite", never "master".
-
-Respond with ONLY valid JSON — no explanation, no markdown. Exactly this structure:
-
-{
-  "plans": [
-    {
-      "id": 1,
-      "name": "The [Distinctive Name]",
-      "style": "Architectural style",
-      "squareFootage": 2200,
-      "bedrooms": 3,
-      "bathrooms": 2.5,
-      "stories": 1,
-      "garages": 2,
-      "estimatedCost": 330000,
-      "description": "2-3 sentence description.",
-      "features": ["Feature 1", "Feature 2", "Feature 3", "Feature 4", "Feature 5"],
-      "rooms": [
-        { "name": "Primary Suite", "sqft": 340 },
-        { "name": "Primary Bath", "sqft": 100 },
-        { "name": "Walk-In Closet", "sqft": 70 },
-        { "name": "Bedroom 2", "sqft": 160 },
-        { "name": "Bedroom 3", "sqft": 150 },
-        { "name": "Full Bath", "sqft": 75 },
-        { "name": "Powder Room", "sqft": 25 },
-        { "name": "Kitchen", "sqft": 210 },
-        { "name": "Great Room", "sqft": 380 },
-        { "name": "Dining Area", "sqft": 160 },
-        { "name": "Laundry", "sqft": 65 },
-        { "name": "Foyer", "sqft": 80 },
-        { "name": "Mudroom", "sqft": 65 },
-        { "name": "Hallways & Circulation", "sqft": 320 },
-        { "name": "Garage", "sqft": 440 }
-      ],
-      "highlights": ["Key selling point 1", "Key selling point 2", "Key selling point 3"]
-    }
-  ]
-}
-
-In that example the non-Garage rooms sum to exactly 2200 = "squareFootage", the 3 bedrooms are Primary Suite / Bedroom 2 / Bedroom 3, and the 2.5 baths are Primary Bath / Full Bath / Powder Room. Match that internal consistency.
-
-Generate exactly 1 plan. It must fit the budget.`;
+const client = new Anthropic({ timeout: AI_MODELS.demo.timeoutMs, maxRetries: 0 });
 
 function json(status: number, body: Record<string, unknown>, cookieId?: string) {
   const res = NextResponse.json(body, { status });
@@ -216,40 +169,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const attribution = tryAttribution(rawBody);
+    insertEvent("try_demo_started", null, { metadata: attribution });
+    const generationStart = Date.now();
+
     // ── Low-cost generation (1 concept, haiku, capped tokens) ──────────
-    const locationLine = state ? `- Location: ${state} (typical suburban lot)\n` : "";
     try {
-      const response = await Promise.race([
-        client.messages.create({
+      const response = await client.messages.create({
           model: DEMO_MODEL,
           max_tokens: DEMO_MAX_TOKENS,
           system: DEMO_SYSTEM_PROMPT,
           messages: [
             {
               role: "user",
-              content: `Generate 1 residential home concept for:
-- Lot size: ${lotSize.toLocaleString()} sq ft
-- Total budget: $${budget.toLocaleString()}
-- Family size: ${DEMO_FAMILY_SIZE} person(s)
-${locationLine}`,
+              content: demoUserPrompt({ lotSize, budget, state }),
             },
           ],
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("DEMO_TIMEOUT")), GENERATION_TIMEOUT_MS),
-        ),
-      ]);
+        });
 
       const textBlock = response.content.find((b) => b.type === "text");
       if (!textBlock || textBlock.type !== "text") throw new Error("No text content in response");
 
-      const rawText = textBlock.text
-        .replace(/^```(?:json)?\s*/i, "")
-        .replace(/\s*```\s*$/, "")
-        .trim();
-      const data = JSON.parse(rawText);
-      const plan = Array.isArray(data.plans) ? data.plans[0] : null;
-      if (!plan || typeof plan.name !== "string") throw new Error("Invalid demo plan structure");
+      const [plan] = parsePlanOutput(textBlock.text, 1, response.stop_reason);
+      const qualityIssues = planQualityIssues([plan], budget);
 
       await saveDemoResult(guard.claimId, {
         result: plan,
@@ -267,12 +209,17 @@ ${locationLine}`,
         outputTokens: response.usage.output_tokens,
       });
 
-      return json(200, { plan, reused: false }, cookieId);
+      insertEvent("try_demo_completed", null, { metadata: {
+        ...attribution, model: response.model, prompt_version: AI_MODELS.demo.promptVersion,
+        duration_ms: Date.now() - generationStart, quality_issues: qualityIssues.length,
+      } });
+      return json(200, { plan, reused: false, needsReview: qualityIssues.length > 0 }, cookieId);
     } catch (genErr) {
+      insertEvent("try_demo_failed", null, { metadata: { ...attribution, model: DEMO_MODEL, prompt_version: AI_MODELS.demo.promptVersion } });
       // Give the visitor their attempt back — the claim burned no Claude budget
       // worth keeping if we couldn't deliver a result.
       await releaseDemoClaim(guard.claimId);
-      if (genErr instanceof Error && genErr.message === "DEMO_TIMEOUT") {
+      if (genErr instanceof Anthropic.APIConnectionTimeoutError) {
         return json(
           504,
           { error: "That took longer than it should. Nothing was used up — give it another go.", code: "TIMEOUT" },

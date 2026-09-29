@@ -74,6 +74,9 @@ function etInstant(dateStr: string, hour: number): Date {
 // secondary signal. It must NEVER take down the free portal loop — it is recorded
 // as a declared gap (partial), not a hard failure.
 async function collectX(supabase: SupabaseClient, contentDate: string): Promise<XItem[]> {
+  if (process.env.CONTENT_FEEDBACK_SOCIAL_ANALYTICS !== "enabled") {
+    throw new SourceUnavailableError("X analytics intentionally disabled; first-party feedback only (no paid API calls)");
+  }
   const { data, error } = await supabase
     .from("x_post_draft")
     .select("id, angle, draft_text, status, x_post_id, last_error")
@@ -164,6 +167,9 @@ async function collectX(supabase: SupabaseClient, contentDate: string): Promise<
 
 // ── Source: Facebook (secondary, best-effort) ──────────────────────────────────
 async function collectFacebook(supabase: SupabaseClient, contentDate: string): Promise<FbItem[]> {
+  if (process.env.CONTENT_FEEDBACK_SOCIAL_ANALYTICS !== "enabled") {
+    throw new SourceUnavailableError("Facebook analytics intentionally disabled; first-party feedback only");
+  }
   const { data, error } = await supabase
     .from("fb_post_draft")
     .select("id, message, status, fb_post_id, last_error")
@@ -267,7 +273,11 @@ async function collectBlog(
     throw new SourceUnavailableError("no blog article published in the ET-day window（当日publish無し）");
   }
 
-  return data.map(a => {
+  const measured = data.filter(a => a.serp_position != null || (a.organic_clicks_30d ?? 0) > 0);
+  if (measured.length === 0) {
+    throw new SourceUnavailableError("Search performance not observed; default zeros are not proof of zero traffic. Search Console ingestion remains unverified.");
+  }
+  return measured.map(a => {
     const serp = (a.serp_position as number | null) ?? null;
     const clicks = (a.organic_clicks_30d as number | null) ?? 0;
     return {
@@ -339,7 +349,7 @@ async function collectBuilder(supabase: SupabaseClient, dayStart: Date, dayEnd: 
 
 // ── Handler ──────────────────────────────────────────────────────────────────
 async function contentFeedbackHandler(req: NextRequest) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {

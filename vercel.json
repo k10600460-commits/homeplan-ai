@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/content-feedback",
+      "schedule": "25 22 * * *"
+    },
+    {
       "path": "/api/cron/health-check",
       "schedule": "0 6 * * *"
     },

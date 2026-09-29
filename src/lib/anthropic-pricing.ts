@@ -1,7 +1,7 @@
 // Anthropic per-model pricing table (USD per 1,000,000 tokens).
 //
-// Used ONLY to ESTIMATE the cost of the app's daily Claude cron群 for the
-// cron_costs observability table (W0). This is a passive record layer — it never
+// Used to ESTIMATE generation, benchmark and daily Claude cron costs.
+// This is a passive record layer — it never
 // bills, never calls an API, and never gates a request. Estimates are used to
 // surface month-to-date spend and spike alerts in the daily brief.
 //
@@ -21,18 +21,17 @@ export interface ModelPrice {
   outputPerMTok: number;
 }
 
-// Keys are matched by PREFIX against the model id, so dated snapshots such as
-// "claude-haiku-4-5-20251001" match the "claude-haiku-4-5" row. Longer keys are
-// tried first (see priceForModel) so a more specific id wins.
+// Exact IDs or dated snapshots only. A future model version must never
+// silently inherit a previous version's price just because its prefix matches.
 export const MODEL_PRICING: Record<string, ModelPrice> = {
   // Haiku 4.5 — fb-draft, nurture-scan, legal-watch, reply-watch, daily-brief翻訳
   "claude-haiku-4-5": { inputPerMTok: 1.0, outputPerMTok: 5.0 },
   // Sonnet 4.6 — daily-brief research (web_search + submit_research)
   "claude-sonnet-4-6": { inputPerMTok: 3.0, outputPerMTok: 15.0 },
-  // 要確認: Sonnet 5 has an intro rate of $2/$10 per MTok through 2026-08-31;
-  // standard is $3/$15. We use the higher STANDARD rate so estimates stay
-  // conservative (over-report) if intro pricing lapses. Not used by any cron yet.
-  "claude-sonnet-5": { inputPerMTok: 3.0, outputPerMTok: 15.0 },
+  // Verified 2026-09-29: the planned September increase was cancelled.
+  // https://platform.claude.com/docs/en/about-claude/pricing
+  "claude-sonnet-5": { inputPerMTok: 2.0, outputPerMTok: 10.0 },
+  "claude-sonnet-5-5": { inputPerMTok: 2.0, outputPerMTok: 10.0 },
   // Opus tier — not used by cron群 today; listed for completeness.
   "claude-opus-4-8": { inputPerMTok: 5.0, outputPerMTok: 25.0 },
   "claude-opus-4-7": { inputPerMTok: 5.0, outputPerMTok: 25.0 },
@@ -56,7 +55,9 @@ export const FALLBACK_PRICE: ModelPrice = { inputPerMTok: 10.0, outputPerMTok: 5
 export function priceForModel(model: string): { price: ModelPrice; matched: boolean } {
   const keys = Object.keys(MODEL_PRICING).sort((a, b) => b.length - a.length);
   for (const key of keys) {
-    if (model.startsWith(key)) return { price: MODEL_PRICING[key], matched: true };
+    if (model === key || (model.startsWith(key) && /^-\d{8}$/.test(model.slice(key.length)))) {
+      return { price: MODEL_PRICING[key], matched: true };
+    }
   }
   return { price: FALLBACK_PRICE, matched: false };
 }
@@ -76,4 +77,17 @@ export function estimateCostUsd(
   const outTok = Number.isFinite(outputTokens) && (outputTokens as number) > 0 ? (outputTokens as number) : 0;
   const cost = (inTok / 1_000_000) * price.inputPerMTok + (outTok / 1_000_000) * price.outputPerMTok;
   return Math.round(cost * 1_000_000) / 1_000_000;
+}
+
+/** Proposal/demo transport uses default 5-minute cache writes, global direct
+ * Claude API. Estimate only; not the provider invoice (taxes/discounts excluded).
+ */
+export function estimateGenerationCostUsd(model: string, usage: {
+  input_tokens: number; output_tokens: number;
+  cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null;
+}): number {
+  const { price } = priceForModel(model);
+  const safe = (n: number | null | undefined) => typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 0;
+  const cacheCost = (safe(usage.cache_read_input_tokens) * 0.1 + safe(usage.cache_creation_input_tokens) * 1.25) * price.inputPerMTok / 1_000_000;
+  return Math.round((estimateCostUsd(model, usage.input_tokens, usage.output_tokens) + cacheCost) * 1_000_000) / 1_000_000;
 }

@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { AI_MODELS } from './ai-models'
+import { estimateGenerationCostUsd } from './anthropic-pricing'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -124,11 +126,13 @@ export async function checkUsageLimit(userId: string): Promise<{
 export async function recordApiUsage(
   userId:       string,
   inputTokens:  number,
-  outputTokens: number
+  outputTokens: number,
+  options?: { model: string; cacheReadTokens?: number | null; cacheCreationTokens?: number | null }
 ): Promise<void> {
-  const costUsd =
-    (inputTokens  / 1_000_000) * 3.0 +
-    (outputTokens / 1_000_000) * 15.0
+  const costUsd = estimateGenerationCostUsd(options?.model ?? AI_MODELS.proposal.model, {
+    input_tokens: inputTokens, output_tokens: outputTokens,
+    cache_read_input_tokens: options?.cacheReadTokens, cache_creation_input_tokens: options?.cacheCreationTokens,
+  })
 
   const { error } = await supabaseAdmin.rpc('increment_api_usage', {
     p_user_id: userId,

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { track } from "@vercel/analytics";
+import { TRY_BRIEF_KEY, parseTryBrief, tryAttribution } from "@/lib/try-journey";
 
 interface DemoRoom {
   name: string;
@@ -39,7 +40,7 @@ function SignupCta({ where }: { where: string }) {
         className="px-6 py-3.5 rounded-xl text-white font-bold text-base shadow-lg transition-colors w-full sm:w-auto text-center"
         style={{ background: "#3B82F6", boxShadow: "0 0 24px rgba(59,130,246,0.3)" }}
       >
-        Create your own in 30 seconds → Start free
+        Make 3 concepts for your lot → Start free
       </a>
       <span className="text-xs text-slate-500">No credit card. 3 full proposals a month on the free plan.</span>
     </div>
@@ -55,13 +56,23 @@ function Spinner() {
   );
 }
 
-export default function TryClient({ token }: { token: string }) {
+export default function TryClient({ token, source, article }: { token: string; source?: string; article?: string }) {
   const [form, setForm] = useState({ lotSize: "", budget: "350000", state: "" });
   const [honeypot, setHoneypot] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [plan, setPlan] = useState<DemoPlan | null>(null);
   const [reused, setReused] = useState(false);
+  const [needsReview, setNeedsReview] = useState(false);
+  const [readyToken, setReadyToken] = useState<string | null>(null);
+  const tokenReady = readyToken === token;
+  const attribution = tryAttribution({ source, article });
+
+  useEffect(() => {
+    // Respect the API's token-age floor even for fast example/autofill users.
+    const timer = window.setTimeout(() => setReadyToken(token), 1100);
+    return () => window.clearTimeout(timer);
+  }, [token]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,12 +89,21 @@ export default function TryClient({ token }: { token: string }) {
           state: form.state,
           website: honeypot,
           token,
+          source: attribution.entry_source,
+          article: attribution.article_slug,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.plan) {
         setPlan(data.plan as DemoPlan);
         setReused(Boolean(data.reused));
+        setNeedsReview(Boolean(data.needsReview));
+        // Only save the inputs that produced this result, not a later form
+        // submitted by a returning visitor whose old result was reused.
+        if (!data.reused) {
+          const brief = parseTryBrief(JSON.stringify({ lotSize: Number(form.lotSize), budget: Number(form.budget), savedAt: Date.now() }));
+          try { if (brief) localStorage.setItem(TRY_BRIEF_KEY, JSON.stringify(brief)); } catch { /* Storage-disabled browsers still work. */ }
+        }
         track("try_demo_result", { reused: Boolean(data.reused) });
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
@@ -125,6 +145,11 @@ export default function TryClient({ token }: { token: string }) {
               </p>
               <SignupCta where="top" />
             </div>
+
+            <p className="text-sm text-slate-400 mb-5" role={needsReview ? "status" : undefined}>
+              {needsReview && "Some room totals need review before you share this concept. "}
+              Preliminary concept only. Check dimensions, local requirements and costs with your builder or designer before making decisions.
+            </p>
 
             <div className="relative rounded-2xl border border-slate-700 bg-slate-900/80 p-6 sm:p-8 overflow-hidden">
               {/* Watermark */}
@@ -204,9 +229,15 @@ export default function TryClient({ token }: { token: string }) {
             </h1>
             <p className="text-slate-400 leading-relaxed mb-8 max-w-xl">
               I built SplanAI so builders can answer &ldquo;what could we build on this lot?&rdquo; in about 30
-              seconds instead of 3 days. Type in a lot size, pick a budget, and see one sample concept.
-              One per visitor — the real thing does more.
+              seconds. Type in a lot size, pick a budget, and see one sample concept.
+              One per visitor. No account or payment details needed.
             </p>
+
+            <button type="button" disabled={loading}
+              onClick={() => { setForm({ lotSize: "8500", budget: "350000", state: "TX" }); setError(""); }}
+              className="mb-5 text-sm text-blue-300 underline underline-offset-4 hover:text-blue-200">
+              No lot handy? Fill in an example: 8,500 sq ft, $350,000
+            </button>
 
             <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 sm:p-8 space-y-5">
               <div>
@@ -272,7 +303,7 @@ export default function TryClient({ token }: { token: string }) {
               </div>
 
               {error && (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                <div role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
                   {error}{" "}
                   <a href="/login?tab=signup" className="underline font-semibold hover:text-white">
                     Start free
@@ -282,7 +313,7 @@ export default function TryClient({ token }: { token: string }) {
 
               <button
                 type="submit"
-                disabled={loading || !token}
+                disabled={loading || !token || !tokenReady}
                 className="w-full flex items-center justify-center gap-2 rounded-xl py-3.5 text-white font-bold transition-colors disabled:opacity-60"
                 style={{ background: "#3B82F6" }}
               >
@@ -293,10 +324,11 @@ export default function TryClient({ token }: { token: string }) {
                 One sample per visitor · no email needed · takes about 30 seconds
               </p>
             </form>
+            <p className="mt-4 text-xs text-slate-500">A concept for an early buyer conversation, not a permit-ready plan or construction quote.</p>
 
             <p className="text-xs text-slate-600 mt-6 max-w-xl">
-              The sample skips the parts I charge for: 3 concepts per run, PDF export, and the shareable
-              client portal. Those come with the free plan — no card required.
+              The sample shows one concept. A free account includes 3 concepts per run, PDF export,
+              and a shareable client portal. No credit card required.
             </p>
           </div>
         )}

@@ -26,6 +26,8 @@ function mintToken(): string {
   }
 }
 
-export default function TryPage() {
-  return <TryClient token={mintToken()} />;
+export default async function TryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  return <TryClient token={mintToken()} source={typeof params.source === "string" ? params.source : undefined}
+    article={typeof params.article === "string" ? params.article : undefined} />;
 }
