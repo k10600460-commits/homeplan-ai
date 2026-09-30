@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { AI_MODELS, EVALUATION_MODELS, type GenerationRole } from "../src/lib/ai-models";
 import { priceForModel, estimateGenerationCostUsd } from "../src/lib/anthropic-pricing";
 import { EVAL_CASES, assessEvaluation, evaluationPrompt, type EvaluationRow } from "../src/lib/ai-evaluation";
-import { parsePlanOutput, planQualityIssues } from "../src/lib/plan-output";
+import { parsePlanOutput, planQualityIssues, PlanOutputError } from "../src/lib/plan-output";
 
 function arg(name: string) { const i = process.argv.indexOf(name); return i < 0 ? undefined : process.argv[i + 1]; }
 
@@ -32,6 +32,7 @@ async function main() {
   let reservedUsd = 0;
   const deadline = Date.now() + 10 * 60_000;
   let stopped: string | null = null;
+  let stoppedDetails: { phase: string; model: string; httpStatus: number | null } | null = null;
   outer: for (const c of EVAL_CASES) for (let repeat = 0; repeat < 2; repeat++) {
     // Alternating order reduces warm-cache/order bias; prompts are the same.
     const variants = repeat % 2 ? ["candidate", "baseline"] as const : ["baseline", "candidate"] as const;
@@ -39,34 +40,42 @@ async function main() {
       const model = variant === "baseline" ? baseline : candidate;
       const { price, matched } = priceForModel(model);
       if (!matched) { stopped = "unreviewed_price"; break outer; }
-      const request = { ...evaluationPrompt(role, c), model };
+      const request = { ...evaluationPrompt(role, c, model), model };
+      // The pinned SDK predates between_tools. Keep the compatibility assertion
+      // at this one documented wire-value boundary; never cast arbitrary input.
+      const thinking = request.thinking as Anthropic.ThinkingConfigParam | undefined;
       if (Date.now() > deadline - 90_000) { stopped = "deadline"; break outer; }
+      let phase = "count_tokens";
       try {
-        const counted = await client.messages.countTokens({ model, system: request.system, messages: request.messages, ...(role === "proposal" ? { thinking: { type: "disabled" as const } } : {}) });
+        const counted = await client.messages.countTokens({ model, system: request.system, messages: request.messages, thinking });
         // Reserve before dispatch, including failed/ambiguous requests. Never
         // refund on an API error. This is an estimate, not an account billing cap.
         const reserve = ((counted.input_tokens * 1.2 + 1000) * price.inputPerMTok + request.max_tokens * price.outputPerMTok) / 1_000_000;
         if (!Number.isFinite(reserve) || reserve <= 0 || reservedUsd + reserve > maxCost) { stopped = "budget_reservation_limit"; break outer; }
         reservedUsd += reserve;
+        phase = "messages_create";
         const started = Date.now();
-        const response = await client.messages.create(request);
+        const response = await client.messages.create({ ...request, thinking });
         const durationMs = Date.now() - started;
         const block = response.content.find(b => b.type === "text");
         const issues: string[] = [];
         try { issues.push(...planQualityIssues(parsePlanOutput(block?.type === "text" ? block.text : "", role === "demo" ? 1 : 3, response.stop_reason), c.budget)); }
-        catch { issues.push("invalid_output"); }
+        catch (error) {
+          issues.push(error instanceof PlanOutputError ? `invalid_output:${error.code}${error.fields.length ? ":" + error.fields.join(",") : ""}` : "invalid_output");
+        }
         const costUsd = estimateGenerationCostUsd(model, response.usage);
         rows.push({ variant, caseId: c.id, repeat, model, durationMs, costUsd, issues });
-      } catch {
+      } catch (error) {
         // No response body, prompts or secrets go into logs. Stop rather than
         // retry an unknown-cost failure or automatically choose another model.
         stopped = "api_or_count_failure";
+        stoppedDetails = { phase, model, httpStatus: error instanceof Anthropic.APIError ? (error.status ?? null) : null };
         break outer;
       }
     }
   }
   const assessment = assessEvaluation(rows);
-  console.log(JSON.stringify({ ...plan, ...assessment, stopped, reservedUsd, rows, humanReview: "Inspect PDF/portal and usefulness before release; no automatic promotion." }, null, 2));
+  console.log(JSON.stringify({ ...plan, ...assessment, stopped, stoppedDetails, reservedUsd, rows, humanReview: "Inspect PDF/portal and usefulness before release; no automatic promotion." }, null, 2));
   if (stopped || assessment.status !== "eligible_for_human_review") process.exitCode = 2;
 }
 main().catch(() => { console.error("AI evaluation refused/failed. Check arguments, reviewed prices and approved budget; no config was changed."); process.exitCode = 1; });

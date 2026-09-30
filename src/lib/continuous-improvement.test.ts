@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { parsePlanOutput, planQualityIssues } from "./plan-output";
+import { parsePlanOutput, planQualityIssues, PlanOutputError } from "./plan-output";
 import { BRIEF_TTL_MS, parseTryBrief, tryAttribution } from "./try-journey";
 import { inspectModelDocs } from "./ai-model-watch";
 import { AI_MODELS } from "./ai-models";
@@ -27,6 +27,10 @@ test("three plans and fenced JSON accepted", () => {
   const data = { plans: [1, 2, 3].map(id => ({ ...plan, id })) };
   assert.equal(parsePlanOutput("```json\n" + JSON.stringify(data) + "\n```", 3, "end_turn").length, 3);
 });
+test("surrounding whitespace before a JSON fence is harmless", () => {
+  assert.equal(parsePlanOutput(" \n```json\n" + JSON.stringify({ plans: [plan] }) + "\n```\n ", 1, "end_turn").length, 1);
+  assert.throws(() => parsePlanOutput("Here is prose\n" + JSON.stringify({ plans: [plan] }), 1, "end_turn"), /INVALID_JSON/);
+});
 test("partial response rejected even if JSON parses", () => assert.throws(() => parsePlanOutput(JSON.stringify({ plans: [plan] }), 1, "max_tokens"), /TRUNCATED/));
 test("malformed JSON rejected", () => assert.throws(() => parsePlanOutput("not JSON", 1, "end_turn"), /INVALID_JSON/));
 test("empty or wrong count rejected", () => { for (const plans of [[], [plan, plan]]) assert.throws(() => parsePlanOutput(JSON.stringify({ plans }), 1, "end_turn")); });
@@ -39,6 +43,16 @@ test("bad field types cannot reach UI/PDF", () => {
 test("geometry/count/budget mismatches detected not silently repaired", () => {
   const issues = planQualityIssues([{ ...plan, squareFootage: 2000, bedrooms: 3, bathrooms: 3, estimatedCost: 300_000 }], 250_000);
   assert.equal(issues.length, 4); assert.equal(plan.squareFootage, 1000);
+});
+test("schema diagnostics expose paths/codes, never model values", () => {
+  try {
+    parsePlanOutput(JSON.stringify({ plans: [{ ...plan, estimatedCost: "private model value" }] }), 1, "end_turn");
+    assert.fail("must reject");
+  } catch (error) {
+    assert.ok(error instanceof PlanOutputError);
+    assert.deepEqual(error.fields, ["plans.0.estimatedCost:invalid_type"]);
+    assert.doesNotMatch(JSON.stringify(error), /private model value/);
+  }
 });
 const now = 1_800_000_000_000;
 const brief = { lotSize: 8500, budget: 350_000, savedAt: now };
@@ -83,6 +97,11 @@ test("eval uses current prompts and caps", () => {
   assert.match(evaluationPrompt("proposal", EVAL_CASES[0]).system, /room schedule must reconcile/);
   assert.match(evaluationPrompt("demo", EVAL_CASES[0]).system, /exactly 1 plan/);
   assert.equal(evaluationPrompt("proposal", EVAL_CASES[0]).max_tokens, AI_MODELS.proposal.maxTokens);
+});
+test("Sonnet 5.5 evaluation uses its documented non-thinking wire mode", () => {
+  assert.equal(evaluationPrompt("proposal", EVAL_CASES[0]).thinking?.type, "disabled");
+  assert.equal(evaluationPrompt("proposal", EVAL_CASES[0], "claude-sonnet-5-5").thinking?.type, "between_tools");
+  assert.equal(evaluationPrompt("demo", EVAL_CASES[0]).thinking, undefined);
 });
 test("current model price and cache costs share one estimate", () => {
   assert.equal(estimateGenerationCostUsd("claude-sonnet-5", { input_tokens: 1_000_000, output_tokens: 1_000_000 }), 12);
