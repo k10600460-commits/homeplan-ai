@@ -127,9 +127,12 @@ export async function recordApiUsage(
   userId:       string,
   inputTokens:  number,
   outputTokens: number,
-  options?: { model: string; cacheReadTokens?: number | null; cacheCreationTokens?: number | null }
+  options?: { model: string; cacheReadTokens?: number | null; cacheCreationTokens?: number | null; requests?: 0 | 1; estimatedCostUsd?: number }
 ): Promise<void> {
-  const costUsd = estimateGenerationCostUsd(options?.model ?? AI_MODELS.proposal.model, {
+  // An output rejected by the quality gate still costs the operator money,
+  // but must NOT consume the customer's monthly successful-proposal allowance.
+  if (options?.estimatedCostUsd !== undefined && (!Number.isFinite(options.estimatedCostUsd) || options.estimatedCostUsd < 0)) throw new Error('INVALID_COST_ESTIMATE')
+  const costUsd = options?.estimatedCostUsd ?? estimateGenerationCostUsd(options?.model ?? AI_MODELS.proposal.model, {
     input_tokens: inputTokens, output_tokens: outputTokens,
     cache_read_input_tokens: options?.cacheReadTokens, cache_creation_input_tokens: options?.cacheCreationTokens,
   })
@@ -137,8 +140,8 @@ export async function recordApiUsage(
   const { error } = await supabaseAdmin.rpc('increment_api_usage', {
     p_user_id: userId,
     p_month:   getCurrentMonth(),
-    p_requests: 1,
-    p_tokens:  inputTokens + outputTokens,
+    p_requests: options?.requests ?? 1,
+    p_tokens:  inputTokens + outputTokens + (options?.cacheReadTokens ?? 0) + (options?.cacheCreationTokens ?? 0),
     p_cost:    costUsd,
   })
 

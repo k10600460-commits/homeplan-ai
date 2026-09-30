@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { calculateConcepts, conceptIssues, conceptJsonSchema, conceptPrompt, CONCEPT_VERSION, type ConceptBrief } from "./concept-contract";
-import { conceptCost, normalizeOpenAIUsage } from "./concept-provider";
+import { acceptConcepts, ConceptQualityError, calculateConcepts, conceptIssues, conceptJsonSchema, conceptPrompt, CONCEPT_VERSION, type ConceptBrief } from "./concept-contract";
+import { conceptCost, normalizeOpenAIUsage, isExpectedConceptModel } from "./concept-provider";
+import { conceptAreaNote } from "./concept-disclosure";
 const brief: ConceptBrief = { market: "us", lotSize: 8500, budget: 350000, familySize: 3 };
 const draft = { id: 1, name: "The Cedar", style: "Craftsman", stories: 1, garages: 1, estimatedCost: 220000,
   description: "Kitchen opens onto the Great Room. Private bedrooms sit off a separate hall.", features: ["Separate bedroom hall"], highlights: ["A compact footprint keeps the yard open"],
@@ -58,6 +59,24 @@ test("schema is required-field strict and excludes independently generated total
   const schema = JSON.stringify(conceptJsonSchema(3)); assert.ok(schema.includes('"additionalProperties":false'));
   for (const key of ["squareFootage", "bedrooms", "bathrooms", "exclusiveMinimum"]) assert.ok(!schema.includes('"' + key + '"'));
 });
+test("wire schema uses required named slots, never an unconstrained plans array", () => {
+  for (const count of [1, 3] as const) {
+    const schema = conceptJsonSchema(count);
+    assert.deepEqual(schema.required, count === 1 ? ["plan1"] : ["plan1", "plan2", "plan3"]);
+    const wire = Object.fromEntries(Array.from({ length: count }, (_, i) => [`plan${i + 1}`, { ...draft, id: i + 1, style: `Style ${i + 1}` }]));
+    assert.equal(acceptConcepts(JSON.stringify(wire), count, "end_turn", brief).length, count);
+  }
+  assert.throws(() => calculateConcepts(JSON.stringify({ plan1: draft, plan2: draft }), 1, "end_turn"));
+  assert.throws(() => calculateConcepts(JSON.stringify({ plan1: draft }), 3, "end_turn"));
+});
+test("inconsistent concepts fail before UI/PDF without silently changing numbers", () => {
+  assert.throws(() => acceptConcepts(JSON.stringify({ plan1: draft }), 1, "end_turn", { ...brief, budget: 100000 }), ConceptQualityError);
+  assert.equal(draft.estimatedCost, 220000);
+});
+test("new disclosure agrees with ledger; old plans are not described as recalculated", () => {
+  assert.match(conceptAreaNote({ calculationBasis: CONCEPT_VERSION }), /including circulation/);
+  assert.match(conceptAreaNote({}), /may not reconcile/);
+});
 test("Canadian, Australian, NZ and US prompts retain internal sqft and local currencies", () => {
   for (const market of ["us", "ca", "au", "nz"] as const) {
     const p = conceptPrompt({ ...brief, market }, 3);
@@ -73,6 +92,12 @@ test("OpenAI cached input is not billed twice and output includes reasoning", ()
 });
 test("invalid usage fails rather than claiming zero-cost inference", () => {
   for (const u of [undefined, {}, { input_tokens: -1, output_tokens: 2 }, { input_tokens: 1, output_tokens: 2, input_tokens_details: { cached_tokens: 3 } }]) assert.throws(() => normalizeOpenAIUsage(u), /INVALID_USAGE/);
+});
+test("provider cannot silently substitute a model; dated snapshots are explicit aliases", () => {
+  assert.equal(isExpectedConceptModel("claude-haiku-4-5", "claude-haiku-4-5-20251001"), true);
+  assert.equal(isExpectedConceptModel("gpt-6-luna", "gpt-6-luna-2026-09-22"), true);
+  assert.equal(isExpectedConceptModel("claude-sonnet-5", "claude-sonnet-5-5"), false);
+  assert.equal(isExpectedConceptModel("gpt-6-luna", "gpt-6-luna-2026-fallback"), false);
 });
 test("same contract parses a demo and a three-plan proposal", () => {
   assert.equal(parse().length, 1);

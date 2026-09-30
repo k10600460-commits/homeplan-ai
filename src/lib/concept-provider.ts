@@ -17,6 +17,9 @@ export type ConceptResponse = { id: string; model: string; requestedModel: Conce
 export class ConceptProviderError extends Error {
   constructor(public readonly code: string, public readonly httpStatus?: number) { super(code); }
 }
+export function isExpectedConceptModel(requested: ConceptModel, resolved: string): boolean {
+  return resolved === requested || (resolved.startsWith(requested) && /^-(?:\d{8}|\d{4}-\d{2}-\d{2})$/.test(resolved.slice(requested.length)));
+}
 export function normalizeOpenAIUsage(value: unknown): ConceptUsage {
   const u = value as { input_tokens?: number; output_tokens?: number; input_tokens_details?: { cached_tokens?: number } } | null;
   if (!u || !Number.isFinite(u.input_tokens) || !Number.isFinite(u.output_tokens) || (u.input_tokens ?? -1) < 0 || (u.output_tokens ?? -1) < 0) throw new ConceptProviderError("INVALID_USAGE");
@@ -48,6 +51,7 @@ export async function requestConcept(args: {
         output_config: { format: { type: "json_schema", schema } },
       });
       const usage = { ...response.usage, cache_read_input_tokens: response.usage.cache_read_input_tokens ?? 0, cache_creation_input_tokens: response.usage.cache_creation_input_tokens ?? 0 };
+      if (!isExpectedConceptModel(model, response.model)) throw new ConceptProviderError("UNEXPECTED_MODEL");
       return { id: response.id, model: response.model, requestedModel: model, provider: "anthropic-direct", text: response.content.filter(b => b.type === "text").map(b => b.text).join(""), stopReason: response.stop_reason, usage, costUsd: conceptCost(model, usage), durationMs: Date.now() - started };
     }
     const gateway = openaiTransport === "gateway";
@@ -68,7 +72,7 @@ export async function requestConcept(args: {
     const text = output.filter((b: { type: string }) => b.type === "message").flatMap((b: { content?: { type: string; text?: string }[] }) => b.content ?? [])
       .filter((b: { type: string }) => b.type === "output_text").map((b: { text?: string }) => b.text ?? "").join("");
     const resolvedModel = String(data.model ?? model).replace(/^openai\//, "");
-    if (resolvedModel !== model && !resolvedModel.startsWith(model + "-2026-")) throw new ConceptProviderError("UNEXPECTED_MODEL");
+    if (!isExpectedConceptModel(model, resolvedModel)) throw new ConceptProviderError("UNEXPECTED_MODEL");
     return { id: String(data.id ?? ""), model: resolvedModel, requestedModel: model, provider: gateway ? "vercel-gateway-openai" : "openai-direct", text,
       stopReason: data.status === "completed" ? "end_turn" : data.status ?? "incomplete", usage, costUsd: conceptCost(model, usage), durationMs: Date.now() - started };
   } catch (e) {

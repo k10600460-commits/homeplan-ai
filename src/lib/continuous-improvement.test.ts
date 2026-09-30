@@ -113,11 +113,14 @@ test("future version never silently inherits an old price", () => {
 });
 const root = fileURLToPath(new URL("../", import.meta.url));
 const source = (p: string) => readFileSync(join(root, p), "utf8");
-test("production routes share prompt helpers; demos really cancel on timeout", () => {
-  assert.match(source("app/api/generate/route.ts"), /proposalUserPrompt\(/);
-  assert.match(source("app/api/try-demo/route.ts"), /demoUserPrompt\(/);
+test("production routes share the benchmark contract and bounded provider transport", () => {
+  for (const path of ["app/api/generate/route.ts", "app/api/try-demo/route.ts"]) {
+    assert.match(source(path), /conceptPrompt\(/); assert.match(source(path), /acceptConcepts\(/); assert.match(source(path), /requestConcept\(/);
+  }
   assert.doesNotMatch(source("app/api/try-demo/route.ts"), /Promise\.race/);
-  assert.match(source("app/api/try-demo/route.ts"), /maxRetries: 0/);
+  assert.match(source("lib/concept-provider.ts"), /maxRetries: 0/);
+  assert.match(source("lib/concept-provider.ts"), /AbortSignal.timeout\(timeoutMs\)/);
+  assert.match(source("app/api/generate/route.ts"), /await meter\(0\)/);
 });
 test("all runtime model IDs are centralized", () => {
   function walk(dir: string): void { for (const entry of readdirSync(dir, { withFileTypes: true })) {
