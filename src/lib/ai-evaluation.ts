@@ -9,12 +9,15 @@ export const EVAL_CASES = [
   { id: "larger-family", lotSize: 15000, budget: 500_000, familySize: 6, market: "us", state: "AZ" },
 ] as const;
 
-export function evaluationPrompt(role: GenerationRole, c: { lotSize: number; budget: number; familySize: number; market: Market; state: string }) {
+export function evaluationPrompt(role: GenerationRole, c: { lotSize: number; budget: number; familySize: number; market: Market; state: string }, model: string = AI_MODELS[role].model) {
   return {
     system: role === "demo" ? DEMO_SYSTEM_PROMPT : marketSystemPrompt(c.market),
     messages: [{ role: "user" as const, content: role === "demo" ? demoUserPrompt(c) : proposalUserPrompt(c) }],
     max_tokens: AI_MODELS[role].maxTokens,
-    ...(role === "proposal" ? { thinking: { type: "disabled" as const } } : {}),
+    // Sonnet 5.5 rejects disabled (400); between_tools is its documented
+    // no-up-front-thinking equivalent for requests without tools. This is an
+    // evaluation-only compatibility adapter, not a production model switch.
+    thinking: model === "claude-sonnet-5-5" ? { type: "between_tools" as const } : role === "proposal" ? { type: "disabled" as const } : undefined,
   };
 }
 

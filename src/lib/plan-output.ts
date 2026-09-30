@@ -29,7 +29,7 @@ export function parsePlanOutput(raw: string, count: 1 | 3, stopReason: string | 
   if (stopReason !== "end_turn") throw new PlanOutputError("TRUNCATED");
   let value: unknown;
   try {
-    value = JSON.parse(raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim());
+    value = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim());
   } catch { throw new PlanOutputError("INVALID_JSON"); }
   const parsed = z.object({ plans: z.array(planSchema).length(count) }).safeParse(value);
   if (!parsed.success) throw new PlanOutputError("INVALID_SCHEMA", parsed.error.issues.slice(0, 8).map(i => `${i.path.join(".")}:${i.code}`));

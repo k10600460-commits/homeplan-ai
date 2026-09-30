@@ -40,11 +40,14 @@ async function main() {
       const model = variant === "baseline" ? baseline : candidate;
       const { price, matched } = priceForModel(model);
       if (!matched) { stopped = "unreviewed_price"; break outer; }
-      const request = { ...evaluationPrompt(role, c), model };
+      const request = { ...evaluationPrompt(role, c, model), model };
+      // The pinned SDK predates between_tools. Keep the compatibility assertion
+      // at this one documented wire-value boundary; never cast arbitrary input.
+      const thinking = request.thinking as Anthropic.ThinkingConfigParam | undefined;
       if (Date.now() > deadline - 90_000) { stopped = "deadline"; break outer; }
       let phase = "count_tokens";
       try {
-        const counted = await client.messages.countTokens({ model, system: request.system, messages: request.messages, ...(role === "proposal" ? { thinking: { type: "disabled" as const } } : {}) });
+        const counted = await client.messages.countTokens({ model, system: request.system, messages: request.messages, thinking });
         // Reserve before dispatch, including failed/ambiguous requests. Never
         // refund on an API error. This is an estimate, not an account billing cap.
         const reserve = ((counted.input_tokens * 1.2 + 1000) * price.inputPerMTok + request.max_tokens * price.outputPerMTok) / 1_000_000;
@@ -52,7 +55,7 @@ async function main() {
         reservedUsd += reserve;
         phase = "messages_create";
         const started = Date.now();
-        const response = await client.messages.create(request);
+        const response = await client.messages.create({ ...request, thinking });
         const durationMs = Date.now() - started;
         const block = response.content.find(b => b.type === "text");
         const issues: string[] = [];

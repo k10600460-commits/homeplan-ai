@@ -27,6 +27,10 @@ test("three plans and fenced JSON accepted", () => {
   const data = { plans: [1, 2, 3].map(id => ({ ...plan, id })) };
   assert.equal(parsePlanOutput("```json\n" + JSON.stringify(data) + "\n```", 3, "end_turn").length, 3);
 });
+test("surrounding whitespace before a JSON fence is harmless", () => {
+  assert.equal(parsePlanOutput(" \n```json\n" + JSON.stringify({ plans: [plan] }) + "\n```\n ", 1, "end_turn").length, 1);
+  assert.throws(() => parsePlanOutput("Here is prose\n" + JSON.stringify({ plans: [plan] }), 1, "end_turn"), /INVALID_JSON/);
+});
 test("partial response rejected even if JSON parses", () => assert.throws(() => parsePlanOutput(JSON.stringify({ plans: [plan] }), 1, "max_tokens"), /TRUNCATED/));
 test("malformed JSON rejected", () => assert.throws(() => parsePlanOutput("not JSON", 1, "end_turn"), /INVALID_JSON/));
 test("empty or wrong count rejected", () => { for (const plans of [[], [plan, plan]]) assert.throws(() => parsePlanOutput(JSON.stringify({ plans }), 1, "end_turn")); });
@@ -93,6 +97,11 @@ test("eval uses current prompts and caps", () => {
   assert.match(evaluationPrompt("proposal", EVAL_CASES[0]).system, /room schedule must reconcile/);
   assert.match(evaluationPrompt("demo", EVAL_CASES[0]).system, /exactly 1 plan/);
   assert.equal(evaluationPrompt("proposal", EVAL_CASES[0]).max_tokens, AI_MODELS.proposal.maxTokens);
+});
+test("Sonnet 5.5 evaluation uses its documented non-thinking wire mode", () => {
+  assert.equal(evaluationPrompt("proposal", EVAL_CASES[0]).thinking?.type, "disabled");
+  assert.equal(evaluationPrompt("proposal", EVAL_CASES[0], "claude-sonnet-5-5").thinking?.type, "between_tools");
+  assert.equal(evaluationPrompt("demo", EVAL_CASES[0]).thinking, undefined);
 });
 test("current model price and cache costs share one estimate", () => {
   assert.equal(estimateGenerationCostUsd("claude-sonnet-5", { input_tokens: 1_000_000, output_tokens: 1_000_000 }), 12);
