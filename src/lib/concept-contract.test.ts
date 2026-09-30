@@ -31,6 +31,20 @@ test("wrong room classification is not accepted as false numeric accuracy", () =
   assert.ok(conceptIssues(p, brief).includes("plan_1:room_kind_name_mismatch"));
   assert.ok(conceptIssues(p, brief).includes("plan_1:insufficient_bedrooms"));
 });
+test("a bedroom closet is storage, and a family room is a living room", () => {
+  const p = parse({ ...draft, rooms: [...draft.rooms.map(r => r.name === "Great Room" ? { ...r, name: "Family Room" } : r),
+    { name: "Bedroom 2 Closet", sqft: 15, kind: "service" }, { name: "Bedroom Closets", sqft: 20, kind: "service" },
+    { name: "Bedroom Hallway", sqft: 30, kind: "circulation" }, { name: "Entry and Coat Storage", sqft: 35, kind: "circulation" }] });
+  assert.deepEqual(conceptIssues(p, brief), []);
+  p[0].rooms.at(-3)!.kind = "bedroom";
+  assert.ok(conceptIssues(p, brief).includes("plan_1:storage_counted_as_room"));
+  p[0].rooms.at(-2)!.kind = "bedroom";
+  assert.ok(conceptIssues(p, brief).includes("plan_1:circulation_counted_as_bedroom"));
+});
+test("small-lot prompt supplies a calculated footprint cap without claiming compliance", () => {
+  const p = conceptPrompt({ ...brief, lotSize: 2500 }, 3);
+  assert.match(p.user, /limit: 1000 sqft/); assert.match(p.system, /Circulation IS included/);
+});
 test("budget and household requirements are checked", () => {
   const issues = conceptIssues(parse(), { ...brief, budget: 100000, familySize: 7 });
   assert.ok(issues.includes("plan_1:over_budget")); assert.ok(issues.includes("plan_1:insufficient_bedrooms"));

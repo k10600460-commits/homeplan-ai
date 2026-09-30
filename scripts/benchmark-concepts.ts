@@ -1,7 +1,7 @@
 /** Synthetic-only, bounded cross-provider benchmark. No DB, .env, publishing,
  * automatic model changes, paid retries, or unbounded model judge. */
 import { createHash } from "node:crypto";
-import { CONCEPT_VERSION, calculateConcepts, conceptIssues, conceptJsonSchema, conceptPrompt, type ConceptBrief } from "../src/lib/concept-contract";
+import { CONCEPT_VERSION, CONCEPT_PROMPT_VERSION, CONCEPT_EVALUATOR_VERSION, calculateConcepts, conceptIssues, conceptJsonSchema, conceptPrompt, type ConceptBrief } from "../src/lib/concept-contract";
 import { CONCEPT_CANDIDATES, ConceptProviderError, requestConcept, type ConceptModel, type OpenAITransport } from "../src/lib/concept-provider";
 import { PlanOutputError } from "../src/lib/plan-output";
 
@@ -24,7 +24,7 @@ const CASES: Record<string, (ConceptBrief & { id: string })[]> = {
     { id: "demo-large", market: "us", lotSize: 15000, budget: 500000, familySize: 3, state: "AZ" },
   ],
 };
-type Row = { model: ConceptModel; caseId: string; repeat: number; issues: string[]; costUsd: number; durationMs: number; provider?: string; outputTokens?: number; inputTokens?: number; error?: string; httpStatus?: number };
+type Row = { model: ConceptModel; caseId: string; repeat: number; issues: string[]; costUsd: number; durationMs: number; provider?: string; resolvedModel?: string; outputTokens?: number; inputTokens?: number; error?: string; httpStatus?: number };
 function arg(name: string) { const i = process.argv.indexOf(name); return i < 0 ? undefined : process.argv[i + 1]; }
 const emit = (kind: string, value: unknown) => console.log(`SPLANAI_BENCH_${kind}=` + JSON.stringify(value));
 async function main() {
@@ -38,14 +38,16 @@ async function main() {
   if (!["direct", "gateway"].includes(openaiTransport)) throw new Error("invalid transport");
   const count = suite === "demo" ? 1 : 3;
   const schema = conceptJsonSchema(count);
-  const spec = { version: CONCEPT_VERSION, suite, cases: CASES[suite], models, repeats, count, openaiTransport, maxTokens: count === 1 ? 3000 : 8192, schema,
+  const spec = { version: CONCEPT_VERSION, promptVersion: CONCEPT_PROMPT_VERSION, evaluatorVersion: CONCEPT_EVALUATOR_VERSION, suite, cases: CASES[suite], models, repeats, count, openaiTransport, maxTokens: count === 1 ? 3000 : 8192, schema,
     prompts: CASES[suite].map(c => conceptPrompt(c, count)) };
   const specHash = createHash("sha256").update(JSON.stringify(spec)).digest("hex");
   const maxCost = Number(arg("--max-cost-usd"));
   const planned = { ...spec, specHash, requests: models.length * CASES[suite].length * repeats, productionChanged: false };
   if (!process.argv.includes("--allow-paid")) { emit("DRY_RUN", planned); return; }
   if (!process.argv.includes("--prices-reviewed") || !Number.isFinite(maxCost) || maxCost <= 0 || maxCost > 1.35) throw new Error("explicit price review and budget <= $1.35 required");
-  emit("START", { ...planned, maxCostUsd: maxCost });
+  // Vercel truncates an individual log event at 4KB. Keep the audit header
+  // small; the full prompt/schema remain in dry-run output and the pinned code.
+  emit("START", { ...planned, prompts: undefined, schema: undefined, maxCostUsd: maxCost });
   const rows: Row[] = [];
   const blocked = new Set<ConceptModel>();
   let spentUsd = 0, unknownReservedUsd = 0;
@@ -72,9 +74,9 @@ async function main() {
           const plans = calculateConcepts(response.text, count, response.stopReason);
           issues = conceptIssues(plans, c);
           for (const plan of plans) emit("PLAN", { model, caseId: c.id, repeat, plan });
-        } catch (error) { issues = [error instanceof PlanOutputError ? `invalid_output:${error.code}` : "invalid_output"]; }
+        } catch (error) { issues = error instanceof PlanOutputError ? [`invalid_output:${error.code}`, ...error.fields.map(f => `schema:${f}`)] : ["invalid_output"]; }
         const row: Row = { model, caseId: c.id, repeat, issues, costUsd: response.costUsd, durationMs: response.durationMs,
-          provider: response.provider, inputTokens: response.usage.input_tokens + response.usage.cache_read_input_tokens,
+          provider: response.provider, resolvedModel: response.model, inputTokens: response.usage.input_tokens + response.usage.cache_read_input_tokens,
           outputTokens: response.usage.output_tokens };
         rows.push(row); emit("ROW", row);
       } catch (error) {

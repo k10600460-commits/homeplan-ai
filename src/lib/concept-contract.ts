@@ -3,6 +3,8 @@ import { planSchema, PlanOutputError, type GeneratedPlan } from "./plan-output";
 import { getMarketPack, type Market } from "./market";
 
 export const CONCEPT_VERSION = "room-ledger-2026-09-30";
+export const CONCEPT_PROMPT_VERSION = "room-ledger-v2-2026-09-30";
+export const CONCEPT_EVALUATOR_VERSION = "ledger-checks-v2-2026-09-30";
 export const roomKinds = ["bedroom", "full_bath", "half_bath", "garage", "living", "service", "circulation"] as const;
 const room = z.object({
   name: z.string().trim().min(1).max(100), sqft: z.number().finite().positive().max(50_000),
@@ -51,18 +53,20 @@ export function conceptIssues(plans: readonly CalculatedPlan[], brief: ConceptBr
     if (p.bedrooms < requiredBeds) issues.push(prefix + "insufficient_bedrooms");
     if (!p.rooms.some(r => r.kind === "full_bath")) issues.push(prefix + "missing_full_bath");
     if (!p.rooms.some(r => /kitchen/i.test(r.name))) issues.push(prefix + "missing_kitchen");
-    if (!p.rooms.some(r => /great room|living|lounge/i.test(r.name))) issues.push(prefix + "missing_living_room");
+    if (!p.rooms.some(r => /great room|living|lounge|family room|sitting room/i.test(r.name))) issues.push(prefix + "missing_living_room");
     if (!p.rooms.some(r => r.kind === "circulation")) issues.push(prefix + "missing_circulation_allowance");
     if ((p.garages > 0) !== p.rooms.some(r => r.kind === "garage")) issues.push(prefix + "garage_schedule_mismatch");
     if (new Set(p.rooms.map(r => r.name.trim().toLowerCase())).size !== p.rooms.length) issues.push(prefix + "duplicate_room_name");
     for (const r of p.rooms) {
       // Catch misleading categorization instead of achieving a false clean score.
       // "Bedroom 2 Closet" is storage, not a second bedroom.
-      const storageLabel = /\bcloset\b|\bstorage\b|\bwardrobe\b/i.test(r.name);
+      const storageLabel = /\bclosets?\b|\bstorage\b|\bwardrobes?\b/i.test(r.name);
+      const circulationLabel = /\bhall(?:way)?s?\b|\bcorridors?\b|\bcirculation\b/i.test(r.name);
       const labelKind = storageLabel ? null : /\bgarage\b/i.test(r.name) ? "garage" : /\bpowder\b|half.?bath/i.test(r.name) ? "half_bath" :
-        /\bbath(?:room)?\b|\bensuite\b|en.suite/i.test(r.name) ? "full_bath" : /\bbedroom\b/i.test(r.name) ? "bedroom" : null;
+        /\bbath(?:room)?\b|\bensuite\b|en.suite/i.test(r.name) ? "full_bath" : !circulationLabel && /\bbedroom\b/i.test(r.name) ? "bedroom" : null;
       if (labelKind && labelKind !== r.kind) issues.push(prefix + "room_kind_name_mismatch");
       if (storageLabel && ["bedroom", "full_bath", "half_bath"].includes(r.kind)) issues.push(prefix + "storage_counted_as_room");
+      if (circulationLabel && r.kind === "bedroom") issues.push(prefix + "circulation_counted_as_bedroom");
       if (r.kind === "bedroom" && /\bprimary suite\b/i.test(r.name)) issues.push(prefix + "ambiguous_combined_suite");
       if (r.kind === "bedroom" && r.sqft < 70) issues.push(prefix + "bedroom_area_implausible");
     }
@@ -93,9 +97,10 @@ export function conceptPrompt(brief: ConceptBrief, count: 1 | 3) {
   return {
     system: `Create preliminary residential sales concepts, not permit-ready drawings or verified construction quotes. Do not claim professional credentials, site verification, code compliance, approvals, or exact construction pricing.
 Return ONLY JSON matching the supplied schema. Generate exactly ${count} plan(s), with distinct styles and practical trade-offs. Keep descriptions short (2 sentences), features to 5, and highlights to 3. Highlights should state a practical benefit or trade-off, not sales hype.
-The room schedule is the only numeric source of truth. DO NOT output squareFootage, bedrooms or bathrooms: the app calculates them from rooms. Each bedroom, full bath, half bath, closet and garage must be a SEPARATE room, never a combined Primary Suite. Use Primary Bedroom and Primary Bath, never master. Every room has sqft in square feet and a kind: bedroom, full_bath, half_bath, garage, living, service or circulation. A half bath is 0.5. Name half baths Powder Room or Half Bath. Do not hide bedrooms/baths in other kinds. Include halls, stairs and internal wall allowance as circulation so the schedule covers the interior area. Exclude garage area from living area. garages is the integer number of vehicle bays (0–3).
+The room schedule is the only numeric source of truth. DO NOT output squareFootage, bedrooms or bathrooms: the app calculates them from rooms. Each bedroom, full bath, half bath, closet and garage must be a SEPARATE room, never a combined Primary Suite. Use Primary Bedroom and Primary Bath, never master. Every room has sqft in square feet and a kind: bedroom, full_bath, half_bath, garage, living, service or circulation. A half bath is 0.5. Name half baths Powder Room or Half Bath. Do not hide bedrooms/baths in other kinds. Include halls, stairs and internal wall allowance as circulation so the schedule covers the interior area. Circulation IS included in the app's approximate interior-area total; never claim it is excluded. Exclude only garage area from that total. garages is the integer number of vehicle bays (0–3). ids must be unique integers from 1 through ${count}.
 Fit the stated construction budget and household. Budget excludes land and financing. Estimate living area / stories + garage area at no more than 40% of lot area as a preliminary screening assumption, NOT verified zoning. Prefer a smaller home or fewer garage bays to an unrealistic budget. Do not pad area with implausible circulation. Separate private bedrooms from the shared living zone; describe kitchen, entry and storage relationships concretely.
 Localize vocabulary and architectural choices to ${pack.label}. Currency is ${pack.currency}. Numeric room areas remain square feet for app compatibility; ${pack.areaUnit === "m2" ? "use m² and metres in prose if mentioning dimensions" : "use square feet in prose"}. Do not assume US construction prices in other markets. All costs are indicative and need local builder verification.`,
-    user: `Create ${count} concept(s). Market: ${pack.label}. Lot: ${brief.lotSize} square feet. Construction budget cap: ${brief.budget} ${pack.currency}. Household: ${brief.familySize}. Each plan needs at least ${Math.max(2, Math.ceil(brief.familySize * 0.7))} bedrooms. ${brief.state ? `Region: ${brief.state}.` : ""}\n${brief.zoningLine ?? ""}`,
+    user: `Create ${count} concept(s). Market: ${pack.label}. Lot: ${brief.lotSize} square feet. Construction budget cap: ${brief.budget} ${pack.currency}. Household: ${brief.familySize}. Each plan needs at least ${Math.max(2, Math.ceil(brief.familySize * 0.7))} bedrooms. ${brief.state ? `Region: ${brief.state}.` : ""}
+Precomputed footprint screening limit: ${Math.floor(brief.lotSize * 0.4)} sqft, including any garage. For each concept, sum all non-garage rooms, divide by stories, then add the garage. This must stay at or below that limit. On small lots, use two stories and/or omit the garage rather than exceed the limit. Leave a margin; do not invent zoning permission.\n${brief.zoningLine ?? ""}`,
   };
 }
