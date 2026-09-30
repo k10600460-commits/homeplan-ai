@@ -19,7 +19,7 @@ export const planSchema = z.object({
 export type GeneratedPlan = z.infer<typeof planSchema>;
 
 export class PlanOutputError extends Error {
-  constructor(public readonly code: "TRUNCATED" | "INVALID_JSON" | "INVALID_SCHEMA") {
+  constructor(public readonly code: "TRUNCATED" | "INVALID_JSON" | "INVALID_SCHEMA", public readonly fields: readonly string[] = []) {
     super(code);
   }
 }
@@ -32,9 +32,8 @@ export function parsePlanOutput(raw: string, count: 1 | 3, stopReason: string | 
     value = JSON.parse(raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim());
   } catch { throw new PlanOutputError("INVALID_JSON"); }
   const parsed = z.object({ plans: z.array(planSchema).length(count) }).safeParse(value);
-  if (!parsed.success || new Set(parsed.data.plans.map(p => p.id)).size !== count) {
-    throw new PlanOutputError("INVALID_SCHEMA");
-  }
+  if (!parsed.success) throw new PlanOutputError("INVALID_SCHEMA", parsed.error.issues.slice(0, 8).map(i => `${i.path.join(".")}:${i.code}`));
+  if (new Set(parsed.data.plans.map(p => p.id)).size !== count) throw new PlanOutputError("INVALID_SCHEMA", ["plans.id:duplicate"]);
   return parsed.data.plans;
 }
 

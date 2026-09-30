@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { parsePlanOutput, planQualityIssues } from "./plan-output";
+import { parsePlanOutput, planQualityIssues, PlanOutputError } from "./plan-output";
 import { BRIEF_TTL_MS, parseTryBrief, tryAttribution } from "./try-journey";
 import { inspectModelDocs } from "./ai-model-watch";
 import { AI_MODELS } from "./ai-models";
@@ -39,6 +39,16 @@ test("bad field types cannot reach UI/PDF", () => {
 test("geometry/count/budget mismatches detected not silently repaired", () => {
   const issues = planQualityIssues([{ ...plan, squareFootage: 2000, bedrooms: 3, bathrooms: 3, estimatedCost: 300_000 }], 250_000);
   assert.equal(issues.length, 4); assert.equal(plan.squareFootage, 1000);
+});
+test("schema diagnostics expose paths/codes, never model values", () => {
+  try {
+    parsePlanOutput(JSON.stringify({ plans: [{ ...plan, estimatedCost: "private model value" }] }), 1, "end_turn");
+    assert.fail("must reject");
+  } catch (error) {
+    assert.ok(error instanceof PlanOutputError);
+    assert.deepEqual(error.fields, ["plans.0.estimatedCost:invalid_type"]);
+    assert.doesNotMatch(JSON.stringify(error), /private model value/);
+  }
 });
 const now = 1_800_000_000_000;
 const brief = { lotSize: 8500, budget: 350_000, savedAt: now };
