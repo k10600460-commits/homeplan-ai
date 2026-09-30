@@ -36,6 +36,7 @@ interface FloorPlan {
   rooms: Room[];
   highlights: string[];
   calculationBasis?: string;
+  omittedProseClaims?: number;
 }
 
 interface FormData {

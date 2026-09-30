@@ -1,7 +1,7 @@
 /** Synthetic-only, bounded cross-provider benchmark. No DB, .env, publishing,
  * automatic model changes, paid retries, or unbounded model judge. */
 import { createHash } from "node:crypto";
-import { CONCEPT_VERSION, CONCEPT_PROMPT_VERSION, CONCEPT_EVALUATOR_VERSION, calculateConcepts, conceptIssues, conceptJsonSchema, conceptPrompt, type ConceptBrief } from "../src/lib/concept-contract";
+import { CONCEPT_VERSION, CONCEPT_PROMPT_VERSION, CONCEPT_EVALUATOR_VERSION, calculateConcepts, conceptIssues, prepareConceptsForDisplay, conceptJsonSchema, conceptPrompt, type ConceptBrief } from "../src/lib/concept-contract";
 import { CONCEPT_CANDIDATES, ConceptProviderError, requestConcept, type ConceptModel, type OpenAITransport } from "../src/lib/concept-provider";
 import { PlanOutputError } from "../src/lib/plan-output";
 
@@ -24,7 +24,7 @@ const CASES: Record<string, (ConceptBrief & { id: string })[]> = {
     { id: "demo-large", market: "us", lotSize: 15000, budget: 500000, familySize: 3, state: "AZ" },
   ],
 };
-type Row = { model: ConceptModel; caseId: string; repeat: number; issues: string[]; costUsd: number; durationMs: number; provider?: string; resolvedModel?: string; outputTokens?: number; inputTokens?: number; error?: string; httpStatus?: number };
+type Row = { model: ConceptModel; caseId: string; repeat: number; issues: string[]; deliveryIssues?: string[]; omittedProseClaims?: number; costUsd: number; durationMs: number; provider?: string; resolvedModel?: string; outputTokens?: number; inputTokens?: number; error?: string; httpStatus?: number };
 function arg(name: string) { const i = process.argv.indexOf(name); return i < 0 ? undefined : process.argv[i + 1]; }
 const emit = (kind: string, value: unknown) => console.log(`SPLANAI_BENCH_${kind}=` + JSON.stringify(value));
 async function main() {
@@ -70,12 +70,17 @@ async function main() {
         const response = await requestConcept({ model, ...prompt, schema, maxTokens: spec.maxTokens, openaiTransport });
         spentUsd += response.costUsd;
         let issues: string[];
+        let deliveryIssues: string[] | undefined;
+        let omittedProseClaims = 0;
         try {
           const plans = calculateConcepts(response.text, count, response.stopReason);
           issues = conceptIssues(plans, c);
+          const display = prepareConceptsForDisplay(plans);
+          deliveryIssues = conceptIssues(display, c);
+          omittedProseClaims = display.reduce((n, p) => n + (p.omittedProseClaims ?? 0), 0);
           for (const plan of plans) emit("PLAN", { model, caseId: c.id, repeat, plan });
         } catch (error) { issues = error instanceof PlanOutputError ? [`invalid_output:${error.code}`, ...error.fields.map(f => `schema:${f}`)] : ["invalid_output"]; }
-        const row: Row = { model, caseId: c.id, repeat, issues, costUsd: response.costUsd, durationMs: response.durationMs,
+        const row: Row = { model, caseId: c.id, repeat, issues, deliveryIssues: deliveryIssues ?? issues, omittedProseClaims, costUsd: response.costUsd, durationMs: response.durationMs,
           provider: response.provider, resolvedModel: response.model, inputTokens: response.usage.input_tokens + response.usage.cache_read_input_tokens,
           outputTokens: response.usage.output_tokens };
         rows.push(row); emit("ROW", row);
@@ -96,6 +101,8 @@ async function main() {
     const costs = group.reduce((n, r) => n + r.costUsd, 0);
     const durations = group.filter(r => !r.error).map(r => r.durationMs).sort((a, b) => a - b);
     return { model, expected: CASES[suite].length * repeats, completed: group.filter(r => !r.error).length, passed: accepted.length,
+      deliveryPassed: group.filter(r => !(r.deliveryIssues ?? r.issues).length).length,
+      omittedProseClaims: group.reduce((n, r) => n + (r.omittedProseClaims ?? 0), 0),
       costUsd: costs, costPerPassingProposalUsd: accepted.length ? costs / (accepted.length * count) : null,
       meanMs: durations.length ? durations.reduce((n, d) => n + d, 0) / durations.length : null,
       p95Ms: durations[Math.ceil(durations.length * .95) - 1] ?? null, issues: group.flatMap(r => r.issues),

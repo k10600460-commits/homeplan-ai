@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
 
       insertEvent("try_demo_completed", null, { metadata: {
         ...attribution, model: response.model, prompt_version: AI_MODELS.demo.promptVersion,
-        duration_ms: Date.now() - generationStart, quality_issues: 0, estimated_cost_usd: response.costUsd,
+        duration_ms: Date.now() - generationStart, quality_issues: 0, omitted_prose_claims: plan.omittedProseClaims ?? 0, estimated_cost_usd: response.costUsd,
       } });
       return json(200, { plan, reused: false, needsReview: false }, cookieId);
     } catch (genErr) {

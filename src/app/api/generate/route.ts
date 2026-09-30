@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    insertEvent("plan_generated", user.id, { metadata: { generation_id: response.id, model: response.model, provider: response.provider, prompt_version: AI_MODELS.proposal.promptVersion, duration_ms: genDurationMs, quality_issues: 0, estimated_cost_usd: response.costUsd } });
+    insertEvent("plan_generated", user.id, { metadata: { generation_id: response.id, model: response.model, provider: response.provider, prompt_version: AI_MODELS.proposal.promptVersion, duration_ms: genDurationMs, quality_issues: 0, omitted_prose_claims: plans.reduce((n, p) => n + (p.omittedProseClaims ?? 0), 0), estimated_cost_usd: response.costUsd } });
 
     if (market === "us") {
       return NextResponse.json({

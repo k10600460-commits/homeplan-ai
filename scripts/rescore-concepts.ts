@@ -2,7 +2,7 @@
  * to every model. Never turn a provider/schema failure into a passing result. */
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { conceptIssues, CONCEPT_EVALUATOR_VERSION, type CalculatedPlan, type ConceptBrief } from "../src/lib/concept-contract";
+import { conceptIssues, prepareConceptsForDisplay, CONCEPT_EVALUATOR_VERSION, type CalculatedPlan, type ConceptBrief } from "../src/lib/concept-contract";
 const path = process.argv[2];
 if (!path) throw new Error("Usage: tsx scripts/rescore-concepts.ts /absolute/build-log.txt");
 const source = readFileSync(path, "utf8");
@@ -24,16 +24,19 @@ const rescored = rows.map(row => {
   const brief = spec.cases.find(c => c.id === row.caseId);
   if (!brief) throw new Error("Unknown case");
   const issues = !row.error && group.length === spec.count ? conceptIssues(group, brief) : row.issues;
-  return { ...row, originalIssues: row.issues, issues };
+  const display = prepareConceptsForDisplay(group);
+  const deliveryIssues = !row.error && group.length === spec.count ? conceptIssues(display, brief) : row.issues;
+  return { ...row, originalIssues: row.issues, issues, deliveryIssues, omittedProseClaims: display.reduce((n, p) => n + (p.omittedProseClaims ?? 0), 0) };
 });
 const summary = [...new Set(rows.map(r => r.model))].map(model => {
   const group = rescored.filter(r => r.model === model);
   const complete = group.filter(r => !r.error);
   return { model, completed: complete.length, expected: spec.cases.length * spec.repeats,
     originalPassed: group.filter(r => !r.originalIssues.length).length, passed: group.filter(r => !r.issues.length).length,
+    deliveryPassed: group.filter(r => !r.deliveryIssues.length).length, omittedProseClaims: group.reduce((n, r) => n + r.omittedProseClaims, 0),
     costUsd: group.reduce((n, r) => n + r.costUsd, 0), meanMs: complete.length ? complete.reduce((n, r) => n + r.durationMs, 0) / complete.length : null,
     issues: group.flatMap(r => r.issues) };
 });
 console.log(JSON.stringify({ sourceSha256: createHash("sha256").update(source).digest("hex"), originalSpecHash: spec.specHash,
-  evaluatorVersion: CONCEPT_EVALUATOR_VERSION, inferenceCalls: 0, reason: "Recognize Family Room; do not misclassify Bedroom Closet(s) or Bedroom Hallway as bedrooms. Same scorer for all models; original log retained.",
+  evaluatorVersion: CONCEPT_EVALUATOR_VERSION, inferenceCalls: 0, reason: "Offline replay under the current shared evaluator and disclosure/filter policy. Raw scores remain separate from deliverable scores. NOT a new paid test; original logs retained.",
   summary, rows: rescored }, null, 2));

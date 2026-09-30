@@ -25,6 +25,7 @@ interface DemoPlan {
   rooms?: DemoRoom[];
   highlights?: string[];
   calculationBasis?: string;
+  omittedProseClaims?: number;
 }
 
 const BUDGET_OPTIONS = [

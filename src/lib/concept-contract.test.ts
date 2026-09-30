@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { acceptConcepts, ConceptQualityError, calculateConcepts, conceptIssues, conceptJsonSchema, conceptPrompt, CONCEPT_VERSION, type ConceptBrief } from "./concept-contract";
+import { acceptConcepts, prepareConceptsForDisplay, ConceptQualityError, calculateConcepts, conceptIssues, conceptJsonSchema, conceptPrompt, CONCEPT_VERSION, type ConceptBrief } from "./concept-contract";
 import { conceptCost, normalizeOpenAIUsage, isExpectedConceptModel } from "./concept-provider";
 import { conceptAreaNote } from "./concept-disclosure";
 const brief: ConceptBrief = { market: "us", lotSize: 8500, budget: 350000, familySize: 3 };
@@ -75,7 +75,15 @@ test("inconsistent concepts fail before UI/PDF without silently changing numbers
 });
 test("prose cannot reintroduce conflicting areas/cost savings or floor counts", () => {
   for (const highlight of ["2950 sqft interior leaves 5270 sqft yard", "Saves $30k on building cost", "Only two thousand square feet", "Two-story living layout"]) {
-    assert.throws(() => acceptConcepts(JSON.stringify({ plan1: { ...draft, highlights: [highlight] } }), 1, "end_turn", brief), ConceptQualityError);
+    const raw = calculateConcepts(JSON.stringify({ plan1: { ...draft, highlights: [highlight] } }), 1, "end_turn");
+    assert.ok(conceptIssues(raw, brief).length > 0, "raw model must NOT get a false passing score");
+    const display = prepareConceptsForDisplay(raw);
+    assert.deepEqual(display[0].rooms, raw[0].rooms); assert.equal(display[0].squareFootage, raw[0].squareFootage);
+    assert.equal(display[0].estimatedCost, raw[0].estimatedCost); assert.equal(display[0].omittedProseClaims, 1);
+    assert.doesNotMatch(display[0].highlights.join(" "), /2950|30k|thousand|Two-story/);
+    assert.match(conceptAreaNote(display[0]), /claims were omitted/);
+    assert.deepEqual(conceptIssues(display, brief), []);
+    assert.throws(() => acceptConcepts(JSON.stringify({ plan1: { ...draft, highlights: [highlight] } }), 1, "end_turn", { ...brief, budget: 100000 }), ConceptQualityError);
   }
 });
 test("new disclosure agrees with ledger; old plans are not described as recalculated", () => {

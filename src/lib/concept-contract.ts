@@ -20,6 +20,7 @@ export type ConceptBrief = { market: Market; lotSize: number; budget: number; fa
 export type CalculatedPlan = Omit<GeneratedPlan, "rooms"> & {
   rooms: z.infer<typeof room>[];
   calculationBasis: typeof CONCEPT_VERSION;
+  omittedProseClaims?: number;
 };
 export class ConceptQualityError extends Error {
   constructor(public readonly issues: readonly string[]) { super("CONCEPT_QUALITY_REJECTED"); }
@@ -27,10 +28,35 @@ export class ConceptQualityError extends Error {
 
 /** Fail closed before persistence/rendering. No silent correction or paid retry. */
 export function acceptConcepts(raw: string, count: 1 | 3, stopReason: string | null, brief: ConceptBrief): CalculatedPlan[] {
-  const plans = calculateConcepts(raw, count, stopReason);
+  const plans = prepareConceptsForDisplay(calculateConcepts(raw, count, stopReason));
   const issues = conceptIssues(plans, brief);
   if (issues.length) throw new ConceptQualityError(issues);
   return plans;
+}
+
+function unsafeProse(text: string, stories: number): boolean {
+  return /\d|[$€£¥%]|\b(?:sqft|square feet|square metres|dollars|USD|CAD|AUD|NZD)\b/i.test(text) ||
+    (/\b(?:single|one)[ -]stor(?:y|ey)/i.test(text) && stories !== 1) ||
+    (/\btwo[ -]stor(?:y|ey)/i.test(text) && stories !== 2);
+}
+
+/** Safety presentation layer, NOT a model-score repair. Omit unsupported
+ * quantitative claims instead of guessing corrected numbers. Preserve every
+ * numeric field/room unchanged and disclose omissions in the UI/PDF.
+ * Raw benchmark outputs and raw scores remain available for model comparison. */
+export function prepareConceptsForDisplay(plans: readonly CalculatedPlan[]): CalculatedPlan[] {
+  return plans.map(plan => {
+    const descriptionUnsafe = unsafeProse(plan.description, plan.stories);
+    const features = plan.features.filter(s => !unsafeProse(s, plan.stories));
+    const highlights = plan.highlights.filter(s => !unsafeProse(s, plan.stories));
+    const omitted = Number(descriptionUnsafe) + plan.features.length - features.length + plan.highlights.length - highlights.length;
+    if (!omitted) return plan;
+    return { ...plan, omittedProseClaims: (plan.omittedProseClaims ?? 0) + omitted,
+      description: descriptionUnsafe ? "A preliminary concept for an early buyer conversation. Review the room schedule and confirm feasibility with a local professional." : plan.description,
+      features: features.length ? features : ["Room-by-room area schedule"],
+      highlights: highlights.length ? highlights : ["Interior area is calculated from the listed rooms; garage area is shown separately."],
+    };
+  });
 }
 
 /** A single source of truth: models supply a room ledger, NEVER independent
