@@ -3,8 +3,8 @@ import { planSchema, PlanOutputError, type GeneratedPlan } from "./plan-output";
 import { getMarketPack, type Market } from "./market";
 
 export const CONCEPT_VERSION = "room-ledger-2026-09-30";
-export const CONCEPT_PROMPT_VERSION = "room-ledger-v3-2026-09-30";
-export const CONCEPT_EVALUATOR_VERSION = "ledger-checks-v2-2026-09-30";
+export const CONCEPT_PROMPT_VERSION = "room-ledger-v4-2026-09-30";
+export const CONCEPT_EVALUATOR_VERSION = "ledger-checks-v3-2026-09-30";
 export const roomKinds = ["bedroom", "full_bath", "half_bath", "garage", "living", "service", "circulation"] as const;
 const room = z.object({
   name: z.string().trim().min(1).max(100), sqft: z.number().finite().positive().max(50_000),
@@ -80,6 +80,12 @@ export function conceptIssues(plans: readonly CalculatedPlan[], brief: ConceptBr
     if (!p.rooms.some(r => r.kind === "circulation")) issues.push(prefix + "missing_circulation_allowance");
     if ((p.garages > 0) !== p.rooms.some(r => r.kind === "garage")) issues.push(prefix + "garage_schedule_mismatch");
     if (new Set(p.rooms.map(r => r.name.trim().toLowerCase())).size !== p.rooms.length) issues.push(prefix + "duplicate_room_name");
+    const prose = [p.description, ...p.features, ...p.highlights].join(" ");
+    // Numeric claims in prose were a SECOND, conflicting source of truth even
+    // when the headline total matched. Quantities belong only in the ledger/UI.
+    if (/\d|[$€£¥%]|\b(?:sqft|square feet|square metres|dollars|USD|CAD|AUD|NZD)\b/i.test(prose)) issues.push(prefix + "quantitative_prose");
+    if ((/\b(?:single|one)[ -]stor(?:y|ey)/i.test(prose) && p.stories !== 1) ||
+        (/\btwo[ -]stor(?:y|ey)/i.test(prose) && p.stories !== 2)) issues.push(prefix + "story_prose_mismatch");
     for (const r of p.rooms) {
       // Catch misleading categorization instead of achieving a false clean score.
       // "Bedroom 2 Closet" is storage, not a second bedroom.
@@ -121,7 +127,8 @@ export function conceptPrompt(brief: ConceptBrief, count: 1 | 3) {
   const pack = getMarketPack(brief.market);
   return {
     system: `Create preliminary residential sales concepts, not permit-ready drawings or verified construction quotes. Do not claim professional credentials, site verification, code compliance, approvals, or exact construction pricing.
-Return ONLY JSON matching the supplied schema: an object with ${count === 1 ? "plan1" : "plan1, plan2 and plan3"}, NOT a plans array. Generate exactly ${count} plan(s), with distinct styles and practical trade-offs. Keep descriptions short (2 sentences), features to 5, and highlights to 3. Highlights should state a practical benefit or trade-off, not sales hype.
+Return ONLY JSON matching the supplied schema: an object with ${count === 1 ? "plan1" : "plan1, plan2 and plan3"}, NOT a plans array. Generate exactly ${count} plan(s), with distinct styles and practical trade-offs. Keep each description to at most 35 words, features to 3 short phrases and highlights to 2 short sentences. Highlights should state a practical benefit or trade-off, not sales hype.
+Descriptions, features and highlights must be QUALITATIVE ONLY. Never write digits, currency, measurements, room counts, floor counts, garage capacity, cost savings, footprint calculations or yard-area claims in that prose. The app already shows the numeric facts. Describe adjacencies, privacy, circulation and trade-offs instead. Do not invent verified savings or accessibility certification.
 The room schedule is the only numeric source of truth. DO NOT output squareFootage, bedrooms or bathrooms: the app calculates them from rooms. Each bedroom, full bath, half bath, closet and garage must be a SEPARATE room, never a combined Primary Suite. Use Primary Bedroom and Primary Bath, never master. Every room has sqft in square feet and a kind: bedroom, full_bath, half_bath, garage, living, service or circulation. A half bath is 0.5. Name half baths Powder Room or Half Bath. Do not hide bedrooms/baths in other kinds. Include halls, stairs and internal wall allowance as circulation so the schedule covers the interior area. Circulation IS included in the app's approximate interior-area total; never claim it is excluded. Exclude only garage area from that total. garages is the integer number of vehicle bays (0–3). ids must be unique integers from 1 through ${count}.
 Fit the stated construction budget and household. Budget excludes land and financing. Estimate living area / stories + garage area at no more than 40% of lot area as a preliminary screening assumption, NOT verified zoning. Prefer a smaller home or fewer garage bays to an unrealistic budget. Do not pad area with implausible circulation. Separate private bedrooms from the shared living zone; describe kitchen, entry and storage relationships concretely.
 Localize vocabulary and architectural choices to ${pack.label}. Currency is ${pack.currency}. Numeric room areas remain square feet for app compatibility; ${pack.areaUnit === "m2" ? "use m² and metres in prose if mentioning dimensions" : "use square feet in prose"}. Do not assume US construction prices in other markets. All costs are indicative and need local builder verification.`,

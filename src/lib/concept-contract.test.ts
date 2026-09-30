@@ -73,6 +73,11 @@ test("inconsistent concepts fail before UI/PDF without silently changing numbers
   assert.throws(() => acceptConcepts(JSON.stringify({ plan1: draft }), 1, "end_turn", { ...brief, budget: 100000 }), ConceptQualityError);
   assert.equal(draft.estimatedCost, 220000);
 });
+test("prose cannot reintroduce conflicting areas/cost savings or floor counts", () => {
+  for (const highlight of ["2950 sqft interior leaves 5270 sqft yard", "Saves $30k on building cost", "Only two thousand square feet", "Two-story living layout"]) {
+    assert.throws(() => acceptConcepts(JSON.stringify({ plan1: { ...draft, highlights: [highlight] } }), 1, "end_turn", brief), ConceptQualityError);
+  }
+});
 test("new disclosure agrees with ledger; old plans are not described as recalculated", () => {
   assert.match(conceptAreaNote({ calculationBasis: CONCEPT_VERSION }), /including circulation/);
   assert.match(conceptAreaNote({}), /may not reconcile/);

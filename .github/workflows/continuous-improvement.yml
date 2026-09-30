@@ -37,4 +37,4 @@ jobs:
         if: always()
         run: |
           echo '## SplanAI continuous improvement' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Catalog changes cause a review-required failure, not a production model switch. Inspect the artifact; compare synthetic briefs with evaluate-ai.ts only after spend approval. No account credentials, database writes, messages, content publishing, or deployment in this job.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Claude lifecycle plus Claude/GPT catalog and price changes cause a review-required failure, not a production model switch. Inspect the artifact; npm run ai:evaluate is a dry-run by default. Paid synthetic benchmarks require explicit price review and a bounded budget. No account credentials, database writes, messages, content publishing, or deployment in this job.' >> "$GITHUB_STEP_SUMMARY"
