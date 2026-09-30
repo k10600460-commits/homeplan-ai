@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { parsePlanOutput, planQualityIssues, PlanOutputError } from "./plan-output";
 import { BRIEF_TTL_MS, parseTryBrief, tryAttribution } from "./try-journey";
-import { inspectModelDocs } from "./ai-model-watch";
+import { inspectModelDocs as inspectDocs } from "./ai-model-watch";
 import { AI_MODELS } from "./ai-models";
 import { estimateGenerationCostUsd, priceForModel } from "./anthropic-pricing";
 import { EVAL_CASES, assessEvaluation, evaluationPrompt, type EvaluationRow } from "./ai-evaluation";
@@ -65,6 +65,10 @@ test("attribution only allows public article slugs", () => {
   for (const article of ["https://example.com", "a@b.com", "../../secret", ["slug"], "x".repeat(121)]) assert.equal(tryAttribution({ source: "blog", article }).entry_source, "direct");
 });
 const statuses = "## Model status\n| Model | Status | Deprecated | Retirement |\n| claude-sonnet-5 | Active | N/A | Not sooner than June 30, 2027 |\n| claude-haiku-4-5-20251001 | Active | N/A | Not sooner than October 15, 2026 |\n## Deprecation history\n";
+// Fixed fixtures test upgrade detection independently of today's release pin.
+const inspectModelDocs = (overview: string, lifecycle: string) => inspectDocs(overview, lifecycle, {
+  proposal: { model: "claude-sonnet-5" }, demo: { model: "claude-haiku-4-5" },
+});
 test("model catalog detects a newer candidate without promotion", () => {
   const report = inspectModelDocs("| Claude API ID | `claude-sonnet-5-5` | `claude-haiku-4-5-20251001` |", statuses);
   assert.equal(report.needsReview, true); assert.equal(report.automaticModelChange, false);
@@ -99,7 +103,7 @@ test("eval uses current prompts and caps", () => {
   assert.equal(evaluationPrompt("proposal", EVAL_CASES[0]).max_tokens, AI_MODELS.proposal.maxTokens);
 });
 test("Sonnet 5.5 evaluation uses its documented non-thinking wire mode", () => {
-  assert.equal(evaluationPrompt("proposal", EVAL_CASES[0]).thinking?.type, "disabled");
+  assert.equal(evaluationPrompt("proposal", EVAL_CASES[0], "claude-sonnet-5").thinking?.type, "disabled");
   assert.equal(evaluationPrompt("proposal", EVAL_CASES[0], "claude-sonnet-5-5").thinking?.type, "between_tools");
   assert.equal(evaluationPrompt("demo", EVAL_CASES[0]).thinking, undefined);
 });
@@ -113,11 +117,14 @@ test("future version never silently inherits an old price", () => {
 });
 const root = fileURLToPath(new URL("../", import.meta.url));
 const source = (p: string) => readFileSync(join(root, p), "utf8");
-test("production routes share prompt helpers; demos really cancel on timeout", () => {
-  assert.match(source("app/api/generate/route.ts"), /proposalUserPrompt\(/);
-  assert.match(source("app/api/try-demo/route.ts"), /demoUserPrompt\(/);
+test("production routes share the benchmark contract and bounded provider transport", () => {
+  for (const path of ["app/api/generate/route.ts", "app/api/try-demo/route.ts"]) {
+    assert.match(source(path), /conceptPrompt\(/); assert.match(source(path), /acceptConcepts\(/); assert.match(source(path), /requestConcept\(/);
+  }
   assert.doesNotMatch(source("app/api/try-demo/route.ts"), /Promise\.race/);
-  assert.match(source("app/api/try-demo/route.ts"), /maxRetries: 0/);
+  assert.match(source("lib/concept-provider.ts"), /maxRetries: 0/);
+  assert.match(source("lib/concept-provider.ts"), /AbortSignal.timeout\(timeoutMs\)/);
+  assert.match(source("app/api/generate/route.ts"), /await meter\(0\)/);
 });
 test("all runtime model IDs are centralized", () => {
   function walk(dir: string): void { for (const entry of readdirSync(dir, { withFileTypes: true })) {

@@ -1,8 +1,7 @@
 import { AI_MODELS } from "@/lib/ai-models";
-import { marketSystemPrompt, proposalUserPrompt } from "@/lib/ai-prompts";
-import { parsePlanOutput, planQualityIssues } from "@/lib/plan-output";
-import { estimateGenerationCostUsd } from "@/lib/anthropic-pricing";
-import Anthropic from "@anthropic-ai/sdk";
+import { acceptConcepts, conceptJsonSchema, conceptPrompt, ConceptQualityError } from "@/lib/concept-contract";
+import { requestConcept, ConceptProviderError } from "@/lib/concept-provider";
+import { PlanOutputError } from "@/lib/plan-output";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkUsageLimit, recordApiUsage } from "@/lib/usage";
@@ -23,9 +22,6 @@ export const maxDuration = 60;
 // 10 Claude generations per authenticated user per minute
 const GENERATE_RATE = { limit: 10, windowSec: 60 };
 
-const client = new Anthropic({ timeout: AI_MODELS.proposal.timeoutMs, maxRetries: 0 });
-
-// Stable system prompt — cached via cache_control to save tokens on repeated calls
 export async function POST(req: NextRequest) {
   try {
     // ── Auth check ────────────────────────────────────────────
@@ -83,54 +79,44 @@ export async function POST(req: NextRequest) {
     const mlsZoning = rawZoning.replace(/[^a-zA-Z0-9 \-\/]/g, "").slice(0, 100).trim();
 
     const zoningLine = mlsZoning ? `- Zoning label from MLS: ${mlsZoning}. This is unverified context, not proof of compliance.\n` : "";
-    const userPrompt = proposalUserPrompt({ market, lotSize, budget, familySize, zoningLine });
+    const brief = { market, lotSize, budget, familySize, zoningLine };
+    const prompt = conceptPrompt(brief, 3);
 
     // ── Claude generation ─────────────────────────────────────
     const genStart = Date.now();
-    const response = await client.messages.create({
+    const response = await requestConcept({
       model: AI_MODELS.proposal.model,
-      max_tokens: AI_MODELS.proposal.maxTokens, // Sonnet 5: new tokenizer (~+30% tokens) — headroom to prevent 3-plan JSON truncation. max_tokens is a ceiling (billed per generated token only).
-      thinking: { type: "disabled" }, // Sonnet 5 defaults adaptive thinking ON; keep OFF to preserve "~30s for 3 plans" latency and avoid thinking-token cost (matches prior 4.6 behavior).
-      system: [
-        {
-          type: "text",
-          text: marketSystemPrompt(market),
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: [
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
+      maxTokens: AI_MODELS.proposal.maxTokens,
+      timeoutMs: AI_MODELS.proposal.timeoutMs,
+      ...prompt, schema: conceptJsonSchema(3),
     });
 
     const genDurationMs = Date.now() - genStart;
     console.log('[generate:timing]', { durationMs: genDurationMs, userId: user.id });
 
-    const textBlock = response.content.find((b) => b.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      throw new Error("No text content in response");
-    }
-
-    const plans = parsePlanOutput(textBlock.text, 3, response.stop_reason);
-    const qualityIssues = planQualityIssues(plans, budget);
-    const data = { plans };
-    if (qualityIssues.length) {
-      insertEvent("plan_quality_warning", user.id, { metadata: { model: response.model, prompt_version: AI_MODELS.proposal.promptVersion, issues: qualityIssues } });
-    }
-
-    // ── Record usage (non-blocking) ───────────────────────────
     const inputTokens = response.usage.input_tokens;
     const outputTokens = response.usage.output_tokens;
-    recordApiUsage(user.id, inputTokens, outputTokens, { model: response.model,
+    const meter = (requests: 0 | 1) => recordApiUsage(user.id, inputTokens, outputTokens, { model: response.model, requests,
+      estimatedCostUsd: response.costUsd,
       cacheReadTokens: response.usage.cache_read_input_tokens,
       cacheCreationTokens: response.usage.cache_creation_input_tokens,
-    }).catch(console.error);
+    });
+    let plans;
+    try {
+      plans = acceptConcepts(response.text, 3, response.stopReason, brief);
+    } catch (error) {
+      await meter(0);
+      insertEvent("plan_quality_rejected", user.id, { metadata: { model: response.model, prompt_version: AI_MODELS.proposal.promptVersion,
+        issues: error instanceof ConceptQualityError ? error.issues : error instanceof PlanOutputError ? [error.code, ...error.fields] : ["invalid_output"],
+        estimated_cost_usd: response.costUsd } });
+      throw error;
+    }
+    const data = { plans };
+    // Await accounting: serverless teardown must not drop cost/allowance writes.
+    await meter(1);
 
     // ── Record plan generation row (non-blocking) ─────────────
-    const estimatedCostUsd = estimateGenerationCostUsd(response.model, response.usage);
+    const estimatedCostUsd = response.costUsd;
     // Awaited (was fire-and-forget) so the row id can be handed to the client.
     // /results used to live only in sessionStorage: closing the tab, or opening
     // the link in another one, destroyed the three concepts, the PDF and the
@@ -168,7 +154,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    insertEvent("plan_generated", user.id, { metadata: { generation_id: response.id, model: response.model, prompt_version: AI_MODELS.proposal.promptVersion, duration_ms: genDurationMs, quality_issues: qualityIssues.length } });
+    insertEvent("plan_generated", user.id, { metadata: { generation_id: response.id, model: response.model, provider: response.provider, prompt_version: AI_MODELS.proposal.promptVersion, duration_ms: genDurationMs, quality_issues: 0, omitted_prose_claims: plans.reduce((n, p) => n + (p.omittedProseClaims ?? 0), 0), estimated_cost_usd: response.costUsd } });
 
     if (market === "us") {
       return NextResponse.json({
@@ -203,6 +189,13 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (error instanceof ValidationError) {
       return NextResponse.json({ error: error.message, code: "INVALID_INPUT" }, { status: error.status });
+    }
+    if (error instanceof ConceptQualityError || error instanceof PlanOutputError) {
+      return NextResponse.json({ error: "We couldn't produce consistent concepts for these inputs. No proposal credit was used. Try a smaller home or adjust the budget.", code: "QUALITY_CHECK_FAILED" }, { status: 502 });
+    }
+    if (error instanceof ConceptProviderError) {
+      console.error("[generate:provider]", { code: error.code, status: error.httpStatus });
+      return NextResponse.json({ error: "The concept generator is temporarily unavailable. No proposal credit was used.", code: "GENERATOR_UNAVAILABLE" }, { status: 503 });
     }
     console.error("Generate error:", error);
     return NextResponse.json(

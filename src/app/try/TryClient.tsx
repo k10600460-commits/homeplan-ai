@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { track } from "@vercel/analytics";
 import { TRY_BRIEF_KEY, parseTryBrief, tryAttribution } from "@/lib/try-journey";
+import { conceptAreaNote } from "@/lib/concept-disclosure";
 
 interface DemoRoom {
   name: string;
@@ -23,6 +24,8 @@ interface DemoPlan {
   features?: string[];
   rooms?: DemoRoom[];
   highlights?: string[];
+  calculationBasis?: string;
+  omittedProseClaims?: number;
 }
 
 const BUDGET_OPTIONS = [
@@ -206,6 +209,7 @@ export default function TryClient({ token, source, article }: { token: string; s
                     </div>
                   </div>
                 )}
+                <p className="mt-4 text-xs text-slate-400 leading-relaxed">{conceptAreaNote(plan)}</p>
               </div>
             </div>
 

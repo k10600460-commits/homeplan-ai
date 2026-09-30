@@ -1,9 +1,9 @@
 import { AI_MODELS } from "@/lib/ai-models";
-import { DEMO_SYSTEM_PROMPT, demoUserPrompt } from "@/lib/ai-prompts";
-import { parsePlanOutput, planQualityIssues } from "@/lib/plan-output";
+import { acceptConcepts, conceptJsonSchema, conceptPrompt, ConceptQualityError } from "@/lib/concept-contract";
+import { requestConcept, ConceptProviderError } from "@/lib/concept-provider";
+import { PlanOutputError } from "@/lib/plan-output";
 import { insertEvent } from "@/lib/analytics";
 import { tryAttribution } from "@/lib/try-journey";
-import Anthropic from "@anthropic-ai/sdk";
 import { createHmac, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { validateGenerateInput, ValidationError, getClientIp } from "@/lib/security";
@@ -19,13 +19,8 @@ import {
 export const maxDuration = 60;
 
 const DEMO_COOKIE = "splanai_demo_id";
-// Low-cost by design: haiku-class model ($1/$5 per MTok vs sonnet's $3/$15),
-// ONE concept only, tight output cap. Worst case at the 50/day guard cap this
-// stays under ~$0.35/day.
-// Cap raised 1600 -> 2000 (2026-08-15): the spec sheet now itemises every bed,
-// bath and circulation so the room list reconciles with squareFootage, which
-// costs ~100 more output tokens. Truncation would break JSON.parse and fail the
-// demo, so the margin matters more than the fraction of a cent.
+// One concept, bounded output, no paid retry, existing global/visitor guard.
+// Cost estimates come from actual usage, not a claimed fixed daily maximum.
 const DEMO_MODEL = AI_MODELS.demo.model;
 const DEMO_MAX_TOKENS = AI_MODELS.demo.maxTokens;
 
@@ -42,8 +37,6 @@ const DEMO_FAMILY_SIZE = 3;
 // floor was ever for.
 const TOKEN_MIN_AGE_MS = 1_000;
 const TOKEN_MAX_AGE_MS = 60 * 60 * 1000;
-
-const client = new Anthropic({ timeout: AI_MODELS.demo.timeoutMs, maxRetries: 0 });
 
 function json(status: number, body: Record<string, unknown>, cookieId?: string) {
   const res = NextResponse.json(body, { status });
@@ -172,26 +165,20 @@ export async function POST(req: NextRequest) {
     const attribution = tryAttribution(rawBody);
     insertEvent("try_demo_started", null, { metadata: attribution });
     const generationStart = Date.now();
+    const brief = { market: "us" as const, lotSize, budget, familySize: DEMO_FAMILY_SIZE, state };
 
     // ── Low-cost generation (1 concept, haiku, capped tokens) ──────────
     try {
-      const response = await client.messages.create({
+      const response = await requestConcept({
           model: DEMO_MODEL,
-          max_tokens: DEMO_MAX_TOKENS,
-          system: DEMO_SYSTEM_PROMPT,
-          messages: [
-            {
-              role: "user",
-              content: demoUserPrompt({ lotSize, budget, state }),
-            },
-          ],
+          maxTokens: DEMO_MAX_TOKENS, timeoutMs: AI_MODELS.demo.timeoutMs,
+          ...conceptPrompt(brief, 1), schema: conceptJsonSchema(1),
         });
-
-      const textBlock = response.content.find((b) => b.type === "text");
-      if (!textBlock || textBlock.type !== "text") throw new Error("No text content in response");
-
-      const [plan] = parsePlanOutput(textBlock.text, 1, response.stop_reason);
-      const qualityIssues = planQualityIssues([plan], budget);
+      // Include rejected outputs in operational cost telemetry, not only wins.
+      insertEvent("try_demo_inference", null, { metadata: { model: response.model, provider: response.provider,
+        prompt_version: AI_MODELS.demo.promptVersion, estimated_cost_usd: response.costUsd,
+        input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens } });
+      const [plan] = acceptConcepts(response.text, 1, response.stopReason, brief);
 
       await saveDemoResult(guard.claimId, {
         result: plan,
@@ -211,20 +198,23 @@ export async function POST(req: NextRequest) {
 
       insertEvent("try_demo_completed", null, { metadata: {
         ...attribution, model: response.model, prompt_version: AI_MODELS.demo.promptVersion,
-        duration_ms: Date.now() - generationStart, quality_issues: qualityIssues.length,
+        duration_ms: Date.now() - generationStart, quality_issues: 0, omitted_prose_claims: plan.omittedProseClaims ?? 0, estimated_cost_usd: response.costUsd,
       } });
-      return json(200, { plan, reused: false, needsReview: qualityIssues.length > 0 }, cookieId);
+      return json(200, { plan, reused: false, needsReview: false }, cookieId);
     } catch (genErr) {
       insertEvent("try_demo_failed", null, { metadata: { ...attribution, model: DEMO_MODEL, prompt_version: AI_MODELS.demo.promptVersion } });
-      // Give the visitor their attempt back — the claim burned no Claude budget
-      // worth keeping if we couldn't deliver a result.
+      // Give the visitor their attempt back. The provider may still charge for
+      // rejected/timed-out output; never claim that inference itself was free.
       await releaseDemoClaim(guard.claimId);
-      if (genErr instanceof Anthropic.APIConnectionTimeoutError) {
+      if (genErr instanceof ConceptProviderError && genErr.code === "TIMEOUT_OR_NETWORK_ERROR") {
         return json(
           504,
-          { error: "That took longer than it should. Nothing was used up — give it another go.", code: "TIMEOUT" },
+          { error: "That took longer than it should. Your sample attempt is still available.", code: "TIMEOUT" },
           cookieId,
         );
+      }
+      if (genErr instanceof ConceptQualityError || genErr instanceof PlanOutputError) {
+        return json(502, { error: "The sample didn't pass our consistency checks. Try a different lot size or budget; your sample attempt is still available.", code: "QUALITY_CHECK_FAILED" }, cookieId);
       }
       throw genErr;
     }

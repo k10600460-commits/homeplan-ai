@@ -16,7 +16,7 @@ function newer(a: string, b: string) {
   return false;
 }
 
-export function inspectModelDocs(overview: string, lifecycle: string) {
+export function inspectModelDocs(overview: string, lifecycle: string, models: Record<string, { model: string }> = AI_MODELS) {
   const apiLine = overview.split("\n").find(line => /^\|\s*Claude API ID\s*\|/.test(line));
   if (!apiLine) throw new Error("Official model table format unavailable; do not infer compatibility");
   const advertised = [...new Set(apiLine.match(/claude-(?:sonnet|haiku)-\d+(?:-\d+)*/g) ?? [])];
@@ -31,7 +31,7 @@ export function inspectModelDocs(overview: string, lifecycle: string) {
     }
   }
   if (!statuses.size) throw new Error("Official lifecycle rows missing");
-  const roles = Object.entries(AI_MODELS).map(([role, config]) => {
+  const roles = Object.entries(models).filter(([, config]) => config.model.startsWith("claude-")).map(([role, config]) => {
     const lookup = config.model === "claude-haiku-4-5" ? "claude-haiku-4-5-20251001" : config.model;
     const lifecycleStatus = statuses.get(lookup);
     const family = config.model.includes("-sonnet-") ? "-sonnet-" : "-haiku-";

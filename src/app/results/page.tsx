@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { jsPDF } from "jspdf";
 import { zillowSearchUrl } from "@/lib/external-links";
+import { conceptAreaNote } from "@/lib/concept-disclosure";
 import {
   marketFromHost,
   formatArea,
@@ -34,6 +35,8 @@ interface FloorPlan {
   features: string[];
   rooms: Room[];
   highlights: string[];
+  calculationBasis?: string;
+  omittedProseClaims?: number;
 }
 
 interface FormData {
@@ -324,12 +327,8 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       doc.setFontSize(6);
       doc.setTextColor(180, 180, 180);
       const baseFooter = "Floor-plan concepts are AI-generated for preliminary illustration only. They are not construction-ready drawings and may not comply with building codes or zoning. Verify with licensed professionals before relying on them.";
-      if (market === "us") {
-        doc.text(baseFooter, ML, PH - 4);
-      } else {
-        const footerLines = doc.splitTextToSize(`${baseFooter} ${pack.legalFooter}`, CW) as string[];
-        doc.text(footerLines, ML, PH - 3 - (footerLines.length - 1) * 2.5);
-      }
+      const footerLines = doc.splitTextToSize(market === "us" ? baseFooter : `${baseFooter} ${pack.legalFooter}`, CW) as string[];
+      doc.text(footerLines, ML, PH - 3 - (footerLines.length - 1) * 2.5);
     };
 
     // ── Header bar (white with bottom border) ─────────────────
@@ -418,8 +417,8 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       const mTerm = mortgage?.termYears ?? 30;
       const mMonthly = calcMortgage({ homePrice: plan.estimatedCost, downPct: mDown, ratePct: mRate, termYears: mTerm });
       const monthlyText = market === "us"
-        ? `≈ $${mMonthly.monthlyPayment.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}%`
-        : `≈ ${formatCurrency(mMonthly.monthlyPayment, market)}/mo · ${mDown}% dn · ${mTerm}yr · indicative`;
+        ? `Est. $${mMonthly.monthlyPayment.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}%`
+        : `Est. ${formatCurrency(mMonthly.monthlyPayment, market)}/mo · ${mDown}% dn · ${mTerm}yr · indicative`;
       doc.text(monthlyText, PW - ML, y + 9, { align: "right" });
     }
 
@@ -570,10 +569,10 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
     const ROOM_PITCH_MAX = 8;
     const ROOM_PITCH_MIN = 6;
     const rowCount = Math.ceil(plan.rooms.length / 2);
-    const discH = 6;
+    const discH = 12;
     const roomPitch = Math.min(
       ROOM_PITCH_MAX,
-      Math.max(ROOM_PITCH_MIN, (SAFE_BOTTOM - y - discH) / rowCount),
+      Math.max(ROOM_PITCH_MIN, (SAFE_BOTTOM - y - discH - 4) / rowCount),
     );
     // Badge height scales with pitch (1 mm gap between adjacent badges)
     const roomBadgeH = roomPitch - 1;
@@ -613,12 +612,13 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
     y += 3;
 
     // Disclaimer — directly after room table; discH already reserved in roomPitch formula
+    maybeNewPage(discH);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(156, 163, 175);
     doc.text(
       doc.splitTextToSize(
-        "Room sizes are approximate and exclude hallways, walls, and circulation space.",
+        conceptAreaNote(plan),
         CW,
       ) as string[],
       ML, y,
@@ -975,6 +975,7 @@ export default function Results() {
         {/* AI disclaimer */}
         <p className="text-xs text-center text-gray-400 mb-6 max-w-2xl mx-auto">
           AI-generated concept — illustration only. Not an architectural or engineering plan. Verify with a licensed professional before construction.
+          {plans.length > 0 && <span className="block mt-2">{conceptAreaNote(plans[0])}</span>}
         </p>
 
         {/* Plan cards */}
