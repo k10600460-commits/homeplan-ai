@@ -327,12 +327,8 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       doc.setFontSize(6);
       doc.setTextColor(180, 180, 180);
       const baseFooter = "Floor-plan concepts are AI-generated for preliminary illustration only. They are not construction-ready drawings and may not comply with building codes or zoning. Verify with licensed professionals before relying on them.";
-      if (market === "us") {
-        doc.text(baseFooter, ML, PH - 4);
-      } else {
-        const footerLines = doc.splitTextToSize(`${baseFooter} ${pack.legalFooter}`, CW) as string[];
-        doc.text(footerLines, ML, PH - 3 - (footerLines.length - 1) * 2.5);
-      }
+      const footerLines = doc.splitTextToSize(market === "us" ? baseFooter : `${baseFooter} ${pack.legalFooter}`, CW) as string[];
+      doc.text(footerLines, ML, PH - 3 - (footerLines.length - 1) * 2.5);
     };
 
     // ── Header bar (white with bottom border) ─────────────────
@@ -421,8 +417,8 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
       const mTerm = mortgage?.termYears ?? 30;
       const mMonthly = calcMortgage({ homePrice: plan.estimatedCost, downPct: mDown, ratePct: mRate, termYears: mTerm });
       const monthlyText = market === "us"
-        ? `≈ $${mMonthly.monthlyPayment.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}%`
-        : `≈ ${formatCurrency(mMonthly.monthlyPayment, market)}/mo · ${mDown}% dn · ${mTerm}yr · indicative`;
+        ? `Est. $${mMonthly.monthlyPayment.toLocaleString()}/mo · ${mDown}% dn · ${mTerm}yr · ${mRate.toFixed(1)}%`
+        : `Est. ${formatCurrency(mMonthly.monthlyPayment, market)}/mo · ${mDown}% dn · ${mTerm}yr · indicative`;
       doc.text(monthlyText, PW - ML, y + 9, { align: "right" });
     }
 
@@ -576,7 +572,7 @@ async function buildPDF(plans: FloorPlan[], formData: FormData | null, branding?
     const discH = 12;
     const roomPitch = Math.min(
       ROOM_PITCH_MAX,
-      Math.max(ROOM_PITCH_MIN, (SAFE_BOTTOM - y - discH) / rowCount),
+      Math.max(ROOM_PITCH_MIN, (SAFE_BOTTOM - y - discH - 4) / rowCount),
     );
     // Badge height scales with pitch (1 mm gap between adjacent badges)
     const roomBadgeH = roomPitch - 1;

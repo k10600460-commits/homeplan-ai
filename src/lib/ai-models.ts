@@ -3,7 +3,9 @@
  * Keep roles separate: success on floor plans is not proof for research or copy.
  */
 export const AI_MODELS = {
-  proposal: { model: "claude-sonnet-5", maxTokens: 8192, promptVersion: "room-ledger-v4-2026-09-30", timeoutMs: 45_000 },
+  // 2026-09-30: 3 US + 5 holdout requests passed raw checks (24 concepts).
+  // GPT remains unevaluated: account access rejected, not a quality defeat.
+  proposal: { model: "claude-sonnet-5-5", maxTokens: 8192, promptVersion: "room-ledger-v4-2026-09-30", timeoutMs: 45_000 },
   demo: { model: "claude-haiku-4-5", maxTokens: 3000, promptVersion: "room-ledger-v4-2026-09-30", timeoutMs: 45_000 },
   editorial: { model: "claude-haiku-4-5-20251001" },
   research: { model: "claude-sonnet-5" },
