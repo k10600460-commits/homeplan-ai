@@ -92,7 +92,7 @@ const EM_DASH_BASELINE: Record<string, number> = {
   "HomePageClient.tsx": 2,
   "page.tsx": 1,
   "try/page.tsx": 2,
-  "try/TryClient.tsx": 6,
+  "try/TryClient.tsx": 4,
   "partners/page.tsx": 7,
 };
 for (const [name, text] of surfaces) {

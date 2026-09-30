@@ -1,0 +1,40 @@
+name: Weekly product and AI checks
+on:
+  schedule:
+    - cron: "35 1 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: weekly-product-checks
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Offline regression suite (no production credentials)
+        run: npm test
+      - name: Check official model catalog (no inference or automatic changes)
+        if: always()
+        run: npm run --silent ai:watch > model-watch.json
+      - name: Keep evidence even when an update needs review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-model-watch
+          path: model-watch.json
+          retention-days: 30
+      - name: Review boundary
+        if: always()
+        run: |
+          echo '## SplanAI continuous improvement' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Catalog changes cause a review-required failure, not a production model switch. Inspect the artifact; compare synthetic briefs with evaluate-ai.ts only after spend approval. No account credentials, database writes, messages, content publishing, or deployment in this job.' >> "$GITHUB_STEP_SUMMARY"

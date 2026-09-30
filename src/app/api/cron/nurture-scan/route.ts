@@ -1,3 +1,4 @@
+import { AI_MODELS } from "@/lib/ai-models";
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
@@ -154,7 +155,7 @@ export async function GET(req: NextRequest) {
         try {
           claudeCalls++
           const msg = await trackedMessage('cron/nurture-scan:rate_drop', anthropic, {
-            model: 'claude-haiku-4-5-20251001',
+            model: AI_MODELS.editorial.model,
             max_tokens: 700,
             messages: [{
               role: 'user',
@@ -216,7 +217,7 @@ BODY:
       try {
         claudeCalls++
         const msg = await trackedMessage('cron/nurture-scan:new_concept', anthropic, {
-          model: 'claude-haiku-4-5-20251001',
+          model: AI_MODELS.editorial.model,
           max_tokens: 600,
           messages: [{
             role: 'user',
@@ -277,7 +278,7 @@ BODY:
         try {
           claudeCalls++
           const msg = await trackedMessage('cron/nurture-scan:re_engagement', anthropic, {
-            model: 'claude-haiku-4-5-20251001',
+            model: AI_MODELS.editorial.model,
             max_tokens: 500,
             messages: [{
               role: 'user',

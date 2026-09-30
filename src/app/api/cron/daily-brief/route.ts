@@ -1,3 +1,4 @@
+import { AI_MODELS } from "@/lib/ai-models";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
@@ -587,7 +588,7 @@ SplanAI = 米国の中小ホームビルダー（年10〜50棟）向けのAI営�
     };
 
     const msg = await trackedMessage("cron/daily-brief:research", anthropic, {
-      model: "claude-sonnet-5",
+      model: AI_MODELS.research.model,
       max_tokens: 5000, // Sonnet 5: new tokenizer (~+30%) headroom for the submit_research structured output (was 3500 on 4-6). Ceiling only — billed per generated token.
       thinking: { type: "disabled" }, // Match prior 4-6 no-thinking behavior: predictable unattended cron, and adaptive-thinking tokens would otherwise count toward max_tokens alongside the web_search loop + submit_research output.
       // web_search (server tool) gathers sources; submit_research returns the
@@ -980,7 +981,7 @@ Voice rules (STRICT):
 
     try {
       const msg = await trackedMessage("cron/daily-brief:xpost", anthropic, {
-        model: "claude-haiku-4-5-20251001",
+        model: AI_MODELS.editorial.model,
         max_tokens: 2000,
         messages: [{ role: "user", content: prompt }],
       });
@@ -1181,7 +1182,7 @@ Voice rules (STRICT):
         const anthropicLine = new Anthropic({ apiKey: anthropicKey });
         const numbered = shortOriginals.map((o, i) => `[${i}] ${o}`).join("\n\n");
         const tmsg = await trackedMessage("cron/daily-brief:translate-short", anthropicLine, {
-          model: "claude-haiku-4-5-20251001",
+          model: AI_MODELS.editorial.model,
           max_tokens: 1500,
           messages: [{
             role: "user",
@@ -1214,7 +1215,7 @@ Voice rules (STRICT):
         try {
           const anthropicBlog = new Anthropic({ apiKey: anthropicKey });
           const bmsg = await trackedMessage("cron/daily-brief:translate-blog", anthropicBlog, {
-            model: "claude-haiku-4-5-20251001",
+            model: AI_MODELS.editorial.model,
             max_tokens: 4000,
             messages: [{
               role: "user",

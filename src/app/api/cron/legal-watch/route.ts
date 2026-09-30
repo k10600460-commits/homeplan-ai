@@ -1,3 +1,4 @@
+import { AI_MODELS } from "@/lib/ai-models";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
@@ -141,7 +142,7 @@ export async function GET(req: NextRequest) {
 
     try {
       const msg = await trackedMessage("cron/legal-watch", anthropic, {
-        model: "claude-haiku-4-5-20251001",
+        model: AI_MODELS.editorial.model,
         max_tokens: 400,
         messages: [{
           role: "user",
