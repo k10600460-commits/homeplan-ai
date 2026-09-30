@@ -1,4 +1,5 @@
 /** Read-only capability check. No inference, credential export, or account changes. */
+export {};
 async function main() {
   const direct = Boolean(process.env.OPENAI_API_KEY);
   const gateway = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;

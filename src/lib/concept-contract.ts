@@ -57,9 +57,12 @@ export function conceptIssues(plans: readonly CalculatedPlan[], brief: ConceptBr
     if (new Set(p.rooms.map(r => r.name.trim().toLowerCase())).size !== p.rooms.length) issues.push(prefix + "duplicate_room_name");
     for (const r of p.rooms) {
       // Catch misleading categorization instead of achieving a false clean score.
-      const labelKind = /\bgarage\b/i.test(r.name) ? "garage" : /\bpowder\b|half.?bath/i.test(r.name) ? "half_bath" :
+      // "Bedroom 2 Closet" is storage, not a second bedroom.
+      const storageLabel = /\bcloset\b|\bstorage\b|\bwardrobe\b/i.test(r.name);
+      const labelKind = storageLabel ? null : /\bgarage\b/i.test(r.name) ? "garage" : /\bpowder\b|half.?bath/i.test(r.name) ? "half_bath" :
         /\bbath(?:room)?\b|\bensuite\b|en.suite/i.test(r.name) ? "full_bath" : /\bbedroom\b/i.test(r.name) ? "bedroom" : null;
       if (labelKind && labelKind !== r.kind) issues.push(prefix + "room_kind_name_mismatch");
+      if (storageLabel && ["bedroom", "full_bath", "half_bath"].includes(r.kind)) issues.push(prefix + "storage_counted_as_room");
       if (r.kind === "bedroom" && /\bprimary suite\b/i.test(r.name)) issues.push(prefix + "ambiguous_combined_suite");
       if (r.kind === "bedroom" && r.sqft < 70) issues.push(prefix + "bedroom_area_implausible");
     }
